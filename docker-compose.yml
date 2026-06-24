@@ -1,0 +1,33 @@
+# Local development infrastructure (GEC-8).
+# pgvector/pgvector:pg16 is plain Postgres 16 + pgvector — dev/prod parity with
+# Render's managed Postgres (no TimescaleDB). Time-series uses native Postgres
+# (GEC-12); pgvector powers NL retrieval (GEC-13).
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: gigmann
+      POSTGRES_PASSWORD: gigmann
+      POSTGRES_DB: gigmann
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gigmann -d gigmann"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+volumes:
+  pgdata:
+  redisdata:
