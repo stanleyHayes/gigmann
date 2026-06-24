@@ -1,0 +1,31 @@
+# Env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Go
+/backend/bin/
+/backend/tmp/
+*.out
+coverage.out
+coverage.html
+
+# Node / frontend
+node_modules/
+/frontend/dist/
+/frontend/coverage/
+.vite/
+*.local
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# Build artefacts
+*.log
+dist/
