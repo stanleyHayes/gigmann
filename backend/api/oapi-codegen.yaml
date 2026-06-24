@@ -1,0 +1,11 @@
+# oapi-codegen configuration. Run via `make generate` (from repo root) or:
+#   go -C backend tool oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
+package: httpapi
+output: internal/adapters/inbound/httpapi/openapi_gen.go
+generate:
+  models: true
+  chi-server: true
+  strict-server: true
+  embedded-spec: true
+output-options:
+  skip-prune: true

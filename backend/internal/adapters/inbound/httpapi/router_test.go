@@ -1,7 +1,9 @@
 package httpapi_test
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,6 +13,12 @@ import (
 	"github.com/xcreativs/gigmann/internal/app"
 	"github.com/xcreativs/gigmann/internal/core/facility"
 )
+
+type errRepo struct{}
+
+func (errRepo) List(context.Context) ([]facility.Facility, error) {
+	return nil, errors.New("db down")
+}
 
 func newTestServer(t *testing.T) http.Handler {
 	t.Helper()
@@ -54,5 +62,15 @@ func TestListFacilities(t *testing.T) {
 	}
 	if body.Facilities[0]["name"] != "Kasoa Polyclinic" {
 		t.Errorf("unexpected name: %v", body.Facilities[0]["name"])
+	}
+}
+
+func TestListFacilitiesError(t *testing.T) {
+	h := httpapi.NewRouter(app.NewFacilityService(errRepo{}))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/facilities", nil)
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("want 500, got %d", rec.Code)
 	}
 }

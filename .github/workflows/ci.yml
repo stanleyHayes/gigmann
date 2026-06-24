@@ -42,12 +42,14 @@ jobs:
           working-directory: backend
 
       - name: Test (race) + coverage
-        run: go test -race -covermode=atomic -coverprofile=coverage.out ./internal/...
-
-      - name: Coverage gate (>= 80%)
         run: |
-          total=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub("%","",$3); print $3}')
-          echo "Backend coverage: ${total}%"
+          go test -race -covermode=atomic -coverprofile=coverage.out ./internal/...
+          grep -vE '(_gen\.go|\.gen\.go)' coverage.out > coverage.filtered.out
+
+      - name: Coverage gate (>= 80%, generated code excluded)
+        run: |
+          total=$(go tool cover -func=coverage.filtered.out | awk '/^total:/ {gsub("%","",$3); print $3}')
+          echo "Backend coverage (excl. generated): ${total}%"
           awk -v t="$total" 'BEGIN{ exit !(t+0 >= 80.0) }' \
             || { echo "::error::Coverage ${total}% is below the 80% gate"; exit 1; }
 
@@ -104,3 +106,28 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+  codegen-drift:
+    name: OpenAPI codegen drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: go -C backend mod download
+      - run: npm --prefix frontend ci
+      - name: Regenerate from the OpenAPI spec
+        run: make generate
+      - name: Fail if generated code is stale
+        run: |
+          git diff --exit-code -- \
+            backend/internal/adapters/inbound/httpapi/openapi_gen.go \
+            frontend/src/api/schema.d.ts \
+            || { echo "::error::Generated code is stale — run 'make generate' and commit the result"; exit 1; }

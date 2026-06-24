@@ -20,13 +20,14 @@ backend-run: ## Run the Go API locally
 	cd $(BACKEND_DIR) && go run ./cmd/api
 
 .PHONY: backend-test
-backend-test: ## Run Go tests with race detector + coverage
+backend-test: ## Run Go tests with race detector + coverage (generated *_gen.go excluded)
 	cd $(BACKEND_DIR) && go test -race -covermode=atomic -coverprofile=coverage.out ./internal/...
-	cd $(BACKEND_DIR) && go tool cover -func=coverage.out | tail -n 1
+	cd $(BACKEND_DIR) && grep -vE '(_gen\.go|\.gen\.go)' coverage.out > coverage.filtered.out
+	cd $(BACKEND_DIR) && go tool cover -func=coverage.filtered.out | tail -n 1
 
 .PHONY: backend-cover-gate
 backend-cover-gate: backend-test ## Fail if backend coverage < $(COVERAGE_THRESHOLD)%
-	@cd $(BACKEND_DIR) && total=$$(go tool cover -func=coverage.out | awk '/^total:/ {gsub("%","",$$3); print $$3}'); \
+	@cd $(BACKEND_DIR) && total=$$(go tool cover -func=coverage.filtered.out | awk '/^total:/ {gsub("%","",$$3); print $$3}'); \
 	echo "Backend coverage: $$total% (threshold $(COVERAGE_THRESHOLD)%)"; \
 	awk -v t=$$total -v thr=$(COVERAGE_THRESHOLD) 'BEGIN{ exit !(t+0 >= thr+0) }' || \
 	{ echo "FAIL: coverage $$total% < $(COVERAGE_THRESHOLD)%"; exit 1; }
@@ -38,6 +39,12 @@ backend-lint: ## Run golangci-lint
 .PHONY: backend-tidy
 backend-tidy: ## go mod tidy
 	cd $(BACKEND_DIR) && go mod tidy
+
+## ---- Codegen (OpenAPI) ----
+.PHONY: generate
+generate: ## Regenerate OpenAPI Go server stubs + TS client types from backend/api/openapi.yaml
+	cd $(BACKEND_DIR) && go tool oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
+	cd $(FRONTEND_DIR) && npm run gen:api
 
 ## ---- Frontend ----
 .PHONY: frontend-install

@@ -1,0 +1,97 @@
+openapi: 3.0.3
+info:
+  title: Gigmann Executive Cockpit API
+  version: 0.1.0
+  description: >
+    REST API for the Gigmann Executive Cockpit. Contract-first: the Go server
+    interfaces and the TypeScript client are generated from this file
+    (`make generate`). Do not hand-edit generated code.
+servers:
+  - url: /
+    description: Same-origin (served behind the SPA / API gateway)
+
+paths:
+  /healthz:
+    get:
+      operationId: getHealthz
+      summary: Liveness probe
+      tags: [system]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+
+  /api/v1/facilities:
+    get:
+      operationId: listFacilities
+      summary: List all facilities in the network
+      tags: [facilities]
+      responses:
+        '200':
+          description: The facilities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacilityList'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+
+    FacilityStatus:
+      type: string
+      enum: [good, watch, critical]
+      description: AI-assessed operational health signal.
+
+    Facility:
+      type: object
+      required: [id, name, region, town, beds, status]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        region:
+          type: string
+        town:
+          type: string
+        beds:
+          type: integer
+          format: int32
+        status:
+          $ref: '#/components/schemas/FacilityStatus'
+
+    FacilityList:
+      type: object
+      required: [facilities]
+      properties:
+        facilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Facility'
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+  responses:
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

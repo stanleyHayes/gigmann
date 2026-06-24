@@ -60,7 +60,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 
 | Epic | Title | Stories | Points | Status |
 |---|---|---|---|---|
-| **E0** | Foundations & Engineering Operations | 9 | 41 | ◐ In progress — kickoff scaffolded (GEC-1/2/9 done) |
+| **E0** | Foundations & Engineering Operations | 9 | 41 | ◐ In progress — GEC-1/2/5/9 done; 3/4/6/7/8 in progress |
 | **E1** | Domain Model, Data Layer & Synthetic Network | 8 | 47 | ☐ Not started |
 | **E2** | Authentication & Authorization | 7 | 39 | ☐ Not started |
 | **E3** | Core Domain APIs (REST + OpenAPI) | 9 | 52 | ☐ Not started |
@@ -257,7 +257,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-3.
 
-#### ☐ GEC-5 — OpenAPI tooling & codegen pipeline · 5 SP · Phase: Development
+#### ☑ GEC-5 — OpenAPI tooling & codegen pipeline · 5 SP · Phase: Development
+> **Done 2026-06-24:** `backend/api/openapi.yaml` (3.0.3) → oapi-codegen strict Chi server (`openapi_gen.go`; router implements the generated interface) + openapi-typescript TS client (`frontend/src/api/`). `make generate` regenerates both; CI `codegen-drift` job fails on staleness; generated `*_gen.go` excluded from the coverage gate.
 - User story: As an engineer, I want one OpenAPI spec generating Go stubs and a TS client, so that the contract can't drift.
 - Business value: Single source of truth for the API; type-safe frontend.
 - Acceptance criteria:
@@ -1492,3 +1493,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-24 | Frontend/data stack selected per owner: React+Vite SPA (not Next.js), MUI v9 (not Tailwind/Tremor), MUI X Charts, TanStack Query, React Hook Form+Zod; pgx+sqlc; Postgres+Timescale+pgvector; **WebSocket** realtime; Claude Sonnet. Added §4.6 design/UX standards (skeleton + animated-dot loaders, pagination, layout transitions, marketing parallax/3D/circular-reveal, Fraunces/Outfit/JetBrains Mono) and story GEC-118. 118 stories. | Claude |
 | 2026-06-24 | **Phase 0 kickoff scaffolded** (latest versions of everything): git repo; Go hexagonal backend (Chi v5.3, build + 94.3% test coverage, arch boundary test); CLAUDE.md/AGENTS.md; CI workflow + SonarQube + golangci v2 config; render.yaml + Dockerfile + docker-compose; React 19 + Vite + MUI v9 + MUI X Charts 9 frontend (100% test coverage). GEC-1/2/9 done; GEC-3/4/6/7/8/105 in progress. | Claude |
 | 2026-06-24 | **DB finalised for Render: dropped TimescaleDB** → Render-managed Postgres 16 + pgvector with native time-series (indexes; partitioning/materialized views if needed). Updated stack table, GEC-12, GEC-98, docker-compose (`pgvector/pgvector:pg16`), render.yaml, ADR-0001, and docs. OQ-4 resolved. | Claude |
+| 2026-06-24 | **GEC-5 done** — OpenAPI 3.0.3 contract + codegen: oapi-codegen strict Chi server (router implements the generated interface) + openapi-typescript client (openapi-fetch). `make generate` + CI drift job; generated code excluded from the coverage gate (backend 96.8%, frontend 100%). | Claude |
