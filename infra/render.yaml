@@ -1,0 +1,80 @@
+# Render Blueprint (Infrastructure as Code) — GEC-105.
+# Declares the API, frontend, Redis, and Postgres for the cockpit.
+#
+# Data layer (RESOLVED — agent_plan.md OQ-4): Render-managed Postgres 16 +
+# pgvector. TimescaleDB is dropped (unsupported on Render). Time-series uses
+# native Postgres (indexes now; range partitioning + materialized views if
+# volume grows). Enable pgvector via `CREATE EXTENSION vector` in migration 1.
+
+services:
+  - type: web
+    name: gigmann-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: HTTP_PORT
+        value: "8080"
+      - fromGroup: gigmann-secrets
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gigmann-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: gigmann-redis
+          type: redis
+          property: connectionString
+
+  - type: redis
+    name: gigmann-redis
+    plan: starter
+    maxmemoryPolicy: noeviction
+    ipAllowList: [] # internal only
+
+  - type: web
+    name: gigmann-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://gigmann-api.onrender.com
+
+  # Morning brief pre-warm (GEC-71). Enable once the worker entrypoint exists
+  # (E8). Until then this is intentionally commented out to keep the Blueprint
+  # deployable.
+  # - type: cron
+  #   name: gigmann-prewarm
+  #   runtime: docker
+  #   rootDir: backend
+  #   dockerfilePath: ./Dockerfile
+  #   schedule: "0 5 * * *"   # 05:00 UTC daily
+  #   dockerCommand: /worker prewarm
+  #   envVars:
+  #     - fromGroup: gigmann-secrets
+
+databases:
+  - name: gigmann-postgres
+    plan: basic-256mb
+    postgresMajorVersion: "16"
+
+envVarGroups:
+  - name: gigmann-secrets
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: JWT_PRIVATE_KEY
+        sync: false
+      - key: JWT_PUBLIC_KEY
+        sync: false
