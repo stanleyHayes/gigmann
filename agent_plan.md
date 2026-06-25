@@ -61,7 +61,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | Epic | Title | Stories | Points | Status |
 |---|---|---|---|---|
 | **E0** | Foundations & Engineering Operations | 9 | 41 | ◐ In progress — GEC-1/2/5/9 done; 3/4/6/7/8 in progress |
-| **E1** | Domain Model, Data Layer & Synthetic Network | 8 | 47 | ◐ In progress — GEC-10/11/14 done |
+| **E1** | Domain Model, Data Layer & Synthetic Network | 8 | 47 | ◐ In progress — GEC-10/11/14/15/16 done |
 | **E2** | Authentication & Authorization | 7 | 39 | ☐ Not started |
 | **E3** | Core Domain APIs (REST + OpenAPI) | 9 | 52 | ☐ Not started |
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☐ Not started |
@@ -378,7 +378,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-11, GEC-10.
 
-#### ☐ GEC-15 — Synthetic network generator (`cmd/seed`) · 8 SP · Phase: Development
+#### ☑ GEC-15 — Synthetic network generator (`cmd/seed`) · 8 SP · Phase: Development
+> **Done 2026-06-25:** `internal/seed` deterministically builds the 12-facility network (Appendix A) with textured daily metrics (weekday/weekend + rainy-season malaria), grounded in cedis/NHIS/MoMo/real towns. Single seed → identical network (unit-tested). Wired into `bootstrap` (in-memory path serves all 12; verified via live API). *Follow-up:* `cmd/seed` to persist to Postgres (needs Create repos).
 - User story: As the team, I want a reseedable generator for the 12-facility Ghana network, so that the demo is reproducible.
 - Business value: The demo lands every time; data feels "unmistakably Ghanaian" (spec §4/§10).
 - Acceptance criteria:
@@ -390,7 +391,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + data review for "feels Ghanaian".
 - Dependencies: GEC-11, GEC-12.
 
-#### ☐ GEC-16 — Planted demo stories (Appendix C) · 5 SP · Phase: Development
+#### ☑ GEC-16 — Planted demo stories (Appendix C) · 5 SP · Phase: Development
+> **Done 2026-06-25:** baked into the generator + asserted in tests — Tafo revenue −22% with growing unbilled & collapsing claim submissions (critical), Asokwa RDT stock-out imminent (~5d vs 7d lead), Kasoa denial spike, Adansi star week, Tamale licence/attrition, and the three approvals (GH₵85k ultrasound, Kasoa MO hire, Nima generator).
 - User story: As the team, I want the Appendix C narratives baked into the seed, so that the brief always surfaces the same compelling story.
 - Business value: Guarantees the hero moment in every demo.
 - Acceptance criteria:
@@ -1500,3 +1502,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-25 | **GEC-10 done** — domain model per spec §7: value objects money(Cedis)/severity/payer + entities facility(expanded), metric, inventory, staff, alert, task, approval, brief, insight, user. Pure, ~100% covered (backend gate 99.2%). | Claude |
 | 2026-06-25 | Tooling: **enabled ALL golangci-lint v2 linters** (curated disables with reasons; formatters as a separate section) — 0 issues after fixes (dropped deprecated `middleware.RealIP`, reordered config methods, `exhaustive: default-signifies-exhaustive`). CI **Node → latest v26** (+check-latest) + `.nvmrc`. | Claude |
 | 2026-06-25 | **GEC-11 + GEC-14 done** — full Postgres schema (golang-migrate, all §7 tables + pgvector ext) and pgx+sqlc FacilityRepo implementing the port, verified by a **testcontainers** integration test against pgvector/pgvector:pg16. sqlc run via `go run` to keep the module on Go 1.25 (sqlc@latest needs 1.26); integration tests build-tagged + own CI job; postgres pkg excluded from unit coverage. | Claude |
+| 2026-06-25 | **GEC-15 + GEC-16 done** — deterministic `internal/seed` generator builds the Ghana-grounded 12-facility network with textured time-series and the Appendix-C planted stories (unit-tested for determinism + story presence). Wired into `bootstrap` (config-driven: Postgres when DATABASE_URL set, else in-memory seeded); live API verified serving 12 facilities with Tafo critical. Gate 96.3%, lint 0. | Claude |

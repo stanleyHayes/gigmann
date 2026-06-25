@@ -15,14 +15,18 @@ import (
 
 	"github.com/xcreativs/gigmann/internal/adapters/inbound/httpapi"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/memory"
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/postgres"
 	"github.com/xcreativs/gigmann/internal/app"
 	"github.com/xcreativs/gigmann/internal/config"
-	"github.com/xcreativs/gigmann/internal/core/facility"
-	"github.com/xcreativs/gigmann/internal/core/payer"
-	"github.com/xcreativs/gigmann/internal/core/severity"
+	"github.com/xcreativs/gigmann/internal/seed"
 )
 
-const shutdownTimeout = 10 * time.Second
+const (
+	shutdownTimeout = 10 * time.Second
+	readTimeout     = 10 * time.Second
+	writeTimeout    = 15 * time.Second
+	demoSeed        = 42
+)
 
 // Run loads configuration, wires dependencies, and serves HTTP until interrupted.
 func Run() error {
@@ -33,11 +37,17 @@ func Run() error {
 		return err
 	}
 
+	handler, cleanup, err := newHandler(context.Background(), cfg, logger)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
 	srv := &http.Server{
 		Addr:         cfg.HTTPAddr(),
-		Handler:      newHandler(),
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		Handler:      handler,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
 	}
 
 	go func() {
@@ -60,35 +70,21 @@ func Run() error {
 	return nil
 }
 
-// newHandler wires the in-memory repository (replaced by Postgres in E1) into
-// the facility use case and the HTTP router.
-func newHandler() http.Handler {
-	repo := memory.NewFacilityRepo(seedFacilities()...)
-	return httpapi.NewRouter(app.NewFacilityService(repo))
-}
-
-// seedFacilities returns a couple of skeleton facilities (replaced by the
-// synthetic-network generator in GEC-15).
-func seedFacilities() []facility.Facility {
-	mk := func(p facility.Params) facility.Facility {
-		f, err := facility.New(p)
+// newHandler selects the repository by configuration: Postgres when DATABASE_URL
+// is set, otherwise an in-memory repository seeded from the synthetic network.
+func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (http.Handler, func(), error) {
+	if cfg.DatabaseURL != "" {
+		pool, err := postgres.Connect(ctx, cfg.DatabaseURL)
 		if err != nil {
-			panic(err)
+			return nil, nil, err
 		}
-		return f
+		logger.Info("using postgres repository")
+		repo := postgres.NewFacilityRepo(pool)
+		return httpapi.NewRouter(app.NewFacilityService(repo)), pool.Close, nil
 	}
-	mixFosu, _ := payer.New(65, 25, 10)
-	mixTafo, _ := payer.New(80, 18, 2)
-	return []facility.Facility{
-		mk(facility.Params{
-			ID: "assin-fosu", Name: "Assin Fosu Specialist Hospital", Region: "Central", Town: "Assin Fosu",
-			Type: "Specialist", Beds: 60, Lifecycle: facility.LifecycleFlagship, Health: severity.Good,
-			ManagerName: "Dr. Mensah", PayerMix: mixFosu,
-		}),
-		mk(facility.Params{
-			ID: "tafo-maternity", Name: "Tafo Maternity & Child Health", Region: "Ashanti", Town: "Old Tafo",
-			Type: "Maternity", Beds: 25, Lifecycle: facility.LifecycleActive, Health: severity.Critical,
-			ManagerName: "Mad. Adjoa", PayerMix: mixTafo,
-		}),
-	}
+
+	net := seed.Generate(demoSeed, time.Now(), seed.DefaultDays)
+	logger.Info("using in-memory repository seeded from synthetic network", "facilities", len(net.Facilities))
+	repo := memory.NewFacilityRepo(net.Facilities...)
+	return httpapi.NewRouter(app.NewFacilityService(repo)), func() {}, nil
 }
