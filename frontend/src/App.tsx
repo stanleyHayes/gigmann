@@ -1,16 +1,22 @@
 import { useMemo, useState } from 'react'
-import CssBaseline from '@mui/material/CssBaseline'
-import { ThemeProvider } from '@mui/material/styles'
+import Button from '@mui/material/Button'
 import Container from '@mui/material/Container'
+import CssBaseline from '@mui/material/CssBaseline'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
-import Button from '@mui/material/Button'
+import { ThemeProvider } from '@mui/material/styles'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+import { useBrief } from './api/useBrief'
+import { DailyBrief } from './components/DailyBrief'
 import { buildTheme, type ThemeMode } from './theme'
-import { StatusChip } from './components/StatusChip'
-import { ButtonLoadingDots } from './components/ButtonLoadingDots'
 
 const queryClient = new QueryClient()
+
+function Home() {
+  const { data, isLoading, isError } = useBrief()
+  return <DailyBrief brief={data} isLoading={isLoading} isError={isError} />
+}
 
 export function App() {
   const [mode, setMode] = useState<ThemeMode>('light')
@@ -22,21 +28,17 @@ export function App() {
         <CssBaseline />
         <Container maxWidth="sm" sx={{ py: 6 }}>
           <Stack spacing={3}>
-            <Typography variant="h2">Gigmann Executive Cockpit</Typography>
-            <Typography color="text.secondary">
-              Scaffold ready. The Daily Brief and the living network arrive in epics E6/E7.
-            </Typography>
-            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-              <StatusChip status="critical" label="Tafo Maternity" />
-              <StatusChip status="watch" label="Asokwa" />
-              <StatusChip status="good" label="Adansi" />
+            <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h2">Gigmann Cockpit</Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setMode((m) => (m === 'light' ? 'dark' : 'light'))}
+              >
+                {mode === 'light' ? 'Dark' : 'Light'}
+              </Button>
             </Stack>
-            <Button variant="contained" disabled>
-              <ButtonLoadingDots /> Generating brief
-            </Button>
-            <Button variant="outlined" onClick={() => setMode((m) => (m === 'light' ? 'dark' : 'light'))}>
-              Toggle {mode === 'light' ? 'dark' : 'light'} mode
-            </Button>
+            <Home />
           </Stack>
         </Container>
       </ThemeProvider>

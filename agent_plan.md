@@ -67,7 +67,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
 | **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-42 done; 41/43 mock-first |
 | **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ◐ In progress — GEC-49/50 done |
-| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ☐ Not started |
+| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — GEC-56 hero wired |
 | **E8** | Realtime, Notifications & Alerts | 5 | 26 | ☐ Not started |
 | **E9** | Security Hardening & Compliance | 11 | 63 | ☐ Not started |
 | **E10** | SEO & Web Performance | 7 | 31 | ☐ Not started |
@@ -838,7 +838,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-54.
 
-#### ☐ GEC-56 — Home / The Brief screen (hero) · 8 SP · Phase: Development
+#### ◐ GEC-56 — Home / The Brief screen (hero) · 8 SP · Phase: Development
+> **Core delivered 2026-06-25:** the hero Brief screen now consumes the generated typed `/api/v1/brief` client via a TanStack Query `useBrief` hook. `DailyBrief` renders skeleton loaders while fetching, an error state, the narrated prose, then the prioritised items (status chip + headline + explanation + suggested-action buttons), worst-first. Wired into `App` with the light/dark toggle; Vite dev-proxies `/api` → backend (no CORS in dev). Typecheck/eslint clean, tests 100% stmts. _Remaining for full close: design-system depth (GEC-54), routing/shell (GEC-55), motion polish (GEC-66)._
 - User story: As Sammy, I want the brief at the top the moment I open the app, so that it briefs me before I ask.
 - Business value: The hero screen (spec §5.1/§9.2).
 - Acceptance criteria:
@@ -1512,3 +1513,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-25 | **E4 signal engine done (GEC-34..40)** — pure deterministic detectors: trend/revenue-drop, claims (denial spike + the diagnostic submission-gap), revenue leakage, stock-out projection, staff (licence/attrition), and the composite network pulse. Engine ranks worst-first; integration test over the generator surfaces every planted story. Gate 94.5%, lint 0. | Claude |
 | 2026-06-25 | **E5 started (GEC-41/42/43, mock-first)** — `intel.BuildContext` (context assembly), `ports.Narrator` + gomock, `app.BriefService` pipeline (engine→pulse→context→narrate→validate), and the Anthropic adapter (Go SDK, strict emit_brief tool, grounding system prompt, unit-tested parse). Live brief needs ANTHROPIC_API_KEY; adapter excluded from unit gate. Gate 94.7%, lint 0. | Claude |
 | 2026-06-25 | **GEC-49/50 done — Daily Brief over HTTP.** `GET /api/v1/brief` exposes the full pipeline (engine→pulse→context→narrate→validate). Added a deterministic local narrator (no-AI fallback) + `BriefGenerator` port; bootstrap picks Claude vs local by config. Live-verified: worst-first brief (Tafo claims gap + Kasoa denials critical) over the synthetic network. arch_test now scopes boundary checks to production code (test files may wire adapters). Gate 95.0%, lint 0. | Claude |
+| 2026-06-25 | **GEC-56 (core) — the hero Brief screen is live in the SPA.** React + MUI Home consumes the generated typed `/api/v1/brief` client through a `useBrief` TanStack Query hook; `DailyBrief` shows skeletons while loading, an error state, and the worst-first narrated items (status chip + headline + explanation + action buttons). Vite dev-proxy to the Go API (no CORS in dev). Frontend gate green: typecheck/eslint clean, 100% stmts / 94% branches, `vite build` ok. | Claude |
