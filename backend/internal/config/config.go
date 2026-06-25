@@ -50,6 +50,12 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
+// HTTPAddr returns the server listen address.
+func (c Config) HTTPAddr() string { return fmt.Sprintf(":%d", c.HTTPPort) }
+
+// IsProduction reports whether the app runs in production.
+func (c Config) IsProduction() bool { return c.AppEnv == EnvProduction }
+
 func (c Config) validate() error {
 	switch c.AppEnv {
 	case EnvDevelopment, EnvStaging, EnvProduction:
@@ -59,7 +65,6 @@ func (c Config) validate() error {
 	if c.HTTPPort < 1 || c.HTTPPort > 65535 {
 		return fmt.Errorf("config: HTTP_PORT out of range: %d", c.HTTPPort)
 	}
-	// External state and secrets are mandatory outside development.
 	if c.AppEnv != EnvDevelopment {
 		if c.DatabaseURL == "" {
 			return errors.New("config: DATABASE_URL is required outside development")
@@ -70,12 +75,6 @@ func (c Config) validate() error {
 	}
 	return nil
 }
-
-// HTTPAddr returns the server listen address.
-func (c Config) HTTPAddr() string { return fmt.Sprintf(":%d", c.HTTPPort) }
-
-// IsProduction reports whether the app runs in production.
-func (c Config) IsProduction() bool { return c.AppEnv == EnvProduction }
 
 func getEnv(key, fallback string) string {
 	if v, ok := os.LookupEnv(key); ok && v != "" {

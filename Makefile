@@ -34,7 +34,7 @@ backend-cover-gate: backend-test ## Fail if backend coverage < $(COVERAGE_THRESH
 
 .PHONY: backend-lint
 backend-lint: ## Run golangci-lint
-	cd $(BACKEND_DIR) && golangci-lint run ./...
+	cd $(BACKEND_DIR) && golangci-lint run --timeout=5m ./...
 
 .PHONY: backend-tidy
 backend-tidy: ## go mod tidy

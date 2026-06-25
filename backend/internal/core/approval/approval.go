@@ -62,10 +62,10 @@ type Approval struct {
 
 // Validation errors.
 var (
-	ErrEmptyID       = errors.New("approval: id is required")
-	ErrEmptyTitle    = errors.New("approval: title is required")
-	ErrInvalidType   = errors.New("approval: invalid type")
-	ErrInvalidStatus = errors.New("approval: invalid status")
+	ErrEmptyID        = errors.New("approval: id is required")
+	ErrEmptyTitle     = errors.New("approval: title is required")
+	ErrInvalidType    = errors.New("approval: invalid type")
+	ErrInvalidStatus  = errors.New("approval: invalid status")
 	ErrAlreadyDecided = errors.New("approval: already decided")
 )
 

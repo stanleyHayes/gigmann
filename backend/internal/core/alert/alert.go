@@ -43,13 +43,13 @@ type Alert struct {
 
 // Validation errors.
 var (
-	ErrEmptyID          = errors.New("alert: id is required")
-	ErrEmptyFacilityID  = errors.New("alert: facility_id is required")
-	ErrEmptyType        = errors.New("alert: type is required")
-	ErrEmptyTitle       = errors.New("alert: title is required")
-	ErrInvalidSeverity  = errors.New("alert: invalid severity")
-	ErrInvalidStatus    = errors.New("alert: invalid status")
-	ErrAlreadyTerminal  = errors.New("alert: already dismissed or resolved")
+	ErrEmptyID         = errors.New("alert: id is required")
+	ErrEmptyFacilityID = errors.New("alert: facility_id is required")
+	ErrEmptyType       = errors.New("alert: type is required")
+	ErrEmptyTitle      = errors.New("alert: title is required")
+	ErrInvalidSeverity = errors.New("alert: invalid severity")
+	ErrInvalidStatus   = errors.New("alert: invalid status")
+	ErrAlreadyTerminal = errors.New("alert: already dismissed or resolved")
 )
 
 // New validates and returns an Alert.

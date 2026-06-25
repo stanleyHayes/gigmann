@@ -1,22 +1,84 @@
-# golangci-lint configuration (v2 schema).
-# Hexagonal import boundaries are additionally enforced by
-# internal/architecture/arch_test.go (version-independent).
+# golangci-lint v2 configuration.
+# Policy: enable ALL linters (linters.default: all), then disable only those that
+# are deprecated, conflicting, or excessively opinionated (each with a reason).
+# Hexagonal import boundaries are additionally enforced by internal/architecture/arch_test.go.
 version: "2"
 
+run:
+  go: "1.25"
+  tests: true
+  modules-download-mode: readonly
+
 linters:
-  default: standard
-  enable:
-    - revive
-    - gosec
-    - errorlint
-    - bodyclose
+  default: all
+  disable:
+    # Deprecated (their *_v2/_v5 successors remain enabled by `all`).
+    - wsl              # deprecated -> wsl_v5
+    - gomodguard       # deprecated -> gomodguard_v2
+    # Excessively opinionated / high-noise on most codebases.
+    - exhaustruct      # forces every struct field in every literal
+    - varnamelen       # rejects idiomatic short names (i, db, tx, ctx)
+    - wsl_v5           # stylistic whitespace/cuddle churn
+    - nlreturn         # blank line before every return
+    - godox            # flags TODO/FIXME comments
+    - godot            # comments must end in a period
+    - godoclint        # conflicts with oapi-codegen's generated package comment
+    - noinlineerr      # `if err := f(); err != nil` is idiomatic Go
+    - dupl             # high false-positive duplicate detector
+    - gochecknoglobals # bans package-level vars (sentinel errors, registries)
+    - gochecknoinits   # bans init()
+    - tagliatelle      # one struct-tag case; clashes with external JSON
+    - ireturn          # accept-interfaces/return-structs is contextual
+    - funlen           # arbitrary function length cap
+    - cyclop           # overlaps gocyclo/gocognit
+    - gocyclo          # cyclomatic cap; noisy
+    - gocognit         # cognitive complexity cap; noisy
+    - maintidx         # maintainability index; noisy
+    - mnd              # magic numbers flood tests/handlers
+    - lll              # line length handled by the gofmt/golines formatters
+    - depguard         # errors without a rules policy (boundaries enforced by arch_test)
+    - nonamedreturns   # named returns are used intentionally (e.g. DaysOfStock)
+    - wrapcheck        # do not force wrapping every external error
+    - err113           # allow sentinel errors and fmt.Errorf
+    - paralleltest     # not requiring t.Parallel() on every test
   exclusions:
+    generated: lax
+    warn-unused: true
+    presets:
+      - comments
+      - common-false-positives
+      - std-error-handling
     rules:
       - path: _test\.go
         linters:
+          - errcheck
           - gosec
+          - bodyclose
+          - forcetypeassert
+          - contextcheck
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: true
+    revive:
+      rules:
+        - name: exported
+          disabled: false
+    staticcheck:
+      checks:
+        - all
 
 formatters:
   enable:
     - gofmt
     - goimports
+    - gci
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/xcreativs/gigmann
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/xcreativs/gigmann)
+      custom-order: true

@@ -11,8 +11,8 @@ import (
 
 func valid() brief.Brief {
 	return brief.Brief{
-		ID:   "b-2026-06-09",
-		Date: time.Date(2026, 6, 9, 0, 0, 0, 0, time.UTC),
+		ID:    "b-2026-06-09",
+		Date:  time.Date(2026, 6, 9, 0, 0, 0, 0, time.UTC),
 		Prose: "Good morning, Sammy.",
 		Items: []brief.Item{
 			{Severity: severity.Critical, FacilityID: "tafo-maternity", Headline: "Tafo Maternity needs you first",

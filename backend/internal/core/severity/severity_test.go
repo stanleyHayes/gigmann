@@ -18,7 +18,7 @@ func TestValid(t *testing.T) {
 }
 
 func TestRankOrdersWorstHighest(t *testing.T) {
-	if !(severity.Critical.Rank() > severity.Watch.Rank() && severity.Watch.Rank() > severity.Good.Rank()) {
+	if severity.Critical.Rank() <= severity.Watch.Rank() || severity.Watch.Rank() <= severity.Good.Rank() {
 		t.Errorf("rank order wrong: good=%d watch=%d critical=%d",
 			severity.Good.Rank(), severity.Watch.Rank(), severity.Critical.Rank())
 	}

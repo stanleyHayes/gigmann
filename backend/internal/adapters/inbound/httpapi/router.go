@@ -27,7 +27,6 @@ var _ StrictServerInterface = (*Server)(nil)
 func NewRouter(facilities *app.FacilityService) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(15 * time.Second))
 
@@ -44,7 +43,9 @@ func (s *Server) GetHealthz(_ context.Context, _ GetHealthzRequestObject) (GetHe
 func (s *Server) ListFacilities(ctx context.Context, _ ListFacilitiesRequestObject) (ListFacilitiesResponseObject, error) {
 	items, err := s.facilities.List(ctx)
 	if err != nil {
-		return ListFacilities500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil
+		// The 500 is conveyed via the response object; the Go error return is
+		// reserved for unexpected framework-level failures.
+		return ListFacilities500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
 	}
 	out := make([]Facility, 0, len(items))
 	for _, f := range items {
