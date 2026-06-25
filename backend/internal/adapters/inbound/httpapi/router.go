@@ -55,7 +55,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Use(authMiddleware(d.Tokens))
 
 	srv := &Server{facilities: d.Facilities, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth}
-	return HandlerFromMux(NewStrictHandler(srv, nil), r)
+	return HandlerFromMux(NewStrictHandler(srv, []StrictMiddlewareFunc{requireAuth()}), r)
 }
 
 type ctxKey int
@@ -98,6 +98,29 @@ func authMiddleware(tokens ports.TokenService) func(http.Handler) http.Handler {
 
 // unauthorizedBody is the fixed 401 payload (matches the Error schema).
 var unauthorizedBody = []byte(`{"error":"unauthorized"}`)
+
+// publicOperations may be called without authentication.
+var publicOperations = map[string]bool{
+	"PostAuthLogin": true,
+	"GetHealthz":    true,
+}
+
+// requireAuth rejects any non-public operation that lacks an authenticated
+// principal (set by authMiddleware from a valid Bearer token). Enforced at the
+// use-case boundary so every business endpoint is protected by default.
+func requireAuth() StrictMiddlewareFunc {
+	return func(next StrictHandlerFunc, operationID string) StrictHandlerFunc {
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error) {
+			if !publicOperations[operationID] {
+				if _, ok := principalFrom(ctx); !ok {
+					writeUnauthorized(w)
+					return nil, nil
+				}
+			}
+			return next(ctx, w, r, request)
+		}
+	}
+}
 
 func writeUnauthorized(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")

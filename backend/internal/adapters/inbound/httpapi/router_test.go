@@ -18,6 +18,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/passwordhash"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/token"
 	"github.com/xcreativs/gigmann/internal/app"
+	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/brief"
 	"github.com/xcreativs/gigmann/internal/core/facility"
 	"github.com/xcreativs/gigmann/internal/core/payer"
@@ -76,6 +77,25 @@ func serve(t *testing.T, repo *mocks.MockFacilityRepository, briefs *mocks.MockB
 	return rec
 }
 
+// bearerToken issues a valid executive token signed with the test secret.
+func bearerToken(t *testing.T) string {
+	t.Helper()
+	tok, err := token.New([]byte("test-secret"), time.Hour).Issue(
+		auth.Principal{UserID: "u1", Name: "Sammy Adjei", Role: user.RoleExecutive})
+	require.NoError(t, err)
+	return tok
+}
+
+// serveAuth issues a request carrying a valid Bearer token (for protected endpoints).
+func serveAuth(t *testing.T, repo *mocks.MockFacilityRepository, briefs *mocks.MockBriefGenerator, method, target string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(method, target, nil)
+	req.Header.Set("Authorization", "Bearer "+bearerToken(t))
+	newTestRouter(t, repo, briefs).ServeHTTP(rec, req)
+	return rec
+}
+
 func TestHealthz(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	rec := serve(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/healthz")
@@ -87,7 +107,7 @@ func TestListFacilities(t *testing.T) {
 	repo := mocks.NewMockFacilityRepository(ctrl)
 	repo.EXPECT().List(gomock.Any()).Return([]facility.Facility{mustFacility(t)}, nil)
 
-	rec := serve(t, repo, mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/api/v1/facilities")
+	rec := serveAuth(t, repo, mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/api/v1/facilities")
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, "application/json", rec.Header().Get("Content-Type"))
@@ -104,7 +124,7 @@ func TestListFacilitiesError(t *testing.T) {
 	repo := mocks.NewMockFacilityRepository(ctrl)
 	repo.EXPECT().List(gomock.Any()).Return(nil, errors.New("db down"))
 
-	rec := serve(t, repo, mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/api/v1/facilities")
+	rec := serveAuth(t, repo, mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/api/v1/facilities")
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -122,7 +142,7 @@ func TestGetBrief(t *testing.T) {
 	require.NoError(t, err)
 	briefs.EXPECT().Generate(gomock.Any()).Return(b, nil)
 
-	rec := serve(t, mocks.NewMockFacilityRepository(ctrl), briefs, http.MethodGet, "/api/v1/brief")
+	rec := serveAuth(t, mocks.NewMockFacilityRepository(ctrl), briefs, http.MethodGet, "/api/v1/brief")
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	var body struct {
@@ -142,13 +162,13 @@ func TestGetBriefError(t *testing.T) {
 	briefs := mocks.NewMockBriefGenerator(ctrl)
 	briefs.EXPECT().Generate(gomock.Any()).Return(brief.Brief{}, errors.New("api down"))
 
-	rec := serve(t, mocks.NewMockFacilityRepository(ctrl), briefs, http.MethodGet, "/api/v1/brief")
+	rec := serveAuth(t, mocks.NewMockFacilityRepository(ctrl), briefs, http.MethodGet, "/api/v1/brief")
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestGetMetrics(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	rec := serve(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/api/v1/metrics")
+	rec := serveAuth(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/api/v1/metrics")
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	var body struct {
@@ -215,4 +235,12 @@ func TestAuthMeRejectsBadToken(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer not-a-real-token")
 	h.ServeHTTP(rec, req)
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestProtectedEndpointRequiresAuth(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	for _, target := range []string{"/api/v1/facilities", "/api/v1/brief", "/api/v1/metrics"} {
+		rec := serve(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, target)
+		require.Equal(t, http.StatusUnauthorized, rec.Code, target)
+	}
 }

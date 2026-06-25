@@ -1,31 +1,15 @@
-import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
-
-vi.mock('./api/useBrief', () => ({
-  useBrief: () => ({ data: undefined, isLoading: true, isError: false }),
-}))
+import { render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 import { App } from './App'
+import { setToken } from './auth/authStore'
 
 describe('App', () => {
-  it('renders the cockpit shell with the brief on the index route', () => {
-    render(<App />)
-    expect(screen.getByText('Ahenfie')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /The Brief/i })).toBeInTheDocument()
-    expect(screen.getByTestId('brief-skeleton')).toBeInTheDocument()
-  })
+  beforeEach(() => setToken(null))
 
-  it('exposes primary navigation', () => {
+  it('shows the login screen when unauthenticated', () => {
     render(<App />)
-    expect(screen.getByRole('link', { name: /Today/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Network/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Approvals/i })).toBeInTheDocument()
-  })
-
-  it('toggles the colour mode', () => {
-    render(<App />)
-    const toggle = screen.getByRole('button', { name: /Switch to dark mode/i })
-    fireEvent.click(toggle)
-    expect(screen.getByRole('button', { name: /Switch to light mode/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
   })
 })

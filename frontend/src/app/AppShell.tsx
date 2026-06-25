@@ -16,11 +16,13 @@ import ForumOutlined from '@mui/icons-material/ForumOutlined'
 import HubOutlined from '@mui/icons-material/HubOutlined'
 import InsightsOutlined from '@mui/icons-material/InsightsOutlined'
 import LightModeOutlined from '@mui/icons-material/LightModeOutlined'
+import LogoutOutlined from '@mui/icons-material/LogoutOutlined'
 import TaskAltOutlined from '@mui/icons-material/TaskAltOutlined'
 import TodayOutlined from '@mui/icons-material/TodayOutlined'
 import { NavLink, Outlet } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
+import { useAuth } from '../auth/authContext'
 import { useColorMode } from './colorMode'
 
 type NavItem = { to: string; label: string; icon: ReactNode; end?: boolean }
@@ -39,6 +41,7 @@ const DRAWER_WIDTH = 248
 /** AppShell is the persistent cockpit frame: brand bar, nav rail, content outlet. */
 export function AppShell() {
   const { mode, toggle } = useColorMode()
+  const { user, logout } = useAuth()
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
@@ -47,12 +50,20 @@ export function AppShell() {
           <Typography variant="h6" component="span" sx={{ flexGrow: 1, fontFamily: '"Fraunces Variable", serif' }}>
             Ahenfie
           </Typography>
+          {user ? (
+            <Typography variant="body2" sx={{ mr: 1, display: { xs: 'none', sm: 'block' } }}>
+              {user.name}
+            </Typography>
+          ) : null}
           <IconButton
             color="inherit"
             onClick={toggle}
             aria-label={mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
           >
             {mode === 'light' ? <DarkModeOutlined /> : <LightModeOutlined />}
+          </IconButton>
+          <IconButton color="inherit" onClick={logout} aria-label="Sign out">
+            <LogoutOutlined />
           </IconButton>
         </Toolbar>
       </AppBar>

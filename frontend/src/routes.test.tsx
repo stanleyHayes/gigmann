@@ -11,13 +11,16 @@ vi.mock('./api/useFacilities', () => ({
 }))
 
 import { AppProviders } from './app/providers'
+import { AuthProvider } from './auth/AuthProvider'
 import { routes } from './app/routes'
 
 function renderAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] })
   return render(
     <AppProviders>
-      <RouterProvider router={router} />
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
     </AppProviders>,
   )
 }
