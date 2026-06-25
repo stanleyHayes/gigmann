@@ -1,0 +1,11 @@
+-- 000001_init.down.sql
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS insights;
+DROP TABLE IF EXISTS briefs;
+DROP TABLE IF EXISTS approvals;
+DROP TABLE IF EXISTS tasks;
+DROP TABLE IF EXISTS alerts;
+DROP TABLE IF EXISTS staff;
+DROP TABLE IF EXISTS inventory_items;
+DROP TABLE IF EXISTS facility_metrics;
+DROP TABLE IF EXISTS facilities;
