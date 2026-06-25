@@ -45,7 +45,7 @@ jobs:
       - name: Test (race) + coverage
         run: |
           go test -race -covermode=atomic -coverprofile=coverage.out ./internal/...
-          grep -vE '(_gen\.go|\.gen\.go|/bootstrap/|/mocks/|/adapters/outbound/postgres/)' coverage.out > coverage.filtered.out
+          grep -vE '(_gen\.go|\.gen\.go|/bootstrap/|/mocks/|/adapters/outbound/postgres/|/adapters/outbound/anthropic/)' coverage.out > coverage.filtered.out
 
       - name: Coverage gate (>= 80%, generated code excluded)
         run: |

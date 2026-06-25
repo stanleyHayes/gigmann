@@ -5,12 +5,21 @@ package ports
 import (
 	"context"
 
+	"github.com/xcreativs/gigmann/internal/core/brief"
 	"github.com/xcreativs/gigmann/internal/core/facility"
+	"github.com/xcreativs/gigmann/internal/intel"
 )
 
-//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository
+//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator
 
 // FacilityRepository is a driven port for reading/writing facilities.
 type FacilityRepository interface {
 	List(ctx context.Context) ([]facility.Facility, error)
+}
+
+// Narrator turns a computed brief context into a narrated Daily Brief.
+// Implementations (e.g. the Anthropic adapter) must narrate only the supplied
+// figures and never fabricate numbers.
+type Narrator interface {
+	NarrateBrief(ctx context.Context, c intel.Context) (brief.Brief, error)
 }
