@@ -42,6 +42,48 @@ func (e FacilityStatus) Valid() bool {
 	}
 }
 
+// Defines values for KpiDirection.
+const (
+	Down KpiDirection = "down"
+	Flat KpiDirection = "flat"
+	Up   KpiDirection = "up"
+)
+
+// Valid indicates whether the value is a known member of the KpiDirection enum.
+func (e KpiDirection) Valid() bool {
+	switch e {
+	case Down:
+		return true
+	case Flat:
+		return true
+	case Up:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for KpiUnit.
+const (
+	Count   KpiUnit = "count"
+	Pesewas KpiUnit = "pesewas"
+	Ratio   KpiUnit = "ratio"
+)
+
+// Valid indicates whether the value is a known member of the KpiUnit enum.
+func (e KpiUnit) Valid() bool {
+	switch e {
+	case Count:
+		return true
+	case Pesewas:
+		return true
+	case Ratio:
+		return true
+	default:
+		return false
+	}
+}
+
 // Brief defines model for Brief.
 type Brief struct {
 	Date        openapi_types.Date `json:"date"`
@@ -93,6 +135,37 @@ type Health struct {
 	Status string `json:"status"`
 }
 
+// Kpi defines model for Kpi.
+type Kpi struct {
+	Current        float64       `json:"current"`
+	DeltaPct       float64       `json:"delta_pct"`
+	Direction      KpiDirection  `json:"direction"`
+	HigherIsBetter bool          `json:"higher_is_better"`
+	Key            string        `json:"key"`
+	Label          string        `json:"label"`
+	Previous       float64       `json:"previous"`
+	Series         []MetricPoint `json:"series"`
+	Unit           KpiUnit       `json:"unit"`
+}
+
+// KpiDirection defines model for Kpi.Direction.
+type KpiDirection string
+
+// KpiUnit defines model for Kpi.Unit.
+type KpiUnit string
+
+// MetricPoint defines model for MetricPoint.
+type MetricPoint struct {
+	Date  openapi_types.Date `json:"date"`
+	Value float64            `json:"value"`
+}
+
+// NetworkMetrics defines model for NetworkMetrics.
+type NetworkMetrics struct {
+	AsOf openapi_types.Date `json:"as_of"`
+	Kpis []Kpi              `json:"kpis"`
+}
+
 // InternalError defines model for InternalError.
 type InternalError = Error
 
@@ -104,6 +177,9 @@ type ServerInterface interface {
 	// List all facilities in the network
 	// (GET /api/v1/facilities)
 	ListFacilities(w http.ResponseWriter, r *http.Request)
+	// Deterministic network KPIs and weekly trends
+	// (GET /api/v1/metrics)
+	GetMetrics(w http.ResponseWriter, r *http.Request)
 	// Liveness probe
 	// (GET /healthz)
 	GetHealthz(w http.ResponseWriter, r *http.Request)
@@ -122,6 +198,12 @@ func (_ Unimplemented) GetBrief(w http.ResponseWriter, r *http.Request) {
 // List all facilities in the network
 // (GET /api/v1/facilities)
 func (_ Unimplemented) ListFacilities(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Deterministic network KPIs and weekly trends
+// (GET /api/v1/metrics)
+func (_ Unimplemented) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -159,6 +241,20 @@ func (siw *ServerInterfaceWrapper) ListFacilities(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListFacilities(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMetrics operation middleware
+func (siw *ServerInterfaceWrapper) GetMetrics(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMetrics(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -302,6 +398,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/facilities", wrapper.ListFacilities)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/metrics", wrapper.GetMetrics)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/healthz", wrapper.GetHealthz)
 	})
 
@@ -380,6 +479,41 @@ func (response ListFacilities500JSONResponse) VisitListFacilitiesResponse(w http
 	return err
 }
 
+type GetMetricsRequestObject struct {
+}
+
+type GetMetricsResponseObject interface {
+	VisitGetMetricsResponse(w http.ResponseWriter) error
+}
+
+type GetMetrics200JSONResponse NetworkMetrics
+
+func (response GetMetrics200JSONResponse) VisitGetMetricsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMetrics500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetMetrics500JSONResponse) VisitGetMetricsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetHealthzRequestObject struct {
 }
 
@@ -409,6 +543,9 @@ type StrictServerInterface interface {
 	// List all facilities in the network
 	// (GET /api/v1/facilities)
 	ListFacilities(ctx context.Context, request ListFacilitiesRequestObject) (ListFacilitiesResponseObject, error)
+	// Deterministic network KPIs and weekly trends
+	// (GET /api/v1/metrics)
+	GetMetrics(ctx context.Context, request GetMetricsRequestObject) (GetMetricsResponseObject, error)
 	// Liveness probe
 	// (GET /healthz)
 	GetHealthz(ctx context.Context, request GetHealthzRequestObject) (GetHealthzResponseObject, error)
@@ -491,6 +628,30 @@ func (sh *strictHandler) ListFacilities(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// GetMetrics operation middleware
+func (sh *strictHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	var request GetMetricsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMetrics(ctx, request.(GetMetricsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMetrics")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMetricsResponseObject); ok {
+		if err := validResponse.VisitGetMetricsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetHealthz operation middleware
 func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 	var request GetHealthzRequestObject
@@ -520,21 +681,25 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

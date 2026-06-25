@@ -19,6 +19,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/core/payer"
 	"github.com/xcreativs/gigmann/internal/core/severity"
 	"github.com/xcreativs/gigmann/internal/ports/mocks"
+	"github.com/xcreativs/gigmann/internal/seed"
 )
 
 func mustFacility(t *testing.T) facility.Facility {
@@ -38,7 +39,8 @@ func serve(t *testing.T, repo *mocks.MockFacilityRepository, briefs *mocks.MockB
 	t.Helper()
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(method, target, nil)
-	httpapi.NewRouter(app.NewFacilityService(repo), briefs).ServeHTTP(rec, req)
+	metricsSvc := app.NewMetricsService(seed.Generate(7, time.Date(2026, 6, 24, 0, 0, 0, 0, time.UTC), 14).Metrics)
+	httpapi.NewRouter(app.NewFacilityService(repo), metricsSvc, briefs).ServeHTTP(rec, req)
 	return rec
 }
 
@@ -110,4 +112,19 @@ func TestGetBriefError(t *testing.T) {
 
 	rec := serve(t, mocks.NewMockFacilityRepository(ctrl), briefs, http.MethodGet, "/api/v1/brief")
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestGetMetrics(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	rec := serve(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/api/v1/metrics")
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body struct {
+		AsOf string           `json:"as_of"`
+		KPIs []map[string]any `json:"kpis"`
+	}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	require.Len(t, body.KPIs, 4)
+	assert.Equal(t, "revenue", body.KPIs[0]["key"])
+	assert.NotEmpty(t, body.KPIs[0]["series"])
 }

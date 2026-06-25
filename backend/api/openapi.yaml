@@ -54,6 +54,21 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/metrics:
+    get:
+      operationId: getMetrics
+      summary: Deterministic network KPIs and weekly trends
+      tags: [metrics]
+      responses:
+        '200':
+          description: Network KPIs and trends
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkMetrics'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   schemas:
     Health:
@@ -133,6 +148,59 @@ components:
           type: array
           items:
             type: string
+
+    MetricPoint:
+      type: object
+      required: [date, value]
+      properties:
+        date:
+          type: string
+          format: date
+        value:
+          type: number
+          format: double
+
+    Kpi:
+      type: object
+      required: [key, label, unit, higher_is_better, current, previous, delta_pct, direction, series]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        unit:
+          type: string
+          enum: [pesewas, ratio, count]
+        higher_is_better:
+          type: boolean
+        current:
+          type: number
+          format: double
+        previous:
+          type: number
+          format: double
+        delta_pct:
+          type: number
+          format: double
+        direction:
+          type: string
+          enum: [up, down, flat]
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetricPoint'
+
+    NetworkMetrics:
+      type: object
+      required: [as_of, kpis]
+      properties:
+        as_of:
+          type: string
+          format: date
+        kpis:
+          type: array
+          items:
+            $ref: '#/components/schemas/Kpi'
 
     Error:
       type: object

@@ -107,6 +107,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		Inventory: net.Inventory, Staff: net.Staff,
 	}
 	briefs := app.NewStaticBrief(briefSvc, input)
+	metricsSvc := app.NewMetricsService(net.Metrics)
 
-	return httpapi.NewRouter(app.NewFacilityService(facRepo), briefs), cleanup, nil
+	return httpapi.NewRouter(app.NewFacilityService(facRepo), metricsSvc, briefs), cleanup, nil
 }
