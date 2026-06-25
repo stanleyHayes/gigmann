@@ -4,6 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/memory"
 	"github.com/xcreativs/gigmann/internal/core/facility"
 	"github.com/xcreativs/gigmann/internal/core/payer"
@@ -12,40 +15,35 @@ import (
 
 func mustFacility(t *testing.T) facility.Facility {
 	t.Helper()
-	mix, _ := payer.New(70, 25, 5)
+	mix, err := payer.New(70, 25, 5)
+	require.NoError(t, err)
 	f, err := facility.New(facility.Params{
 		ID: "f1", Name: "Kasoa", Region: "Central", Town: "Kasoa",
 		Type: "OPD", Beds: 40, Lifecycle: facility.LifecycleActive, Health: severity.Good,
 		ManagerName: "Ama Owusu", PayerMix: mix,
 	})
-	if err != nil {
-		t.Fatalf("seed: %v", err)
-	}
+	require.NoError(t, err)
 	return f
 }
 
 func TestFacilityRepoList(t *testing.T) {
 	repo := memory.NewFacilityRepo(mustFacility(t))
+
 	got, err := repo.List(context.Background())
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
-	if len(got) != 1 {
-		t.Fatalf("want 1 facility, got %d", len(got))
-	}
+	require.NoError(t, err)
+	require.Len(t, got, 1)
 
 	// Returned slice must be a copy: mutating it must not affect the repo.
 	got[0].Name = "mutated"
-	again, _ := repo.List(context.Background())
-	if again[0].Name == "mutated" {
-		t.Error("repo leaked its internal slice; expected a copy")
-	}
+	again, err := repo.List(context.Background())
+	require.NoError(t, err)
+	assert.NotEqual(t, "mutated", again[0].Name, "repo leaked its internal slice")
 }
 
 func TestFacilityRepoEmpty(t *testing.T) {
 	repo := memory.NewFacilityRepo()
+
 	got, err := repo.List(context.Background())
-	if err != nil || len(got) != 0 {
-		t.Fatalf("want empty list, got %v err %v", got, err)
-	}
+	require.NoError(t, err)
+	assert.Empty(t, got)
 }
