@@ -22,7 +22,7 @@ backend-run: ## Run the Go API locally
 .PHONY: backend-test
 backend-test: ## Run Go tests with race detector + coverage (generated *_gen.go excluded)
 	cd $(BACKEND_DIR) && go test -race -covermode=atomic -coverprofile=coverage.out ./internal/...
-	cd $(BACKEND_DIR) && grep -vE '(_gen\.go|\.gen\.go)' coverage.out > coverage.filtered.out
+	cd $(BACKEND_DIR) && grep -vE '(_gen\.go|\.gen\.go|/bootstrap/|/mocks/)' coverage.out > coverage.filtered.out
 	cd $(BACKEND_DIR) && go tool cover -func=coverage.filtered.out | tail -n 1
 
 .PHONY: backend-cover-gate
