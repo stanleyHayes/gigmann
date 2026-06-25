@@ -37,7 +37,7 @@ describe('DailyBrief', () => {
     expect(screen.getByText('Good morning, Sammy.')).toBeInTheDocument()
     expect(screen.getByText('Tafo needs you first')).toBeInTheDocument()
     expect(screen.getByText('Claims recorded but not submitted')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Why?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Why\?/ })).toBeInTheDocument()
     expect(screen.getByText('Stock running low')).toBeInTheDocument()
   })
 })

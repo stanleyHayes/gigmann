@@ -67,7 +67,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
 | **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-42 done; 41/43 mock-first |
 | **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ◐ In progress — GEC-49/50 done |
-| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — GEC-56 hero wired |
+| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — GEC-55/56 done |
 | **E8** | Realtime, Notifications & Alerts | 5 | 26 | ☐ Not started |
 | **E9** | Security Hardening & Compliance | 11 | 63 | ☐ Not started |
 | **E10** | SEO & Web Performance | 7 | 31 | ☐ Not started |
@@ -827,7 +827,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + design review.
 - Dependencies: GEC-1.
 
-#### ☐ GEC-55 — App shell, routing & PWA · 5 SP · Phase: Development
+#### ☑ GEC-55 — App shell, routing & PWA · 5 SP · Phase: Development
+> **Done 2026-06-25:** React Router v7 data router (`createBrowserRouter` + layout route → `AppShell` + screens, `createMemoryRouter` in tests); the cockpit shell (brand bar, permanent nav rail with `NavLink` active styling, colour-mode toggle, content `<Outlet/>`); installable PWA via vite-plugin-pwa 1.3.0 on Vite 8 (manifest + icons + service worker). **The SW treats `/api` and `/healthz` as NetworkOnly and excludes them from the SPA fallback — a stale figure can never be served from cache, honouring the determinism rule.** Hardened after an adversarial review workflow (17 agents): self-hosted fonts (no Google data leak, fully offline), global `prefers-reduced-motion` handling, AA-contrast status colours, accessible action-button names, single `<h1>` per page, `robots: noindex`. Frontend gate green: tsc/eslint clean, 15 tests @ 97.7%, build + SW generation pass.
 - User story: As a user, I want an installable app shell with bottom nav (mobile) and multi-pane (desktop), so that it feels like a real app.
 - Business value: Spec §9.3 mobile-first / desktop-strong; PWA.
 - Acceptance criteria:
@@ -1514,3 +1515,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-25 | **E5 started (GEC-41/42/43, mock-first)** — `intel.BuildContext` (context assembly), `ports.Narrator` + gomock, `app.BriefService` pipeline (engine→pulse→context→narrate→validate), and the Anthropic adapter (Go SDK, strict emit_brief tool, grounding system prompt, unit-tested parse). Live brief needs ANTHROPIC_API_KEY; adapter excluded from unit gate. Gate 94.7%, lint 0. | Claude |
 | 2026-06-25 | **GEC-49/50 done — Daily Brief over HTTP.** `GET /api/v1/brief` exposes the full pipeline (engine→pulse→context→narrate→validate). Added a deterministic local narrator (no-AI fallback) + `BriefGenerator` port; bootstrap picks Claude vs local by config. Live-verified: worst-first brief (Tafo claims gap + Kasoa denials critical) over the synthetic network. arch_test now scopes boundary checks to production code (test files may wire adapters). Gate 95.0%, lint 0. | Claude |
 | 2026-06-25 | **GEC-56 (core) — the hero Brief screen is live in the SPA.** React + MUI Home consumes the generated typed `/api/v1/brief` client through a `useBrief` TanStack Query hook; `DailyBrief` shows skeletons while loading, an error state, and the worst-first narrated items (status chip + headline + explanation + action buttons). Vite dev-proxy to the Go API (no CORS in dev). Frontend gate green: typecheck/eslint clean, 100% stmts / 94% branches, `vite build` ok. | Claude |
+| 2026-06-25 | **GEC-55 done — cockpit app shell, routing & offline PWA.** React Router v7 layout-route shell (brand bar + nav rail + outlet + colour-mode toggle) and an installable, offline-capable PWA whose service worker forces `/api`+`/healthz` NetworkOnly (never a stale figure). Library APIs were verified live before coding (research workflow), and the result was hardened by a 17-agent adversarial review: self-hosted fonts, global reduced-motion, AA contrast, a11y labels, single h1, robots noindex. Also tightened GEC-54 (design tokens) and GEC-56 (brief a11y). Bundle-size optimisation (533 KB) deferred to the perf/polish story. | Claude |

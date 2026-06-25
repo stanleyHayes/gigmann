@@ -8,15 +8,24 @@ vi.mock('./api/useBrief', () => ({
 import { App } from './App'
 
 describe('App', () => {
-  it('renders the title and the brief skeleton while loading', () => {
+  it('renders the cockpit shell with the brief on the index route', () => {
     render(<App />)
-    expect(screen.getByRole('heading', { name: /Gigmann Cockpit/i })).toBeInTheDocument()
+    expect(screen.getByText('Ahenfie')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /The Brief/i })).toBeInTheDocument()
     expect(screen.getByTestId('brief-skeleton')).toBeInTheDocument()
   })
 
-  it('toggles light/dark mode', () => {
+  it('exposes primary navigation', () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: /Dark/i }))
-    expect(screen.getByRole('button', { name: /Light/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Today/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Network/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Approvals/i })).toBeInTheDocument()
+  })
+
+  it('toggles the colour mode', () => {
+    render(<App />)
+    const toggle = screen.getByRole('button', { name: /Switch to dark mode/i })
+    fireEvent.click(toggle)
+    expect(screen.getByRole('button', { name: /Switch to light mode/i })).toBeInTheDocument()
   })
 })

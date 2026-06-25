@@ -2,16 +2,16 @@ import { createTheme, type Theme } from '@mui/material/styles'
 
 // Owner typography directive:
 //   Fraunces — titles/display · Outfit — body · JetBrains Mono — statuses/figures.
-const titleFont = '"Fraunces", Georgia, serif'
-const bodyFont = '"Outfit", system-ui, -apple-system, sans-serif'
-export const monoFont = '"JetBrains Mono", ui-monospace, "SFMono-Regular", monospace'
+const titleFont = '"Fraunces Variable", Georgia, serif'
+const bodyFont = '"Outfit Variable", system-ui, -apple-system, sans-serif'
+export const monoFont = '"JetBrains Mono Variable", ui-monospace, "SFMono-Regular", monospace'
 
 // Status palette (critical / watch / good). Per a11y rules, colour is never the
 // only signal — components also render a text label.
 export const statusColors = {
-  good: '#1f9d55',
-  watch: '#d9822b',
-  critical: '#d64545',
+  good: '#157f3c',
+  watch: '#a85f0a',
+  critical: '#c62828',
 } as const
 
 export type ThemeMode = 'light' | 'dark'
