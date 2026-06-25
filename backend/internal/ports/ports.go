@@ -1,16 +1,22 @@
 // Package ports declares the interfaces the application layer depends on.
-// Outbound adapters (Postgres, Redis, in-memory, Anthropic) implement these.
+// Outbound adapters (Postgres, Redis, in-memory, Anthropic, crypto) implement these.
 package ports
 
 import (
 	"context"
+	"errors"
 
+	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/brief"
 	"github.com/xcreativs/gigmann/internal/core/facility"
+	"github.com/xcreativs/gigmann/internal/core/user"
 	"github.com/xcreativs/gigmann/internal/intel"
 )
 
-//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator
+//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService
+
+// ErrAccountNotFound is returned by UserRepository when no account matches.
+var ErrAccountNotFound = errors.New("ports: account not found")
 
 // FacilityRepository is a driven port for reading/writing facilities.
 type FacilityRepository interface {
@@ -26,4 +32,28 @@ type Narrator interface {
 // BriefGenerator produces the current Daily Brief for the network (inbound use case).
 type BriefGenerator interface {
 	Generate(ctx context.Context) (brief.Brief, error)
+}
+
+// Account is a user profile plus the credentials used to authenticate them.
+type Account struct {
+	User         user.User
+	Email        string
+	PasswordHash string
+}
+
+// UserRepository is a driven port for looking up accounts by email.
+type UserRepository interface {
+	FindByEmail(ctx context.Context, email string) (Account, error)
+}
+
+// PasswordHasher hashes and verifies passwords (argon2id in the adapter).
+type PasswordHasher interface {
+	Hash(plain string) (string, error)
+	Verify(plain, encoded string) (bool, error)
+}
+
+// TokenService issues and verifies signed access tokens for a principal.
+type TokenService interface {
+	Issue(p auth.Principal) (string, error)
+	Verify(token string) (auth.Principal, error)
 }

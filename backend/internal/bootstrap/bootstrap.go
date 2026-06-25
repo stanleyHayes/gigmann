@@ -6,6 +6,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -17,10 +18,13 @@ import (
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/anthropic"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/localnarrator"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/memory"
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/passwordhash"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/postgres"
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/token"
 	"github.com/xcreativs/gigmann/internal/app"
 	"github.com/xcreativs/gigmann/internal/config"
 	signalengine "github.com/xcreativs/gigmann/internal/core/signal"
+	"github.com/xcreativs/gigmann/internal/core/user"
 	"github.com/xcreativs/gigmann/internal/ports"
 	"github.com/xcreativs/gigmann/internal/seed"
 )
@@ -31,6 +35,7 @@ const (
 	writeTimeout    = 15 * time.Second
 	demoSeed        = 42
 	briefTopN       = 5
+	accessTokenTTL  = 12 * time.Hour
 )
 
 // Run loads configuration, wires dependencies, and serves HTTP until interrupted.
@@ -109,5 +114,45 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 	briefs := app.NewStaticBrief(briefSvc, input)
 	metricsSvc := app.NewMetricsService(net.Metrics)
 
-	return httpapi.NewRouter(app.NewFacilityService(facRepo), metricsSvc, briefs), cleanup, nil
+	hasher := passwordhash.New()
+	accounts, err := demoAccounts(hasher)
+	if err != nil {
+		return nil, nil, err
+	}
+	tokens := token.New([]byte(cfg.JWTSecret), accessTokenTTL)
+	authSvc := app.NewAuthService(memory.NewUserRepo(accounts...), hasher, tokens)
+
+	return httpapi.NewRouter(httpapi.Deps{
+		Facilities: app.NewFacilityService(facRepo),
+		Metrics:    metricsSvc,
+		Briefs:     briefs,
+		Auth:       authSvc,
+		Tokens:     tokens,
+	}), cleanup, nil
+}
+
+// demoAccounts seeds the in-memory user store for the demo. The password comes
+// from DEMO_PASSWORD (a low-entropy dev default otherwise); real deployments use
+// a database-backed user store.
+func demoAccounts(hasher ports.PasswordHasher) ([]ports.Account, error) {
+	password := os.Getenv("DEMO_PASSWORD")
+	if password == "" {
+		password = "ahenfie-demo" //nolint:gosec // demo seed password for local dev only
+	}
+	hash, err := hasher.Hash(password)
+	if err != nil {
+		return nil, fmt.Errorf("bootstrap: hash demo password: %w", err)
+	}
+	ceo, err := user.New(user.User{ID: "u-sammy", Name: "Sammy Adjei", Role: user.RoleExecutive})
+	if err != nil {
+		return nil, fmt.Errorf("bootstrap: ceo account: %w", err)
+	}
+	manager, err := user.New(user.User{ID: "u-ama", Name: "Ama Owusu", Role: user.RoleFacilityManager, FacilityID: "kasoa-polyclinic"})
+	if err != nil {
+		return nil, fmt.Errorf("bootstrap: manager account: %w", err)
+	}
+	return []ports.Account{
+		{User: ceo, Email: "ceo@gigmann.health", PasswordHash: hash},
+		{User: manager, Email: "kasoa.manager@gigmann.health", PasswordHash: hash},
+	}, nil
 }

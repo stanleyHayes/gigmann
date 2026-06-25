@@ -62,7 +62,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 |---|---|---|---|---|
 | **E0** | Foundations & Engineering Operations | 9 | 41 | ◐ In progress — GEC-1/2/5/9 done; 3/4/6/7/8 in progress |
 | **E1** | Domain Model, Data Layer & Synthetic Network | 8 | 47 | ◐ In progress — GEC-10/11/14/15/16 done |
-| **E2** | Authentication & Authorization | 7 | 39 | ☐ Not started |
+| **E2** | Authentication & Authorization | 7 | 39 | ◐ In progress — GEC-18/19 done, login+/me live |
 | **E3** | Core Domain APIs (REST + OpenAPI) | 9 | 52 | ◐ In progress — GEC-26 done |
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
 | **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-42 done; 41/43 mock-first |
@@ -418,7 +418,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 ## E2 — Authentication & Authorization
 *Goal: real, production-grade custom JWT auth in Go with RBAC for executive vs facility manager (spec §7 users, §8.4 "real auth, fake data").*
 
-#### ☐ GEC-18 — Password & credential security · 5 SP · Phase: Development
+#### ☑ GEC-18 — Password & credential security · 5 SP · Phase: Development
+> **Done 2026-06-25:** `adapters/outbound/passwordhash` implements `ports.PasswordHasher` with argon2id and the standard PHC string encoding (random per-hash salt, constant-time verify). Fully unit-tested.
 - User story: As a user, I want my credentials stored securely, so that my account is safe.
 - Business value: Core security; protects the platform.
 - Acceptance criteria:
@@ -429,7 +430,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + security review.
 - Dependencies: GEC-14.
 
-#### ☐ GEC-19 — JWT issuance & verification · 5 SP · Phase: Development
+#### ☑ GEC-19 — JWT issuance & verification · 5 SP · Phase: Development
+> **Done 2026-06-25:** `adapters/outbound/token` implements `ports.TokenService` with HS256 JWTs (golang-jwt/jwt v5) carrying the principal (sub, name, role, facility); verify enforces method, issuer, and expiry. Tested for round-trip, expiry, wrong-secret, and garbage input.
 - User story: As the system, I want signed access tokens with claims, so that requests can be authenticated statelessly.
 - Business value: Stateless, scalable auth.
 - Acceptance criteria:
@@ -451,7 +453,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + security review.
 - Dependencies: GEC-19.
 
-#### ☐ GEC-21 — RBAC & authorization at use-case boundary · 5 SP · Phase: Development
+#### ◐ GEC-21 — RBAC & authorization at use-case boundary · 5 SP · Phase: Development
+> **Partial 2026-06-25:** pure `core/auth.Principal` with `IsExecutive`/`CanAccessFacility` (facility scoping, no IDOR) and an HTTP auth middleware that verifies the Bearer token and puts the principal in the request context. _Remaining: enforce the principal on the business endpoints + facility-scope their data (paired with GEC-24 so the SPA logs in first)._
 - User story: As the system, I want role/facility scoping enforced in application services, so that managers see only their facility.
 - Business value: Prevents data exposure; correct multi-role behaviour.
 - Acceptance criteria:
@@ -462,7 +465,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + security review.
 - Dependencies: GEC-19.
 
-#### ☐ GEC-22 — Auth endpoints (login/refresh/logout/me) · 3 SP · Phase: Development
+#### ◐ GEC-22 — Auth endpoints (login/refresh/logout/me) · 3 SP · Phase: Development
+> **Partial 2026-06-25:** `POST /api/v1/auth/login` (email+password → signed token + user) and protected `GET /api/v1/auth/me` are live, backed by `app.AuthService` + a seeded in-memory user store (demo: `ceo@gigmann.health` / `DEMO_PASSWORD`, default `ahenfie-demo`). Live-verified. _Remaining: refresh/logout (with GEC-20)._
 - User story: As a user, I want login/refresh/logout/me endpoints, so that I can use the cockpit.
 - Business value: Usable auth surface.
 - Acceptance criteria:
@@ -1522,3 +1526,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-25 | **GEC-57 done — Network single-pane view.** `/network` renders the full facility network from `/api/v1/facilities` (typed `useFacilities` hook): summary + status-distribution bar + worst-first responsive card grid, with skeleton/error/empty states. `StatusChip` gained an optional label for the compact card variant. Live-verified against the real API. Charts deferred to GEC-59. Gate green: 22 tests @ 98.5%. | Claude |
 | 2026-06-25 | **GEC-26 done — deterministic Metrics & KPI API.** Pure `core/kpi` engine aggregates the metric series into network KPIs (revenue / patients / NHIS denial rate / occupancy) with 14-day trends + WoW deltas; `GET /api/v1/metrics` serves them via `app.MetricsService`. Money in pesewas, unit-tagged; `higher_is_better` lets the UI colour deltas by meaning. Live-verified. kpi 98.8%, gate 95.4%, lint 0. Regenerated Go + TS clients. | Claude |
 | 2026-06-25 | **GEC-59 done — Executive KPIs screen (completes the Metrics→KPIs slice).** `/kpis` renders the deterministic KPIs from `/api/v1/metrics` as cards with unit-aware values, meaning-coloured WoW deltas, and 14-day MUI X Charts v9 LineCharts (reduced-motion aware, theme-driven; API verified pre-code). Gate green: 30 tests @ 98.9%, build + SW pass. End-to-end vertical slice (deterministic engine → API → typed client → charts) complete. | Claude |
+| 2026-06-25 | **GEC-18/19/22 — auth foundation (non-breaking).** argon2id password hashing + HS256 JWTs (golang-jwt v5) behind `ports.PasswordHasher`/`TokenService`; `app.AuthService.Login`; `POST /auth/login` + protected `GET /auth/me` with Bearer-token middleware that sets a `core/auth.Principal` (with facility-scoping rules) in context. Seeded in-memory users; `JWT_SECRET` config (dev default, required in prod). Business endpoints stay open until the SPA login (GEC-24) lands. Live-verified login→/me; backend lint 0, gate 94.4%. | Claude |

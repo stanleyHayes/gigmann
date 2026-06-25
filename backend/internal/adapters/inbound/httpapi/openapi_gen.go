@@ -21,6 +21,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AuthUserRole.
+const (
+	Executive       AuthUserRole = "executive"
+	FacilityManager AuthUserRole = "facility_manager"
+)
+
+// Valid indicates whether the value is a known member of the AuthUserRole enum.
+func (e AuthUserRole) Valid() bool {
+	switch e {
+	case Executive:
+		return true
+	case FacilityManager:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FacilityStatus.
 const (
 	Critical FacilityStatus = "critical"
@@ -83,6 +101,23 @@ func (e KpiUnit) Valid() bool {
 		return false
 	}
 }
+
+// AuthSession defines model for AuthSession.
+type AuthSession struct {
+	Token string   `json:"token"`
+	User  AuthUser `json:"user"`
+}
+
+// AuthUser defines model for AuthUser.
+type AuthUser struct {
+	FacilityId *string      `json:"facility_id,omitempty"`
+	Id         string       `json:"id"`
+	Name       string       `json:"name"`
+	Role       AuthUserRole `json:"role"`
+}
+
+// AuthUserRole defines model for AuthUser.Role.
+type AuthUserRole string
 
 // Brief defines model for Brief.
 type Brief struct {
@@ -154,6 +189,12 @@ type KpiDirection string
 // KpiUnit defines model for Kpi.Unit.
 type KpiUnit string
 
+// LoginRequest defines model for LoginRequest.
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 // MetricPoint defines model for MetricPoint.
 type MetricPoint struct {
 	Date  openapi_types.Date `json:"date"`
@@ -169,8 +210,20 @@ type NetworkMetrics struct {
 // InternalError defines model for InternalError.
 type InternalError = Error
 
+// Unauthorized defines model for Unauthorized.
+type Unauthorized = Error
+
+// PostAuthLoginJSONRequestBody defines body for PostAuthLogin for application/json ContentType.
+type PostAuthLoginJSONRequestBody = LoginRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Exchange email and password for an access token
+	// (POST /api/v1/auth/login)
+	PostAuthLogin(w http.ResponseWriter, r *http.Request)
+	// The current authenticated user
+	// (GET /api/v1/auth/me)
+	GetAuthMe(w http.ResponseWriter, r *http.Request)
 	// The AI-narrated Daily Brief over the current network
 	// (GET /api/v1/brief)
 	GetBrief(w http.ResponseWriter, r *http.Request)
@@ -188,6 +241,18 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// Exchange email and password for an access token
+// (POST /api/v1/auth/login)
+func (_ Unimplemented) PostAuthLogin(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// The current authenticated user
+// (GET /api/v1/auth/me)
+func (_ Unimplemented) GetAuthMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // The AI-narrated Daily Brief over the current network
 // (GET /api/v1/brief)
@@ -221,6 +286,34 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// PostAuthLogin operation middleware
+func (siw *ServerInterfaceWrapper) PostAuthLogin(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAuthLogin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAuthMe operation middleware
+func (siw *ServerInterfaceWrapper) GetAuthMe(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAuthMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // GetBrief operation middleware
 func (siw *ServerInterfaceWrapper) GetBrief(w http.ResponseWriter, r *http.Request) {
@@ -392,6 +485,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/login", wrapper.PostAuthLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/auth/me", wrapper.GetAuthMe)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/brief", wrapper.GetBrief)
 	})
 	r.Group(func(r chi.Router) {
@@ -408,6 +507,79 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 }
 
 type InternalErrorJSONResponse Error
+
+type UnauthorizedJSONResponse Error
+
+type PostAuthLoginRequestObject struct {
+	Body *PostAuthLoginJSONRequestBody
+}
+
+type PostAuthLoginResponseObject interface {
+	VisitPostAuthLoginResponse(w http.ResponseWriter) error
+}
+
+type PostAuthLogin200JSONResponse AuthSession
+
+func (response PostAuthLogin200JSONResponse) VisitPostAuthLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAuthLogin401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAuthLogin401JSONResponse) VisitPostAuthLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAuthMeRequestObject struct {
+}
+
+type GetAuthMeResponseObject interface {
+	VisitGetAuthMeResponse(w http.ResponseWriter) error
+}
+
+type GetAuthMe200JSONResponse AuthUser
+
+func (response GetAuthMe200JSONResponse) VisitGetAuthMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAuthMe401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAuthMe401JSONResponse) VisitGetAuthMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type GetBriefRequestObject struct {
 }
@@ -537,6 +709,12 @@ func (response GetHealthz200JSONResponse) VisitGetHealthzResponse(w http.Respons
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Exchange email and password for an access token
+	// (POST /api/v1/auth/login)
+	PostAuthLogin(ctx context.Context, request PostAuthLoginRequestObject) (PostAuthLoginResponseObject, error)
+	// The current authenticated user
+	// (GET /api/v1/auth/me)
+	GetAuthMe(ctx context.Context, request GetAuthMeRequestObject) (GetAuthMeResponseObject, error)
 	// The AI-narrated Daily Brief over the current network
 	// (GET /api/v1/brief)
 	GetBrief(ctx context.Context, request GetBriefRequestObject) (GetBriefResponseObject, error)
@@ -578,6 +756,61 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// PostAuthLogin operation middleware
+func (sh *strictHandler) PostAuthLogin(w http.ResponseWriter, r *http.Request) {
+	var request PostAuthLoginRequestObject
+
+	var body PostAuthLoginJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAuthLogin(ctx, request.(PostAuthLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAuthLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAuthLoginResponseObject); ok {
+		if err := validResponse.VisitPostAuthLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAuthMe operation middleware
+func (sh *strictHandler) GetAuthMe(w http.ResponseWriter, r *http.Request) {
+	var request GetAuthMeRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAuthMe(ctx, request.(GetAuthMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAuthMe")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAuthMeResponseObject); ok {
+		if err := validResponse.VisitGetAuthMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // GetBrief operation middleware
@@ -681,25 +914,30 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"fwIAAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

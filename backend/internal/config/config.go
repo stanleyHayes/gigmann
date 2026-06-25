@@ -16,6 +16,9 @@ const (
 	EnvProduction  = "production"
 )
 
+// devJWTSecret is a non-secret placeholder used only in development.
+const devJWTSecret = "dev-insecure-change-me" //nolint:gosec // non-secret development placeholder
+
 // Config holds validated runtime configuration.
 type Config struct {
 	AppEnv          string
@@ -25,6 +28,7 @@ type Config struct {
 	RedisURL        string
 	AnthropicAPIKey string
 	AnthropicModel  string
+	JWTSecret       string
 }
 
 // Load reads configuration from the environment and validates it.
@@ -43,6 +47,11 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("config: invalid HTTP_PORT: %w", err)
 	}
 	cfg.HTTPPort = port
+
+	cfg.JWTSecret = os.Getenv("JWT_SECRET")
+	if cfg.AppEnv == EnvDevelopment && cfg.JWTSecret == "" {
+		cfg.JWTSecret = devJWTSecret
+	}
 
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
@@ -71,6 +80,9 @@ func (c Config) validate() error {
 		}
 		if c.AnthropicAPIKey == "" {
 			return errors.New("config: ANTHROPIC_API_KEY is required outside development")
+		}
+		if c.JWTSecret == "" {
+			return errors.New("config: JWT_SECRET is required outside development")
 		}
 	}
 	return nil

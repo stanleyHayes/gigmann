@@ -69,6 +69,42 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/auth/login:
+    post:
+      operationId: postAuthLogin
+      summary: Exchange email and password for an access token
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSession'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/me:
+    get:
+      operationId: getAuthMe
+      summary: The current authenticated user
+      tags: [auth]
+      responses:
+        '200':
+          description: The authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
 components:
   schemas:
     Health:
@@ -202,6 +238,38 @@ components:
           items:
             $ref: '#/components/schemas/Kpi'
 
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    AuthUser:
+      type: object
+      required: [id, name, role]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [executive, facility_manager]
+        facility_id:
+          type: string
+
+    AuthSession:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/AuthUser'
+
     Error:
       type: object
       required: [error]
@@ -210,6 +278,12 @@ components:
           type: string
 
   responses:
+    Unauthorized:
+      description: Authentication required or failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     InternalError:
       description: Internal server error
       content:

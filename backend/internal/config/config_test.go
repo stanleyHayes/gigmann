@@ -59,6 +59,7 @@ func TestLoadProductionValid(t *testing.T) {
 	t.Setenv("HTTP_PORT", "9090")
 	t.Setenv("DATABASE_URL", "postgres://x")
 	t.Setenv("ANTHROPIC_API_KEY", "sk-test")
+	t.Setenv("JWT_SECRET", "prod-signing-secret")
 
 	cfg, err := config.Load()
 	if err != nil {

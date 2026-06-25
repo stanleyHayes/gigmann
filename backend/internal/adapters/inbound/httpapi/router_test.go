@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,13 +14,23 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/xcreativs/gigmann/internal/adapters/inbound/httpapi"
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/memory"
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/passwordhash"
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/token"
 	"github.com/xcreativs/gigmann/internal/app"
 	"github.com/xcreativs/gigmann/internal/core/brief"
 	"github.com/xcreativs/gigmann/internal/core/facility"
 	"github.com/xcreativs/gigmann/internal/core/payer"
 	"github.com/xcreativs/gigmann/internal/core/severity"
+	"github.com/xcreativs/gigmann/internal/core/user"
+	"github.com/xcreativs/gigmann/internal/ports"
 	"github.com/xcreativs/gigmann/internal/ports/mocks"
 	"github.com/xcreativs/gigmann/internal/seed"
+)
+
+const (
+	testEmail    = "ceo@gigmann.health"
+	testPassword = "demo-pass-1234"
 )
 
 func mustFacility(t *testing.T) facility.Facility {
@@ -35,12 +46,33 @@ func mustFacility(t *testing.T) facility.Facility {
 	return f
 }
 
+// newTestRouter builds the full HTTP handler with a seeded auth stack (a known
+// executive account) so handler tests can authenticate end to end.
+func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *mocks.MockBriefGenerator) http.Handler {
+	t.Helper()
+	hasher := passwordhash.New()
+	hash, err := hasher.Hash(testPassword)
+	require.NoError(t, err)
+	u, err := user.New(user.User{ID: "u1", Name: "Sammy Adjei", Role: user.RoleExecutive})
+	require.NoError(t, err)
+	users := memory.NewUserRepo(ports.Account{User: u, Email: testEmail, PasswordHash: hash})
+	tokens := token.New([]byte("test-secret"), time.Hour)
+	metricsSvc := app.NewMetricsService(seed.Generate(7, time.Date(2026, 6, 24, 0, 0, 0, 0, time.UTC), 14).Metrics)
+
+	return httpapi.NewRouter(httpapi.Deps{
+		Facilities: app.NewFacilityService(repo),
+		Metrics:    metricsSvc,
+		Briefs:     briefs,
+		Auth:       app.NewAuthService(users, hasher, tokens),
+		Tokens:     tokens,
+	})
+}
+
 func serve(t *testing.T, repo *mocks.MockFacilityRepository, briefs *mocks.MockBriefGenerator, method, target string) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(method, target, nil)
-	metricsSvc := app.NewMetricsService(seed.Generate(7, time.Date(2026, 6, 24, 0, 0, 0, 0, time.UTC), 14).Metrics)
-	httpapi.NewRouter(app.NewFacilityService(repo), metricsSvc, briefs).ServeHTTP(rec, req)
+	newTestRouter(t, repo, briefs).ServeHTTP(rec, req)
 	return rec
 }
 
@@ -127,4 +159,60 @@ func TestGetMetrics(t *testing.T) {
 	require.Len(t, body.KPIs, 4)
 	assert.Equal(t, "revenue", body.KPIs[0]["key"])
 	assert.NotEmpty(t, body.KPIs[0]["series"])
+}
+
+func postJSON(t *testing.T, h http.Handler, target, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, target, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestAuthLoginSuccessAndMe(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+
+	rec := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234"}`)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var session struct {
+		Token string         `json:"token"`
+		User  map[string]any `json:"user"`
+	}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&session))
+	require.NotEmpty(t, session.Token)
+	assert.Equal(t, "executive", session.User["role"])
+
+	meRec := httptest.NewRecorder()
+	meReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	meReq.Header.Set("Authorization", "Bearer "+session.Token)
+	h.ServeHTTP(meRec, meReq)
+	require.Equal(t, http.StatusOK, meRec.Code)
+	var me map[string]any
+	require.NoError(t, json.NewDecoder(meRec.Body).Decode(&me))
+	assert.Equal(t, "Sammy Adjei", me["name"])
+}
+
+func TestAuthLoginBadPassword(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+	rec := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"wrong"}`)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestAuthMeRequiresToken(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	rec := serve(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/api/v1/auth/me")
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestAuthMeRejectsBadToken(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	req.Header.Set("Authorization", "Bearer not-a-real-token")
+	h.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
