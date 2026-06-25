@@ -1,15 +1,16 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+
 import { StatusChip } from './StatusChip'
 
 describe('StatusChip', () => {
-  it('renders the facility label with an uppercase status (colour + text, a11y)', () => {
-    render(<StatusChip status="critical" label="Tafo Maternity" />)
-    expect(screen.getByText(/Tafo Maternity · CRITICAL/)).toBeInTheDocument()
+  it('prefixes the label when given one', () => {
+    render(<StatusChip status="critical" label="Tafo" />)
+    expect(screen.getByText(/Tafo · CRITICAL/)).toBeInTheDocument()
   })
 
-  it('renders the good status', () => {
-    render(<StatusChip status="good" label="Adansi" />)
-    expect(screen.getByText(/Adansi · GOOD/)).toBeInTheDocument()
+  it('shows only the status word without a label', () => {
+    render(<StatusChip status="good" />)
+    expect(screen.getByText('GOOD')).toBeInTheDocument()
   })
 })

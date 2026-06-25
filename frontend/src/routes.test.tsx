@@ -6,6 +6,10 @@ vi.mock('./api/useBrief', () => ({
   useBrief: () => ({ data: undefined, isLoading: true, isError: false }),
 }))
 
+vi.mock('./api/useFacilities', () => ({
+  useFacilities: () => ({ data: [], isLoading: false, isError: false }),
+}))
+
 import { AppProviders } from './app/providers'
 import { routes } from './app/routes'
 

@@ -67,7 +67,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
 | **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-42 done; 41/43 mock-first |
 | **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ◐ In progress — GEC-49/50 done |
-| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — GEC-55/56 done |
+| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — GEC-55/56/57 done |
 | **E8** | Realtime, Notifications & Alerts | 5 | 26 | ☐ Not started |
 | **E9** | Security Hardening & Compliance | 11 | 63 | ☐ Not started |
 | **E10** | SEO & Web Performance | 7 | 31 | ☐ Not started |
@@ -850,7 +850,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + matches GEC-52.
 - Dependencies: GEC-50, GEC-55.
 
-#### ☐ GEC-57 — Network single-pane view · 5 SP · Phase: Development
+#### ☑ GEC-57 — Network single-pane view · 5 SP · Phase: Development
+> **Done 2026-06-25:** `/network` consumes `GET /api/v1/facilities` via a typed `useFacilities` TanStack Query hook and renders the whole network at a glance — a summary line + proportional status-distribution bar, then a responsive grid of facility cards sorted worst-first (critical → watch → healthy), each with name, town/region, beds, and a status chip. Skeleton while loading, error state, empty-state handling. Live-verified against the real API (12 facilities, Tafo Maternity critical first). MUI X Charts deferred to GEC-59 (KPIs) where its API will be verified; pagination not applicable to a fixed single-pane network. Gate green: tsc/eslint clean, 22 tests @ 98.5%.
 - User story: As Sammy, I want all 12 facilities as living tiles with a network pulse, so that I command the whole empire on one screen.
 - Business value: Spec §5.2.
 - Acceptance criteria:
@@ -1516,3 +1517,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-25 | **GEC-49/50 done — Daily Brief over HTTP.** `GET /api/v1/brief` exposes the full pipeline (engine→pulse→context→narrate→validate). Added a deterministic local narrator (no-AI fallback) + `BriefGenerator` port; bootstrap picks Claude vs local by config. Live-verified: worst-first brief (Tafo claims gap + Kasoa denials critical) over the synthetic network. arch_test now scopes boundary checks to production code (test files may wire adapters). Gate 95.0%, lint 0. | Claude |
 | 2026-06-25 | **GEC-56 (core) — the hero Brief screen is live in the SPA.** React + MUI Home consumes the generated typed `/api/v1/brief` client through a `useBrief` TanStack Query hook; `DailyBrief` shows skeletons while loading, an error state, and the worst-first narrated items (status chip + headline + explanation + action buttons). Vite dev-proxy to the Go API (no CORS in dev). Frontend gate green: typecheck/eslint clean, 100% stmts / 94% branches, `vite build` ok. | Claude |
 | 2026-06-25 | **GEC-55 done — cockpit app shell, routing & offline PWA.** React Router v7 layout-route shell (brand bar + nav rail + outlet + colour-mode toggle) and an installable, offline-capable PWA whose service worker forces `/api`+`/healthz` NetworkOnly (never a stale figure). Library APIs were verified live before coding (research workflow), and the result was hardened by a 17-agent adversarial review: self-hosted fonts, global reduced-motion, AA contrast, a11y labels, single h1, robots noindex. Also tightened GEC-54 (design tokens) and GEC-56 (brief a11y). Bundle-size optimisation (533 KB) deferred to the perf/polish story. | Claude |
+| 2026-06-25 | **GEC-57 done — Network single-pane view.** `/network` renders the full facility network from `/api/v1/facilities` (typed `useFacilities` hook): summary + status-distribution bar + worst-first responsive card grid, with skeleton/error/empty states. `StatusChip` gained an optional label for the compact card variant. Live-verified against the real API. Charts deferred to GEC-59. Gate green: 22 tests @ 98.5%. | Claude |

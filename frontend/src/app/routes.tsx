@@ -1,6 +1,7 @@
 import type { RouteObject } from 'react-router-dom'
 
 import { HomeScreen } from '../screens/HomeScreen'
+import { NetworkScreen } from '../screens/NetworkScreen'
 import { Placeholder } from '../screens/Placeholder'
 import { AppShell } from './AppShell'
 
@@ -10,7 +11,7 @@ export const routes: RouteObject[] = [
     Component: AppShell,
     children: [
       { index: true, Component: HomeScreen },
-      { path: 'network', element: <Placeholder title="Network" note="Single-pane network view — planned in GEC-57." /> },
+      { path: 'network', Component: NetworkScreen },
       { path: 'kpis', element: <Placeholder title="Executive KPIs" note="Planned in GEC-59." /> },
       { path: 'ask', element: <Placeholder title="Ask" note="Natural-language query and generated docs — planned in GEC-60." /> },
       { path: 'my-day', element: <Placeholder title="My Day" note="Planned in GEC-61." /> },
