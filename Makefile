@@ -22,7 +22,7 @@ backend-run: ## Run the Go API locally
 .PHONY: backend-test
 backend-test: ## Run Go tests with race detector + coverage (generated *_gen.go excluded)
 	cd $(BACKEND_DIR) && go test -race -covermode=atomic -coverprofile=coverage.out ./internal/...
-	cd $(BACKEND_DIR) && grep -vE '(_gen\.go|\.gen\.go|/bootstrap/|/mocks/)' coverage.out > coverage.filtered.out
+	cd $(BACKEND_DIR) && grep -vE '(_gen\.go|\.gen\.go|/bootstrap/|/mocks/|/adapters/outbound/postgres/)' coverage.out > coverage.filtered.out
 	cd $(BACKEND_DIR) && go tool cover -func=coverage.filtered.out | tail -n 1
 
 .PHONY: backend-cover-gate
@@ -40,10 +40,15 @@ backend-lint: ## Run golangci-lint
 backend-tidy: ## go mod tidy
 	cd $(BACKEND_DIR) && go mod tidy
 
+.PHONY: backend-integration
+backend-integration: ## Run integration tests (testcontainers; requires Docker)
+	cd $(BACKEND_DIR) && go test -tags=integration -race ./...
+
 ## ---- Codegen (OpenAPI) ----
 .PHONY: generate
 generate: ## Regenerate OpenAPI Go server stubs + TS client types from backend/api/openapi.yaml
 	cd $(BACKEND_DIR) && go tool oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
+	cd $(BACKEND_DIR) && go run github.com/sqlc-dev/sqlc/cmd/sqlc@latest generate
 	cd $(FRONTEND_DIR) && npm run gen:api
 
 ## ---- Frontend ----

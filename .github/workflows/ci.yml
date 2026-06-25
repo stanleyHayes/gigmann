@@ -45,7 +45,7 @@ jobs:
       - name: Test (race) + coverage
         run: |
           go test -race -covermode=atomic -coverprofile=coverage.out ./internal/...
-          grep -vE '(_gen\.go|\.gen\.go|/bootstrap/|/mocks/)' coverage.out > coverage.filtered.out
+          grep -vE '(_gen\.go|\.gen\.go|/bootstrap/|/mocks/|/adapters/outbound/postgres/)' coverage.out > coverage.filtered.out
 
       - name: Coverage gate (>= 80%, generated code excluded)
         run: |
@@ -132,5 +132,20 @@ jobs:
         run: |
           git diff --exit-code -- \
             backend/internal/adapters/inbound/httpapi/openapi_gen.go \
+            backend/internal/adapters/outbound/postgres/sqlcgen \
             frontend/src/api/schema.d.ts \
             || { echo "::error::Generated code is stale — run 'make generate' and commit the result"; exit 1; }
+
+  integration:
+    name: Backend integration (testcontainers)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: backend/go.sum
+      - run: go test -tags=integration -race ./...

@@ -61,7 +61,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | Epic | Title | Stories | Points | Status |
 |---|---|---|---|---|
 | **E0** | Foundations & Engineering Operations | 9 | 41 | ◐ In progress — GEC-1/2/5/9 done; 3/4/6/7/8 in progress |
-| **E1** | Domain Model, Data Layer & Synthetic Network | 8 | 47 | ◐ In progress — GEC-10 done |
+| **E1** | Domain Model, Data Layer & Synthetic Network | 8 | 47 | ◐ In progress — GEC-10/11/14 done |
 | **E2** | Authentication & Authorization | 7 | 39 | ☐ Not started |
 | **E3** | Core Domain APIs (REST + OpenAPI) | 9 | 52 | ☐ Not started |
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☐ Not started |
@@ -332,7 +332,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-1.
 
-#### ☐ GEC-11 — Postgres schema & migrations · 5 SP · Phase: Development
+#### ☑ GEC-11 — Postgres schema & migrations · 5 SP · Phase: Development
+> **Done 2026-06-25:** `backend/migrations/000001_init.*.sql` (golang-migrate) — all spec §7 tables, CHECK-based enums, FKs, indexes, `CREATE EXTENSION vector`; payer-mix-sums-100 + manager-has-facility constraints. sqlc reads it as schema.
 - User story: As an engineer, I want versioned migrations for the full schema, so that environments are reproducible.
 - Business value: Reliable, auditable data layer.
 - Acceptance criteria:
@@ -365,7 +366,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-11.
 
-#### ☐ GEC-14 — Repository adapters (ports → Postgres) · 8 SP · Phase: Development
+#### ☑ GEC-14 — Repository adapters (ports → Postgres) · 8 SP · Phase: Development
+> **Done 2026-06-25:** pgx + sqlc `FacilityRepo` implements `ports.FacilityRepository` (rows→domain). sqlc via `go run` (keeps go.mod on 1.25). **testcontainers** integration test (`pgvector/pgvector:pg16`, build-tag `integration`) passes; `make backend-integration` + CI integration job; postgres pkg excluded from the unit coverage gate.
 - User story: As an engineer, I want repository adapters implementing domain ports via pgx/sqlc, so that the core stays infra-free.
 - Business value: Testable persistence; swappable storage.
 - Acceptance criteria:
@@ -1497,3 +1499,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-24 | **GEC-5 done** — OpenAPI 3.0.3 contract + codegen: oapi-codegen strict Chi server (router implements the generated interface) + openapi-typescript client (openapi-fetch). `make generate` + CI drift job; generated code excluded from the coverage gate (backend 96.8%, frontend 100%). | Claude |
 | 2026-06-25 | **GEC-10 done** — domain model per spec §7: value objects money(Cedis)/severity/payer + entities facility(expanded), metric, inventory, staff, alert, task, approval, brief, insight, user. Pure, ~100% covered (backend gate 99.2%). | Claude |
 | 2026-06-25 | Tooling: **enabled ALL golangci-lint v2 linters** (curated disables with reasons; formatters as a separate section) — 0 issues after fixes (dropped deprecated `middleware.RealIP`, reordered config methods, `exhaustive: default-signifies-exhaustive`). CI **Node → latest v26** (+check-latest) + `.nvmrc`. | Claude |
+| 2026-06-25 | **GEC-11 + GEC-14 done** — full Postgres schema (golang-migrate, all §7 tables + pgvector ext) and pgx+sqlc FacilityRepo implementing the port, verified by a **testcontainers** integration test against pgvector/pgvector:pg16. sqlc run via `go run` to keep the module on Go 1.25 (sqlc@latest needs 1.26); integration tests build-tagged + own CI job; postgres pkg excluded from unit coverage. | Claude |
