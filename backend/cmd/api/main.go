@@ -17,6 +17,8 @@ import (
 	"github.com/xcreativs/gigmann/internal/app"
 	"github.com/xcreativs/gigmann/internal/config"
 	"github.com/xcreativs/gigmann/internal/core/facility"
+	"github.com/xcreativs/gigmann/internal/core/payer"
+	"github.com/xcreativs/gigmann/internal/core/severity"
 )
 
 func main() {
@@ -62,21 +64,25 @@ func main() {
 }
 
 func mustSeed() []facility.Facility {
-	specs := []struct {
-		id, name, region, town string
-		beds                   int
-		status                 facility.Status
-	}{
-		{"assin-fosu", "Assin Fosu Specialist Hospital", "Central", "Assin Fosu", 60, facility.StatusGood},
-		{"tafo-maternity", "Tafo Maternity & Child Health", "Ashanti", "Old Tafo", 25, facility.StatusCritical},
-	}
-	out := make([]facility.Facility, 0, len(specs))
-	for _, s := range specs {
-		f, err := facility.New(s.id, s.name, facility.Region(s.region), s.town, s.beds, s.status)
+	mk := func(p facility.Params) facility.Facility {
+		f, err := facility.New(p)
 		if err != nil {
 			panic(err)
 		}
-		out = append(out, f)
+		return f
 	}
-	return out
+	mixFosu, _ := payer.New(65, 25, 10)
+	mixTafo, _ := payer.New(80, 18, 2)
+	return []facility.Facility{
+		mk(facility.Params{
+			ID: "assin-fosu", Name: "Assin Fosu Specialist Hospital", Region: "Central", Town: "Assin Fosu",
+			Type: "Specialist", Beds: 60, Lifecycle: facility.LifecycleFlagship, Health: severity.Good,
+			ManagerName: "Dr. Mensah", PayerMix: mixFosu,
+		}),
+		mk(facility.Params{
+			ID: "tafo-maternity", Name: "Tafo Maternity & Child Health", Region: "Ashanti", Town: "Old Tafo",
+			Type: "Maternity", Beds: 25, Lifecycle: facility.LifecycleActive, Health: severity.Critical,
+			ManagerName: "Mad. Adjoa", PayerMix: mixTafo,
+		}),
+	}
 }

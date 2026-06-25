@@ -60,6 +60,6 @@ func toAPIFacility(f facility.Facility) Facility {
 		Region: string(f.Region),
 		Town:   f.Town,
 		Beds:   int32(f.Beds), //nolint:gosec // beds is a small, non-negative bed count
-		Status: FacilityStatus(f.Status),
+		Status: FacilityStatus(f.Health),
 	}
 }

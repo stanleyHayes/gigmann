@@ -1,25 +1,28 @@
-// Package facility holds the Facility domain entity and its value objects.
-// It is pure domain code: no framework, database, or adapter imports.
+// Package facility holds the Facility aggregate and its value objects.
+// Pure domain code: no framework, database, or adapter imports.
 package facility
 
 import (
 	"errors"
 	"strings"
+
+	"github.com/xcreativs/gigmann/internal/core/payer"
+	"github.com/xcreativs/gigmann/internal/core/severity"
 )
 
-// Status is the AI-assessed operational health signal for a facility.
-type Status string
+// Lifecycle is a facility's operational lifecycle (spec §7 facilities.status).
+type Lifecycle string
 
 const (
-	StatusGood     Status = "good"
-	StatusWatch    Status = "watch"
-	StatusCritical Status = "critical"
+	LifecycleActive   Lifecycle = "active"
+	LifecycleRamping  Lifecycle = "ramping"
+	LifecycleFlagship Lifecycle = "flagship"
 )
 
-// Valid reports whether s is a known status.
-func (s Status) Valid() bool {
-	switch s {
-	case StatusGood, StatusWatch, StatusCritical:
+// Valid reports whether l is a known lifecycle value.
+func (l Lifecycle) Valid() bool {
+	switch l {
+	case LifecycleActive, LifecycleRamping, LifecycleFlagship:
 		return true
 	default:
 		return false
@@ -29,47 +32,81 @@ func (s Status) Valid() bool {
 // Region is a Ghanaian administrative region (e.g. "Ashanti", "Central").
 type Region string
 
-// Facility is a single hospital, clinic, or diagnostic centre in the network.
+// Facility is a hospital, clinic, or diagnostic centre in the network.
 type Facility struct {
-	ID     string
-	Name   string
-	Region Region
-	Town   string
-	Beds   int
-	Status Status
+	ID          string
+	Name        string
+	Region      Region
+	Town        string
+	Type        string
+	Beds        int
+	Lifecycle   Lifecycle
+	Health      severity.Severity // latest AI-assessed health (good/watch/critical)
+	ManagerName string
+	PayerMix    payer.Mix
+	Latitude    float64
+	Longitude   float64
+}
+
+// Params carries the inputs to New.
+type Params struct {
+	ID          string
+	Name        string
+	Region      Region
+	Town        string
+	Type        string
+	Beds        int
+	Lifecycle   Lifecycle
+	Health      severity.Severity
+	ManagerName string
+	PayerMix    payer.Mix
+	Latitude    float64
+	Longitude   float64
 }
 
 // Domain validation errors.
 var (
-	ErrEmptyID       = errors.New("facility: id is required")
-	ErrEmptyName     = errors.New("facility: name is required")
-	ErrEmptyRegion   = errors.New("facility: region is required")
-	ErrNegativeBeds  = errors.New("facility: beds must be >= 0")
-	ErrInvalidStatus = errors.New("facility: invalid status")
+	ErrEmptyID          = errors.New("facility: id is required")
+	ErrEmptyName        = errors.New("facility: name is required")
+	ErrEmptyRegion      = errors.New("facility: region is required")
+	ErrNegativeBeds     = errors.New("facility: beds must be >= 0")
+	ErrInvalidLifecycle = errors.New("facility: invalid lifecycle")
+	ErrInvalidHealth    = errors.New("facility: invalid health")
+	ErrInvalidPayerMix  = errors.New("facility: invalid payer mix")
 )
 
 // New constructs a Facility, enforcing domain invariants.
-func New(id, name string, region Region, town string, beds int, status Status) (Facility, error) {
-	id = strings.TrimSpace(id)
-	name = strings.TrimSpace(name)
+func New(p Params) (Facility, error) {
+	id := strings.TrimSpace(p.ID)
+	name := strings.TrimSpace(p.Name)
 	switch {
 	case id == "":
 		return Facility{}, ErrEmptyID
 	case name == "":
 		return Facility{}, ErrEmptyName
-	case strings.TrimSpace(string(region)) == "":
+	case strings.TrimSpace(string(p.Region)) == "":
 		return Facility{}, ErrEmptyRegion
-	case beds < 0:
+	case p.Beds < 0:
 		return Facility{}, ErrNegativeBeds
-	case !status.Valid():
-		return Facility{}, ErrInvalidStatus
+	case !p.Lifecycle.Valid():
+		return Facility{}, ErrInvalidLifecycle
+	case !p.Health.Valid():
+		return Facility{}, ErrInvalidHealth
+	case !p.PayerMix.Valid():
+		return Facility{}, ErrInvalidPayerMix
 	}
 	return Facility{
-		ID:     id,
-		Name:   name,
-		Region: region,
-		Town:   strings.TrimSpace(town),
-		Beds:   beds,
-		Status: status,
+		ID:          id,
+		Name:        name,
+		Region:      p.Region,
+		Town:        strings.TrimSpace(p.Town),
+		Type:        strings.TrimSpace(p.Type),
+		Beds:        p.Beds,
+		Lifecycle:   p.Lifecycle,
+		Health:      p.Health,
+		ManagerName: strings.TrimSpace(p.ManagerName),
+		PayerMix:    p.PayerMix,
+		Latitude:    p.Latitude,
+		Longitude:   p.Longitude,
 	}, nil
 }

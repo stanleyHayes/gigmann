@@ -61,7 +61,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | Epic | Title | Stories | Points | Status |
 |---|---|---|---|---|
 | **E0** | Foundations & Engineering Operations | 9 | 41 | ◐ In progress — GEC-1/2/5/9 done; 3/4/6/7/8 in progress |
-| **E1** | Domain Model, Data Layer & Synthetic Network | 8 | 47 | ☐ Not started |
+| **E1** | Domain Model, Data Layer & Synthetic Network | 8 | 47 | ◐ In progress — GEC-10 done |
 | **E2** | Authentication & Authorization | 7 | 39 | ☐ Not started |
 | **E3** | Core Domain APIs (REST + OpenAPI) | 9 | 52 | ☐ Not started |
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☐ Not started |
@@ -320,7 +320,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 ## E1 — Domain Model, Data Layer & Synthetic Network
 *Goal: the relational + time-series data model from spec §7, and a reseedable, Ghana-grounded 12-facility network (spec §4, §10, Appendices A & C).*
 
-#### ☐ GEC-10 — Domain entities & value objects · 5 SP · Phase: Solution Design / Development
+#### ☑ GEC-10 — Domain entities & value objects · 5 SP · Phase: Solution Design / Development
+> **Done 2026-06-25:** value objects (money/severity/payer) + entities (facility expanded with lifecycle/payer-mix/geo, metric, inventory, staff, alert, task, approval, brief, insight, user). Pure domain, ~100% covered.
 - User story: As an engineer, I want pure domain types for the cockpit, so that business rules live in the core.
 - Business value: Clean hexagonal core; rules testable without infra.
 - Acceptance criteria:
@@ -1494,3 +1495,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-24 | **Phase 0 kickoff scaffolded** (latest versions of everything): git repo; Go hexagonal backend (Chi v5.3, build + 94.3% test coverage, arch boundary test); CLAUDE.md/AGENTS.md; CI workflow + SonarQube + golangci v2 config; render.yaml + Dockerfile + docker-compose; React 19 + Vite + MUI v9 + MUI X Charts 9 frontend (100% test coverage). GEC-1/2/9 done; GEC-3/4/6/7/8/105 in progress. | Claude |
 | 2026-06-24 | **DB finalised for Render: dropped TimescaleDB** → Render-managed Postgres 16 + pgvector with native time-series (indexes; partitioning/materialized views if needed). Updated stack table, GEC-12, GEC-98, docker-compose (`pgvector/pgvector:pg16`), render.yaml, ADR-0001, and docs. OQ-4 resolved. | Claude |
 | 2026-06-24 | **GEC-5 done** — OpenAPI 3.0.3 contract + codegen: oapi-codegen strict Chi server (router implements the generated interface) + openapi-typescript client (openapi-fetch). `make generate` + CI drift job; generated code excluded from the coverage gate (backend 96.8%, frontend 100%). | Claude |
+| 2026-06-25 | **GEC-10 done** — domain model per spec §7: value objects money(Cedis)/severity/payer + entities facility(expanded), metric, inventory, staff, alert, task, approval, brief, insight, user. Pure, ~100% covered (backend gate 99.2%). | Claude |

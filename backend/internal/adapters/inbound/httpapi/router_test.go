@@ -12,6 +12,8 @@ import (
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/memory"
 	"github.com/xcreativs/gigmann/internal/app"
 	"github.com/xcreativs/gigmann/internal/core/facility"
+	"github.com/xcreativs/gigmann/internal/core/payer"
+	"github.com/xcreativs/gigmann/internal/core/severity"
 )
 
 type errRepo struct{}
@@ -22,7 +24,12 @@ func (errRepo) List(context.Context) ([]facility.Facility, error) {
 
 func newTestServer(t *testing.T) http.Handler {
 	t.Helper()
-	f, err := facility.New("f1", "Kasoa Polyclinic", "Central", "Kasoa", 40, facility.StatusGood)
+	mix, _ := payer.New(70, 25, 5)
+	f, err := facility.New(facility.Params{
+		ID: "f1", Name: "Kasoa Polyclinic", Region: "Central", Town: "Kasoa",
+		Type: "OPD", Beds: 40, Lifecycle: facility.LifecycleActive, Health: severity.Good,
+		ManagerName: "Ama Owusu", PayerMix: mix,
+	})
 	if err != nil {
 		t.Fatalf("seed: %v", err)
 	}
