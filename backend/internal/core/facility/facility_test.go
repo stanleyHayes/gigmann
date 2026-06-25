@@ -1,8 +1,10 @@
 package facility_test
 
 import (
-	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/xcreativs/gigmann/internal/core/facility"
 	"github.com/xcreativs/gigmann/internal/core/payer"
@@ -12,31 +14,19 @@ import (
 func validParams(t *testing.T) facility.Params {
 	t.Helper()
 	mix, err := payer.New(65, 25, 10)
-	if err != nil {
-		t.Fatalf("payer: %v", err)
-	}
+	require.NoError(t, err)
 	return facility.Params{
-		ID:          "f1",
-		Name:        "Kasoa Polyclinic",
-		Region:      "Central",
-		Town:        "Kasoa",
-		Type:        "OPD",
-		Beds:        40,
-		Lifecycle:   facility.LifecycleActive,
-		Health:      severity.Good,
-		ManagerName: "Ama Owusu",
-		PayerMix:    mix,
+		ID: "f1", Name: "Kasoa Polyclinic", Region: "Central", Town: "Kasoa",
+		Type: "OPD", Beds: 40, Lifecycle: facility.LifecycleActive, Health: severity.Good,
+		ManagerName: "Ama Owusu", PayerMix: mix,
 	}
 }
 
 func TestNewValid(t *testing.T) {
 	f, err := facility.New(validParams(t))
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
-	if f.ID != "f1" || f.Name != "Kasoa Polyclinic" || f.Health != severity.Good {
-		t.Errorf("fields not set correctly: %+v", f)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "f1", f.ID)
+	assert.Equal(t, severity.Good, f.Health)
 }
 
 func TestNewInvariants(t *testing.T) {
@@ -58,20 +48,15 @@ func TestNewInvariants(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := validParams(t)
 			tt.mutate(&p)
-			if _, err := facility.New(p); !errors.Is(err, tt.wantErr) {
-				t.Fatalf("want %v, got %v", tt.wantErr, err)
-			}
+			_, err := facility.New(p)
+			require.ErrorIs(t, err, tt.wantErr)
 		})
 	}
 }
 
 func TestLifecycleValid(t *testing.T) {
 	for _, l := range []facility.Lifecycle{facility.LifecycleActive, facility.LifecycleRamping, facility.LifecycleFlagship} {
-		if !l.Valid() {
-			t.Errorf("%q should be valid", l)
-		}
+		assert.Truef(t, l.Valid(), "%q should be valid", l)
 	}
-	if facility.Lifecycle("x").Valid() {
-		t.Error("unknown lifecycle reported valid")
-	}
+	assert.False(t, facility.Lifecycle("x").Valid())
 }

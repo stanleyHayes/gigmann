@@ -1,30 +1,24 @@
 package user_test
 
 import (
-	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/xcreativs/gigmann/internal/core/user"
 )
 
 func TestNewExecutiveValid(t *testing.T) {
 	u, err := user.New(user.User{ID: "u1", Name: "Sammy Adjei", Role: user.RoleExecutive})
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
-	if u.Role != user.RoleExecutive {
-		t.Errorf("role not set: %q", u.Role)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, user.RoleExecutive, u.Role)
 }
 
 func TestNewManagerValid(t *testing.T) {
 	u, err := user.New(user.User{ID: "u2", Name: "Ama Owusu", Role: user.RoleFacilityManager, FacilityID: "kasoa"})
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
-	if u.FacilityID != "kasoa" {
-		t.Errorf("facility not set: %q", u.FacilityID)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "kasoa", u.FacilityID)
 }
 
 func TestNewInvariants(t *testing.T) {
@@ -41,15 +35,14 @@ func TestNewInvariants(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := user.New(tt.in); !errors.Is(err, tt.wantErr) {
-				t.Fatalf("want %v, got %v", tt.wantErr, err)
-			}
+			_, err := user.New(tt.in)
+			require.ErrorIs(t, err, tt.wantErr)
 		})
 	}
 }
 
 func TestRoleValid(t *testing.T) {
-	if !user.RoleExecutive.Valid() || !user.RoleFacilityManager.Valid() || user.Role("x").Valid() {
-		t.Error("role validity wrong")
-	}
+	assert.True(t, user.RoleExecutive.Valid())
+	assert.True(t, user.RoleFacilityManager.Valid())
+	assert.False(t, user.Role("x").Valid())
 }

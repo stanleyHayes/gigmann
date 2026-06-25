@@ -1,9 +1,11 @@
 package approval_test
 
 import (
-	"errors"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/xcreativs/gigmann/internal/core/approval"
 	"github.com/xcreativs/gigmann/internal/core/money"
@@ -19,12 +21,8 @@ func valid() approval.Approval {
 
 func TestNewValid(t *testing.T) {
 	a, err := approval.New(valid())
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
-	if a.Amount.Pesewas() != 8500000 {
-		t.Errorf("amount not set: %d", a.Amount.Pesewas())
-	}
+	require.NoError(t, err)
+	assert.Equal(t, int64(8500000), a.Amount.Pesewas())
 }
 
 func TestNewInvariants(t *testing.T) {
@@ -42,27 +40,26 @@ func TestNewInvariants(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			a := valid()
 			tt.mutate(&a)
-			if _, err := approval.New(a); !errors.Is(err, tt.wantErr) {
-				t.Fatalf("want %v, got %v", tt.wantErr, err)
-			}
+			_, err := approval.New(a)
+			require.ErrorIs(t, err, tt.wantErr)
 		})
 	}
 }
 
 func TestDecide(t *testing.T) {
 	at := time.Date(2026, 6, 9, 8, 0, 0, 0, time.UTC)
-	a, _ := approval.New(valid())
+	a, err := approval.New(valid())
+	require.NoError(t, err)
 
 	approved, err := a.Decide(true, "Go ahead", at)
-	if err != nil || approved.Status != approval.StatusApproved || approved.DecisionNote != "Go ahead" {
-		t.Fatalf("approve failed: %v %+v", err, approved)
-	}
-	if _, err := approved.Decide(false, "", at); !errors.Is(err, approval.ErrAlreadyDecided) {
-		t.Errorf("want ErrAlreadyDecided, got %v", err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, approval.StatusApproved, approved.Status)
+	assert.Equal(t, "Go ahead", approved.DecisionNote)
+
+	_, err = approved.Decide(false, "", at)
+	require.ErrorIs(t, err, approval.ErrAlreadyDecided)
 
 	declined, err := a.Decide(false, "Defer to Q3", at)
-	if err != nil || declined.Status != approval.StatusDeclined {
-		t.Fatalf("decline failed: %v %+v", err, declined)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, approval.StatusDeclined, declined.Status)
 }

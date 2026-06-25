@@ -1,8 +1,10 @@
 package alert_test
 
 import (
-	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/xcreativs/gigmann/internal/core/alert"
 	"github.com/xcreativs/gigmann/internal/core/severity"
@@ -18,12 +20,8 @@ func valid() alert.Alert {
 
 func TestNewValid(t *testing.T) {
 	a, err := alert.New(valid())
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
-	if a.Severity != severity.Critical {
-		t.Errorf("severity not set: %q", a.Severity)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, severity.Critical, a.Severity)
 }
 
 func TestNewInvariants(t *testing.T) {
@@ -43,29 +41,27 @@ func TestNewInvariants(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			a := valid()
 			tt.mutate(&a)
-			if _, err := alert.New(a); !errors.Is(err, tt.wantErr) {
-				t.Fatalf("want %v, got %v", tt.wantErr, err)
-			}
+			_, err := alert.New(a)
+			require.ErrorIs(t, err, tt.wantErr)
 		})
 	}
 }
 
 func TestTransitions(t *testing.T) {
-	a, _ := alert.New(valid())
+	a, err := alert.New(valid())
+	require.NoError(t, err)
+
 	dismissed, err := a.Dismiss()
-	if err != nil || dismissed.Status != alert.StatusDismissed {
-		t.Fatalf("dismiss failed: %v status=%q", err, dismissed.Status)
-	}
-	if _, err := dismissed.Resolve(); !errors.Is(err, alert.ErrAlreadyTerminal) {
-		t.Errorf("want ErrAlreadyTerminal, got %v", err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, alert.StatusDismissed, dismissed.Status)
+
+	_, err = dismissed.Resolve()
+	require.ErrorIs(t, err, alert.ErrAlreadyTerminal)
 
 	resolved, err := a.Resolve()
-	if err != nil || resolved.Status != alert.StatusResolved {
-		t.Fatalf("resolve failed: %v status=%q", err, resolved.Status)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, alert.StatusResolved, resolved.Status)
 
-	if !alert.StatusOpen.Valid() || alert.Status("x").Valid() {
-		t.Error("Status.Valid wrong")
-	}
+	assert.True(t, alert.StatusOpen.Valid())
+	assert.False(t, alert.Status("x").Valid())
 }

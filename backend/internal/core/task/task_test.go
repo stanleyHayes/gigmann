@@ -1,8 +1,10 @@
 package task_test
 
 import (
-	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/xcreativs/gigmann/internal/core/task"
 )
@@ -16,12 +18,8 @@ func valid() task.Task {
 
 func TestNewValid(t *testing.T) {
 	got, err := task.New(valid())
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
-	if got.Source != task.SourceBrief {
-		t.Errorf("source not set: %q", got.Source)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, task.SourceBrief, got.Source)
 }
 
 func TestNewInvariants(t *testing.T) {
@@ -40,21 +38,17 @@ func TestNewInvariants(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tk := valid()
 			tt.mutate(&tk)
-			if _, err := task.New(tk); !errors.Is(err, tt.wantErr) {
-				t.Fatalf("want %v, got %v", tt.wantErr, err)
-			}
+			_, err := task.New(tk)
+			require.ErrorIs(t, err, tt.wantErr)
 		})
 	}
 }
 
 func TestEnumValidity(t *testing.T) {
-	if !task.PriorityHigh.Valid() || task.Priority("x").Valid() {
-		t.Error("priority validity wrong")
-	}
-	if !task.StatusDone.Valid() || task.Status("x").Valid() {
-		t.Error("status validity wrong")
-	}
-	if !task.SourceAlert.Valid() || task.Source("x").Valid() {
-		t.Error("source validity wrong")
-	}
+	assert.True(t, task.PriorityHigh.Valid())
+	assert.False(t, task.Priority("x").Valid())
+	assert.True(t, task.StatusDone.Valid())
+	assert.False(t, task.Status("x").Valid())
+	assert.True(t, task.SourceAlert.Valid())
+	assert.False(t, task.Source("x").Valid())
 }

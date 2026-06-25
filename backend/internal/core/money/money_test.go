@@ -3,34 +3,24 @@ package money_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/xcreativs/gigmann/internal/core/money"
 )
 
 func TestConstructionAndAccessors(t *testing.T) {
 	c := money.FromCedis(1234, 56)
-	if c.Pesewas() != 123456 {
-		t.Errorf("want 123456 pesewas, got %d", c.Pesewas())
-	}
-	if c.Float() != 1234.56 {
-		t.Errorf("want 1234.56, got %v", c.Float())
-	}
-	if money.FromPesewas(50).Pesewas() != 50 {
-		t.Error("FromPesewas mismatch")
-	}
+	assert.Equal(t, int64(123456), c.Pesewas())
+	assert.InDelta(t, 1234.56, c.Float(), 0.001)
+	assert.Equal(t, int64(50), money.FromPesewas(50).Pesewas())
 }
 
 func TestArithmetic(t *testing.T) {
 	a := money.FromCedis(100, 0)
 	b := money.FromCedis(40, 50)
-	if got := a.Add(b); got.Pesewas() != 14050 {
-		t.Errorf("add: got %d", got.Pesewas())
-	}
-	if got := b.Sub(a); !got.IsNegative() {
-		t.Error("expected negative result")
-	}
-	if a.IsNegative() {
-		t.Error("100 cedis should not be negative")
-	}
+	assert.Equal(t, int64(14050), a.Add(b).Pesewas())
+	assert.True(t, b.Sub(a).IsNegative())
+	assert.False(t, a.IsNegative())
 }
 
 func TestString(t *testing.T) {
@@ -42,8 +32,6 @@ func TestString(t *testing.T) {
 		money.FromCedis(-85000, 0):  "-GH₵ 85,000.00",
 	}
 	for amount, want := range cases {
-		if got := amount.String(); got != want {
-			t.Errorf("String(%d) = %q, want %q", amount.Pesewas(), got, want)
-		}
+		assert.Equal(t, want, amount.String())
 	}
 }

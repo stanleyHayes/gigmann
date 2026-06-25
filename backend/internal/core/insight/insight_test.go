@@ -1,8 +1,10 @@
 package insight_test
 
 import (
-	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/xcreativs/gigmann/internal/core/insight"
 )
@@ -15,12 +17,8 @@ func valid() insight.Insight {
 
 func TestNewValid(t *testing.T) {
 	i, err := insight.New(valid())
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
-	if i.Type != "claims_health" {
-		t.Errorf("type not set: %q", i.Type)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "claims_health", i.Type)
 }
 
 func TestNewInvariants(t *testing.T) {
@@ -37,9 +35,8 @@ func TestNewInvariants(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			i := valid()
 			tt.mutate(&i)
-			if _, err := insight.New(i); !errors.Is(err, tt.wantErr) {
-				t.Fatalf("want %v, got %v", tt.wantErr, err)
-			}
+			_, err := insight.New(i)
+			require.ErrorIs(t, err, tt.wantErr)
 		})
 	}
 }

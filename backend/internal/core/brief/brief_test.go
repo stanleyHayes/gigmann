@@ -1,9 +1,11 @@
 package brief_test
 
 import (
-	"errors"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/xcreativs/gigmann/internal/core/brief"
 	"github.com/xcreativs/gigmann/internal/core/severity"
@@ -11,8 +13,7 @@ import (
 
 func valid() brief.Brief {
 	return brief.Brief{
-		ID:    "b-2026-06-09",
-		Date:  time.Date(2026, 6, 9, 0, 0, 0, 0, time.UTC),
+		ID: "b-2026-06-09", Date: time.Date(2026, 6, 9, 0, 0, 0, 0, time.UTC),
 		Prose: "Good morning, Sammy.",
 		Items: []brief.Item{
 			{Severity: severity.Critical, FacilityID: "tafo-maternity", Headline: "Tafo Maternity needs you first",
@@ -24,12 +25,9 @@ func valid() brief.Brief {
 
 func TestNewValid(t *testing.T) {
 	b, err := brief.New(valid())
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
-	if len(b.Items) != 1 || b.Items[0].Severity != severity.Critical {
-		t.Errorf("items not preserved: %+v", b.Items)
-	}
+	require.NoError(t, err)
+	require.Len(t, b.Items, 1)
+	assert.Equal(t, severity.Critical, b.Items[0].Severity)
 }
 
 func TestNewInvariants(t *testing.T) {
@@ -47,9 +45,8 @@ func TestNewInvariants(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := valid()
 			tt.mutate(&b)
-			if _, err := brief.New(b); !errors.Is(err, tt.wantErr) {
-				t.Fatalf("want %v, got %v", tt.wantErr, err)
-			}
+			_, err := brief.New(b)
+			require.ErrorIs(t, err, tt.wantErr)
 		})
 	}
 }
