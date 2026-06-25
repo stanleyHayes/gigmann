@@ -64,7 +64,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | **E1** | Domain Model, Data Layer & Synthetic Network | 8 | 47 | ◐ In progress — GEC-10/11/14/15/16 done |
 | **E2** | Authentication & Authorization | 7 | 39 | ☐ Not started |
 | **E3** | Core Domain APIs (REST + OpenAPI) | 9 | 52 | ☐ Not started |
-| **E4** | Signal Engine (deterministic) | 7 | 42 | ☐ Not started |
+| **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
 | **E5** | Intelligence Service (Claude) | 8 | 55 | ☐ Not started |
 | **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ☐ Not started |
 | **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ☐ Not started |
@@ -593,7 +593,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 ## E4 — Signal Engine (deterministic)
 *Goal: spec §6.3 — numbers, thresholds, deltas, projections computed **in code, never by the model**. Pure domain logic, ~100% test coverage.*
 
-#### ☐ GEC-34 — Signal engine framework · 5 SP · Phase: Development
+#### ☑ GEC-34 — Signal engine framework · 5 SP · Phase: Development
+> **Done 2026-06-25:** `internal/core/signal` — pure `Detector` interface + `Engine` that runs detectors and ranks signals worst-first (deterministic tiebreaker). Externalised `Thresholds`. Detectors GEC-35..40 below; verified over the synthetic network (surfaces Tafo/Asokwa/Kasoa/Tamale stories). ~90% covered, lint 0.
 - User story: As the system, I want a pluggable signal framework, so that detectors emit comparable, ranked signals.
 - Business value: Foundation of trustworthy intelligence (spec §6.1).
 - Acceptance criteria:
@@ -603,7 +604,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + ~100% unit coverage.
 - Dependencies: GEC-10.
 
-#### ☐ GEC-35 — Trend & delta detection · 5 SP · Phase: Development
+#### ☑ GEC-35 — Trend & delta detection · 5 SP · Phase: Development
 - User story: As the system, I want WoW/trailing-window movement detection, so that revenue/volume/occupancy swings are flagged.
 - Business value: Surfaces Tafo's −22% revenue (hero story).
 - Acceptance criteria:
@@ -613,7 +614,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + ~100% coverage.
 - Dependencies: GEC-34, GEC-12.
 
-#### ☐ GEC-36 — Stock-out projection · 5 SP · Phase: Development
+#### ☑ GEC-36 — Stock-out projection · 5 SP · Phase: Development
 - User story: As the system, I want stock-out projection, so that imminent run-outs inside the reorder window are flagged.
 - Business value: Asokwa "approve reorder" story.
 - Acceptance criteria:
@@ -623,7 +624,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + ~100% coverage.
 - Dependencies: GEC-34, GEC-27.
 
-#### ☐ GEC-37 — Claims health detection · 5 SP · Phase: Development
+#### ☑ GEC-37 — Claims health detection · 5 SP · Phase: Development
 - User story: As the system, I want claims-health detection, so that submission gaps and denial spikes surface.
 - Business value: The causal insight that makes Sammy believe ("revenue down *because* claims not submitted").
 - Acceptance criteria:
@@ -633,7 +634,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + ~100% coverage.
 - Dependencies: GEC-34, GEC-26.
 
-#### ☐ GEC-38 — Revenue leakage detection · 3 SP · Phase: Development
+#### ☑ GEC-38 — Revenue leakage detection · 3 SP · Phase: Development
 - User story: As the system, I want unbilled-service detection, so that silent revenue loss is surfaced.
 - Business value: Appendix B "unbilled (leakage)".
 - Acceptance criteria:
@@ -642,7 +643,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + ~100% coverage.
 - Dependencies: GEC-34.
 
-#### ☐ GEC-39 — Staff signals · 3 SP · Phase: Development
+#### ☑ GEC-39 — Staff signals · 3 SP · Phase: Development
 - User story: As the system, I want staff-risk detection, so that licence expiries and attrition risk surface.
 - Business value: Tamale attrition/licence story.
 - Acceptance criteria:
@@ -651,7 +652,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + ~100% coverage.
 - Dependencies: GEC-34, GEC-28.
 
-#### ☐ GEC-40 — Network pulse composite · 3 SP · Phase: Development
+#### ☑ GEC-40 — Network pulse composite · 3 SP · Phase: Development
 - User story: As the cockpit, I want a single composite network-health indicator, so that "how is my whole network right now?" is one glance.
 - Business value: Spec §5.2 network pulse.
 - Acceptance criteria:
@@ -1503,3 +1504,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-25 | Tooling: **enabled ALL golangci-lint v2 linters** (curated disables with reasons; formatters as a separate section) — 0 issues after fixes (dropped deprecated `middleware.RealIP`, reordered config methods, `exhaustive: default-signifies-exhaustive`). CI **Node → latest v26** (+check-latest) + `.nvmrc`. | Claude |
 | 2026-06-25 | **GEC-11 + GEC-14 done** — full Postgres schema (golang-migrate, all §7 tables + pgvector ext) and pgx+sqlc FacilityRepo implementing the port, verified by a **testcontainers** integration test against pgvector/pgvector:pg16. sqlc run via `go run` to keep the module on Go 1.25 (sqlc@latest needs 1.26); integration tests build-tagged + own CI job; postgres pkg excluded from unit coverage. | Claude |
 | 2026-06-25 | **GEC-15 + GEC-16 done** — deterministic `internal/seed` generator builds the Ghana-grounded 12-facility network with textured time-series and the Appendix-C planted stories (unit-tested for determinism + story presence). Wired into `bootstrap` (config-driven: Postgres when DATABASE_URL set, else in-memory seeded); live API verified serving 12 facilities with Tafo critical. Gate 96.3%, lint 0. | Claude |
+| 2026-06-25 | **E4 signal engine done (GEC-34..40)** — pure deterministic detectors: trend/revenue-drop, claims (denial spike + the diagnostic submission-gap), revenue leakage, stock-out projection, staff (licence/attrition), and the composite network pulse. Engine ranks worst-first; integration test over the generator surfaces every planted story. Gate 94.5%, lint 0. | Claude |

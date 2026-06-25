@@ -56,6 +56,7 @@ linters:
           - bodyclose
           - forcetypeassert
           - contextcheck
+          - unparam      # constant args in table-test fixtures are not a smell
   settings:
     exhaustive:
       default-signifies-exhaustive: true
