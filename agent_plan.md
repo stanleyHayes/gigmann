@@ -66,7 +66,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | **E3** | Core Domain APIs (REST + OpenAPI) | 9 | 52 | ☐ Not started |
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
 | **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-42 done; 41/43 mock-first |
-| **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ☐ Not started |
+| **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ◐ In progress — GEC-49/50 done |
 | **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ☐ Not started |
 | **E8** | Realtime, Notifications & Alerts | 5 | 26 | ☐ Not started |
 | **E9** | Security Hardening & Compliance | 11 | 63 | ☐ Not started |
@@ -757,7 +757,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 ## E6 — The Daily Brief (hero, end-to-end)
 *Goal: wire E1+E4+E5 into the one feature that closes the deal (spec §2, §5.1, §6.2). Quality here outranks everything.*
 
-#### ☐ GEC-49 — Brief pipeline orchestration · 5 SP · Phase: Development
+#### ☑ GEC-49 — Brief pipeline orchestration · 5 SP · Phase: Development
+> **Done 2026-06-25:** `app.BriefService.Generate` runs the full pipeline — signal engine → network pulse → `intel` context → `Narrator` → `brief.New` validation. Verified live over the synthetic network.
 - User story: As the system, I want the full assemble→compute→context→generate→render→cache pipeline, so that the brief generates live each morning.
 - Business value: The hero pipeline (spec §6.2).
 - Acceptance criteria:
@@ -767,7 +768,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-42, GEC-43, GEC-46.
 
-#### ☐ GEC-50 — Brief API endpoint · 3 SP · Phase: Development
+#### ☑ GEC-50 — Brief API endpoint · 3 SP · Phase: Development
+> **Done 2026-06-25:** `GET /api/v1/brief` in the OpenAPI spec (Brief/BriefItem schemas), generated stubs, the handler, and bootstrap wiring (Claude narrator when ANTHROPIC_API_KEY is set, else the deterministic local narrator). Live-verified returning the worst-first brief over the 12-facility network.
 - User story: As the cockpit, I want `GET /brief` (+ refresh), so that the Home screen can render it.
 - Business value: Frontend contract for the hero.
 - Acceptance criteria:
@@ -1509,3 +1511,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-25 | **GEC-15 + GEC-16 done** — deterministic `internal/seed` generator builds the Ghana-grounded 12-facility network with textured time-series and the Appendix-C planted stories (unit-tested for determinism + story presence). Wired into `bootstrap` (config-driven: Postgres when DATABASE_URL set, else in-memory seeded); live API verified serving 12 facilities with Tafo critical. Gate 96.3%, lint 0. | Claude |
 | 2026-06-25 | **E4 signal engine done (GEC-34..40)** — pure deterministic detectors: trend/revenue-drop, claims (denial spike + the diagnostic submission-gap), revenue leakage, stock-out projection, staff (licence/attrition), and the composite network pulse. Engine ranks worst-first; integration test over the generator surfaces every planted story. Gate 94.5%, lint 0. | Claude |
 | 2026-06-25 | **E5 started (GEC-41/42/43, mock-first)** — `intel.BuildContext` (context assembly), `ports.Narrator` + gomock, `app.BriefService` pipeline (engine→pulse→context→narrate→validate), and the Anthropic adapter (Go SDK, strict emit_brief tool, grounding system prompt, unit-tested parse). Live brief needs ANTHROPIC_API_KEY; adapter excluded from unit gate. Gate 94.7%, lint 0. | Claude |
+| 2026-06-25 | **GEC-49/50 done — Daily Brief over HTTP.** `GET /api/v1/brief` exposes the full pipeline (engine→pulse→context→narrate→validate). Added a deterministic local narrator (no-AI fallback) + `BriefGenerator` port; bootstrap picks Claude vs local by config. Live-verified: worst-first brief (Tafo claims gap + Kasoa denials critical) over the synthetic network. arch_test now scopes boundary checks to production code (test files may wire adapters). Gate 95.0%, lint 0. | Claude |

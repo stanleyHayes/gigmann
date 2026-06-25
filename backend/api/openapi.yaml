@@ -39,6 +39,21 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/brief:
+    get:
+      operationId: getBrief
+      summary: The AI-narrated Daily Brief over the current network
+      tags: [brief]
+      responses:
+        '200':
+          description: The Daily Brief
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Brief'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   schemas:
     Health:
@@ -80,6 +95,44 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Facility'
+
+    Brief:
+      type: object
+      required: [id, date, prose, model, items]
+      properties:
+        id:
+          type: string
+        date:
+          type: string
+          format: date
+        prose:
+          type: string
+        model:
+          type: string
+        generated_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BriefItem'
+
+    BriefItem:
+      type: object
+      required: [severity, facility_id, headline]
+      properties:
+        severity:
+          $ref: '#/components/schemas/FacilityStatus'
+        facility_id:
+          type: string
+        headline:
+          type: string
+        explanation:
+          type: string
+        suggested_actions:
+          type: array
+          items:
+            type: string
 
     Error:
       type: object

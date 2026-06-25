@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/xcreativs/gigmann/internal/adapters/inbound/httpapi"
 	"github.com/xcreativs/gigmann/internal/app"
+	"github.com/xcreativs/gigmann/internal/core/brief"
 	"github.com/xcreativs/gigmann/internal/core/facility"
 	"github.com/xcreativs/gigmann/internal/core/payer"
 	"github.com/xcreativs/gigmann/internal/core/severity"
@@ -32,19 +34,17 @@ func mustFacility(t *testing.T) facility.Facility {
 	return f
 }
 
-func serve(repo *mocks.MockFacilityRepository, method, target string) *httptest.ResponseRecorder {
+func serve(t *testing.T, repo *mocks.MockFacilityRepository, briefs *mocks.MockBriefGenerator, method, target string) *httptest.ResponseRecorder {
+	t.Helper()
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(method, target, nil)
-	httpapi.NewRouter(app.NewFacilityService(repo)).ServeHTTP(rec, req)
+	httpapi.NewRouter(app.NewFacilityService(repo), briefs).ServeHTTP(rec, req)
 	return rec
 }
 
 func TestHealthz(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	repo := mocks.NewMockFacilityRepository(ctrl)
-
-	rec := serve(repo, http.MethodGet, "/healthz")
-
+	rec := serve(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/healthz")
 	require.Equal(t, http.StatusOK, rec.Code)
 }
 
@@ -53,11 +53,10 @@ func TestListFacilities(t *testing.T) {
 	repo := mocks.NewMockFacilityRepository(ctrl)
 	repo.EXPECT().List(gomock.Any()).Return([]facility.Facility{mustFacility(t)}, nil)
 
-	rec := serve(repo, http.MethodGet, "/api/v1/facilities")
+	rec := serve(t, repo, mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/api/v1/facilities")
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, "application/json", rec.Header().Get("Content-Type"))
-
 	var body struct {
 		Facilities []map[string]any `json:"facilities"`
 	}
@@ -71,7 +70,44 @@ func TestListFacilitiesError(t *testing.T) {
 	repo := mocks.NewMockFacilityRepository(ctrl)
 	repo.EXPECT().List(gomock.Any()).Return(nil, errors.New("db down"))
 
-	rec := serve(repo, http.MethodGet, "/api/v1/facilities")
+	rec := serve(t, repo, mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/api/v1/facilities")
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
 
+func TestGetBrief(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	briefs := mocks.NewMockBriefGenerator(ctrl)
+	b, err := brief.New(brief.Brief{
+		ID: "b-2026-06-09", Date: time.Date(2026, 6, 9, 0, 0, 0, 0, time.UTC), Prose: "Good morning, Sammy.",
+		Items: []brief.Item{{
+			Severity: severity.Critical, FacilityID: "tafo-maternity", Headline: "Tafo needs you first",
+			Explanation: "claims not submitted", SuggestedActions: []string{"Why?", "Message the manager"},
+		}},
+		Model: "local-deterministic",
+	})
+	require.NoError(t, err)
+	briefs.EXPECT().Generate(gomock.Any()).Return(b, nil)
+
+	rec := serve(t, mocks.NewMockFacilityRepository(ctrl), briefs, http.MethodGet, "/api/v1/brief")
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body struct {
+		ID    string           `json:"id"`
+		Prose string           `json:"prose"`
+		Items []map[string]any `json:"items"`
+	}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	assert.Equal(t, "b-2026-06-09", body.ID)
+	require.Len(t, body.Items, 1)
+	assert.Equal(t, "critical", body.Items[0]["severity"])
+	assert.Equal(t, "Tafo needs you first", body.Items[0]["headline"])
+}
+
+func TestGetBriefError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	briefs := mocks.NewMockBriefGenerator(ctrl)
+	briefs.EXPECT().Generate(gomock.Any()).Return(brief.Brief{}, errors.New("api down"))
+
+	rec := serve(t, mocks.NewMockFacilityRepository(ctrl), briefs, http.MethodGet, "/api/v1/brief")
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }

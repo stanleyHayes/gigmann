@@ -14,9 +14,11 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for FacilityStatus.
@@ -38,6 +40,27 @@ func (e FacilityStatus) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// Brief defines model for Brief.
+type Brief struct {
+	Date        openapi_types.Date `json:"date"`
+	GeneratedAt *time.Time         `json:"generated_at,omitempty"`
+	Id          string             `json:"id"`
+	Items       []BriefItem        `json:"items"`
+	Model       string             `json:"model"`
+	Prose       string             `json:"prose"`
+}
+
+// BriefItem defines model for BriefItem.
+type BriefItem struct {
+	Explanation *string `json:"explanation,omitempty"`
+	FacilityId  string  `json:"facility_id"`
+	Headline    string  `json:"headline"`
+
+	// Severity AI-assessed operational health signal.
+	Severity         FacilityStatus `json:"severity"`
+	SuggestedActions *[]string      `json:"suggested_actions,omitempty"`
 }
 
 // Error defines model for Error.
@@ -75,6 +98,9 @@ type InternalError = Error
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// The AI-narrated Daily Brief over the current network
+	// (GET /api/v1/brief)
+	GetBrief(w http.ResponseWriter, r *http.Request)
 	// List all facilities in the network
 	// (GET /api/v1/facilities)
 	ListFacilities(w http.ResponseWriter, r *http.Request)
@@ -86,6 +112,12 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// The AI-narrated Daily Brief over the current network
+// (GET /api/v1/brief)
+func (_ Unimplemented) GetBrief(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // List all facilities in the network
 // (GET /api/v1/facilities)
@@ -107,6 +139,20 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// GetBrief operation middleware
+func (siw *ServerInterfaceWrapper) GetBrief(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBrief(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // ListFacilities operation middleware
 func (siw *ServerInterfaceWrapper) ListFacilities(w http.ResponseWriter, r *http.Request) {
@@ -250,6 +296,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/brief", wrapper.GetBrief)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/facilities", wrapper.ListFacilities)
 	})
 	r.Group(func(r chi.Router) {
@@ -260,6 +309,41 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 }
 
 type InternalErrorJSONResponse Error
+
+type GetBriefRequestObject struct {
+}
+
+type GetBriefResponseObject interface {
+	VisitGetBriefResponse(w http.ResponseWriter) error
+}
+
+type GetBrief200JSONResponse Brief
+
+func (response GetBrief200JSONResponse) VisitGetBriefResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBrief500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetBrief500JSONResponse) VisitGetBriefResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type ListFacilitiesRequestObject struct {
 }
@@ -319,6 +403,9 @@ func (response GetHealthz200JSONResponse) VisitGetHealthzResponse(w http.Respons
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// The AI-narrated Daily Brief over the current network
+	// (GET /api/v1/brief)
+	GetBrief(ctx context.Context, request GetBriefRequestObject) (GetBriefResponseObject, error)
 	// List all facilities in the network
 	// (GET /api/v1/facilities)
 	ListFacilities(ctx context.Context, request ListFacilitiesRequestObject) (ListFacilitiesResponseObject, error)
@@ -354,6 +441,30 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// GetBrief operation middleware
+func (sh *strictHandler) GetBrief(w http.ResponseWriter, r *http.Request) {
+	var request GetBriefRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetBrief(ctx, request.(GetBriefRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetBrief")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetBriefResponseObject); ok {
+		if err := validResponse.VisitGetBriefResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // ListFacilities operation middleware
@@ -409,18 +520,21 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

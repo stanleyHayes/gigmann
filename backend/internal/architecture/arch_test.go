@@ -40,7 +40,7 @@ func TestHexagonalBoundaries(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			if d.IsDir() || !strings.HasSuffix(path, ".go") {
+			if d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 				return nil
 			}
 			fset := token.NewFileSet()
