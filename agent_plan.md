@@ -67,7 +67,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
 | **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-42 done; 41/43 mock-first |
 | **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ◐ In progress — GEC-49/50 done |
-| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — GEC-55/56/57 done |
+| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — GEC-55/56/57/59 done |
 | **E8** | Realtime, Notifications & Alerts | 5 | 26 | ☐ Not started |
 | **E9** | Security Hardening & Compliance | 11 | 63 | ☐ Not started |
 | **E10** | SEO & Web Performance | 7 | 31 | ☐ Not started |
@@ -871,7 +871,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-26, GEC-28, GEC-29.
 
-#### ☐ GEC-59 — Executive KPIs screen · 5 SP · Phase: Development
+#### ☑ GEC-59 — Executive KPIs screen · 5 SP · Phase: Development
+> **Done 2026-06-25:** `/kpis` consumes `GET /api/v1/metrics` via a typed `useMetrics` hook and renders a card per KPI (revenue, patients, NHIS denial rate, occupancy): current value formatted by unit (GH₵ / % / count), a week-over-week delta coloured by meaning via `higher_is_better` (rising denial rate shows red), and a 14-day MUI X Charts v9 LineChart. Charts honour `prefers-reduced-motion` (`skipAnimation`) and inherit the MUI theme; chart API verified against v9.6 docs before coding. Gate green: tsc/eslint clean, 30 tests @ 98.9%.
 - User story: As Sammy, I want portfolio-wide KPIs with ranking and drill-through, so that I think like an owner.
 - Business value: Spec §5.4.
 - Acceptance criteria:
@@ -1520,3 +1521,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-25 | **GEC-55 done — cockpit app shell, routing & offline PWA.** React Router v7 layout-route shell (brand bar + nav rail + outlet + colour-mode toggle) and an installable, offline-capable PWA whose service worker forces `/api`+`/healthz` NetworkOnly (never a stale figure). Library APIs were verified live before coding (research workflow), and the result was hardened by a 17-agent adversarial review: self-hosted fonts, global reduced-motion, AA contrast, a11y labels, single h1, robots noindex. Also tightened GEC-54 (design tokens) and GEC-56 (brief a11y). Bundle-size optimisation (533 KB) deferred to the perf/polish story. | Claude |
 | 2026-06-25 | **GEC-57 done — Network single-pane view.** `/network` renders the full facility network from `/api/v1/facilities` (typed `useFacilities` hook): summary + status-distribution bar + worst-first responsive card grid, with skeleton/error/empty states. `StatusChip` gained an optional label for the compact card variant. Live-verified against the real API. Charts deferred to GEC-59. Gate green: 22 tests @ 98.5%. | Claude |
 | 2026-06-25 | **GEC-26 done — deterministic Metrics & KPI API.** Pure `core/kpi` engine aggregates the metric series into network KPIs (revenue / patients / NHIS denial rate / occupancy) with 14-day trends + WoW deltas; `GET /api/v1/metrics` serves them via `app.MetricsService`. Money in pesewas, unit-tagged; `higher_is_better` lets the UI colour deltas by meaning. Live-verified. kpi 98.8%, gate 95.4%, lint 0. Regenerated Go + TS clients. | Claude |
+| 2026-06-25 | **GEC-59 done — Executive KPIs screen (completes the Metrics→KPIs slice).** `/kpis` renders the deterministic KPIs from `/api/v1/metrics` as cards with unit-aware values, meaning-coloured WoW deltas, and 14-day MUI X Charts v9 LineCharts (reduced-motion aware, theme-driven; API verified pre-code). Gate green: 30 tests @ 98.9%, build + SW pass. End-to-end vertical slice (deterministic engine → API → typed client → charts) complete. | Claude |
