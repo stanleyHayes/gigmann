@@ -69,7 +69,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ◐ In progress — GEC-49/50 done |
 | **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — all 6 screens live (GEC-55/56/57/59/60/61/62) |
 | **E8** | Realtime, Notifications & Alerts | 5 | 26 | ☐ Not started |
-| **E9** | Security Hardening & Compliance | 11 | 63 | ◐ In progress — CORS done, headers partial |
+| **E9** | Security Hardening & Compliance | 11 | 63 | ◐ In progress — CORS/rate-limit/audit done |
 | **E10** | SEO & Web Performance | 7 | 31 | ☐ Not started |
 | **E11** | Observability & Reliability | 7 | 37 | ◐ In progress — request logging + /readyz |
 | **E12** | Quality, Testing & CI Gates | 8 | 44 | ☐ Not started |
@@ -1080,7 +1080,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-20.
 
-#### ☐ GEC-77 — Audit logging · 3 SP · Phase: Development
+#### ☑ GEC-77 — Audit logging · 3 SP · Phase: Development
+> **Done 2026-06-26:** a `ports.AuditLogger` (slog-backed `audit` adapter) records security-relevant events as structured `audit` lines — `AuthService` logs `auth.login` success/failure (actor = user id or attempted email) and `auth.logout`; `ApprovalService` logs `approval.decide` with actor/target/outcome (incl. forbidden attempts). Verified live (login success→u-sammy, wrong password→failure with the attempted email). Audit adapter tested; focused gomock assertions on the recorded events.
 - User story: As the business, I want immutable audit logs of sensitive actions, so that decisions are accountable.
 - Business value: Governance; approvals are decisions of record.
 - Acceptance criteria:
@@ -1558,3 +1559,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **GEC-7/75/76 — HTTP middleware hardening.** Structured per-request `slog` logging, security headers (nosniff/DENY/no-referrer/COOP), an allow-list CORS middleware (preflight 204), and a real `/readyz` readiness probe — all wired in `NewRouter`, config-driven (`CORS_ALLOWED_ORIGINS`), verified live. Unblocks a cross-origin SPA→API deploy. Gate 92.7%, lint 0. | Claude |
 | 2026-06-26 | **GEC-74 done — auth rate limiting.** Per-IP fixed-window limiter (10/min) on `/auth/login` + `/auth/refresh` → 429 over the limit (X-Forwarded-For aware); other paths free. Verified live. Gate 92.7%, lint 0. | Claude |
 | 2026-06-26 | **GEC-105 — Render Blueprint now deployable.** Fixed JWT env (JWT_SECRET, not RS256 keys), added `CORS_ALLOWED_ORIGINS` for the SPA, and relaxed config so only `JWT_SECRET` is required outside dev (DB/Anthropic optional with fallbacks) — the demo deploys fully in-memory; Postgres/Redis commented until persistence. Backend build/test/lint green. | Claude |
+| 2026-06-26 | **GEC-77 done — audit logging.** `ports.AuditLogger` (slog adapter) records `auth.login` success/failure, `auth.logout`, and `approval.decide` (actor/target/outcome, incl. forbidden) as structured audit lines. Verified live. Gate 93.0%, lint 0. | Claude |

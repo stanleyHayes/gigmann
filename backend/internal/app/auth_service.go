@@ -22,6 +22,7 @@ type AuthService struct {
 	tokens     ports.TokenService
 	refresh    ports.RefreshTokenStore
 	refreshTTL time.Duration
+	audit      ports.AuditLogger
 }
 
 // NewAuthService wires the authentication use case to its ports.
@@ -31,8 +32,9 @@ func NewAuthService(
 	tokens ports.TokenService,
 	refresh ports.RefreshTokenStore,
 	refreshTTL time.Duration,
+	audit ports.AuditLogger,
 ) *AuthService {
-	return &AuthService{users: users, hasher: hasher, tokens: tokens, refresh: refresh, refreshTTL: refreshTTL}
+	return &AuthService{users: users, hasher: hasher, tokens: tokens, refresh: refresh, refreshTTL: refreshTTL, audit: audit}
 }
 
 // Login verifies the email/password and returns an access token, a refresh
@@ -40,10 +42,12 @@ func NewAuthService(
 func (s *AuthService) Login(ctx context.Context, email, password string) (string, string, auth.Principal, error) {
 	acct, err := s.users.FindByEmail(ctx, email)
 	if err != nil {
+		s.audit.Record(ctx, ports.AuditEvent{Actor: email, Action: "auth.login", Outcome: "failure"})
 		return "", "", auth.Principal{}, ErrInvalidCredentials
 	}
 	ok, err := s.hasher.Verify(password, acct.PasswordHash)
 	if err != nil || !ok {
+		s.audit.Record(ctx, ports.AuditEvent{Actor: email, Action: "auth.login", Outcome: "failure"})
 		return "", "", auth.Principal{}, ErrInvalidCredentials
 	}
 	p := auth.Principal{
@@ -52,6 +56,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 		Role:       acct.User.Role,
 		FacilityID: acct.User.FacilityID,
 	}
+	s.audit.Record(ctx, ports.AuditEvent{Actor: p.UserID, Action: "auth.login", Outcome: "success"})
 	return s.issue(ctx, p)
 }
 
@@ -66,6 +71,7 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefresh string) (string, s
 
 // Logout revokes a refresh token so it can no longer be rotated.
 func (s *AuthService) Logout(ctx context.Context, rawRefresh string) error {
+	s.audit.Record(ctx, ports.AuditEvent{Action: "auth.logout", Outcome: "success"})
 	return s.refresh.Revoke(ctx, rawRefresh)
 }
 

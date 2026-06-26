@@ -17,12 +17,13 @@ var ErrForbidden = errors.New("app: forbidden")
 // ApprovalService is the decision-routing use case. Authorization lives here:
 // only executives may decide approvals (spec §5.8, §7).
 type ApprovalService struct {
-	repo ports.ApprovalRepository
+	repo  ports.ApprovalRepository
+	audit ports.AuditLogger
 }
 
 // NewApprovalService wires the approval use case to its repository.
-func NewApprovalService(repo ports.ApprovalRepository) *ApprovalService {
-	return &ApprovalService{repo: repo}
+func NewApprovalService(repo ports.ApprovalRepository, audit ports.AuditLogger) *ApprovalService {
+	return &ApprovalService{repo: repo, audit: audit}
 }
 
 // List returns all approvals routed to the executive.
@@ -40,6 +41,7 @@ func (s *ApprovalService) Decide(
 	ctx context.Context, p auth.Principal, id string, approved bool, note string, at time.Time,
 ) (approval.Approval, error) {
 	if !p.IsExecutive() {
+		s.audit.Record(ctx, ports.AuditEvent{Actor: p.UserID, Action: "approval.decide", Target: id, Outcome: "forbidden"})
 		return approval.Approval{}, ErrForbidden
 	}
 	current, err := s.repo.Get(ctx, id)
@@ -53,5 +55,6 @@ func (s *ApprovalService) Decide(
 	if err := s.repo.Save(ctx, decided); err != nil {
 		return approval.Approval{}, fmt.Errorf("app: save approval: %w", err)
 	}
+	s.audit.Record(ctx, ports.AuditEvent{Actor: p.UserID, Action: "approval.decide", Target: id, Outcome: string(decided.Status)})
 	return decided, nil
 }

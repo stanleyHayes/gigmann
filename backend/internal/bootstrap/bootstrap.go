@@ -16,6 +16,7 @@ import (
 
 	"github.com/xcreativs/gigmann/internal/adapters/inbound/httpapi"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/anthropic"
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/audit"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/localnarrator"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/memory"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/passwordhash"
@@ -137,9 +138,10 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		return nil, nil, err
 	}
 	tokens := token.New([]byte(cfg.JWTSecret), accessTokenTTL)
-	authSvc := app.NewAuthService(memory.NewUserRepo(accounts...), hasher, tokens, memory.NewRefreshStore(), refreshTokenTTL)
+	auditLog := audit.New(logger)
+	authSvc := app.NewAuthService(memory.NewUserRepo(accounts...), hasher, tokens, memory.NewRefreshStore(), refreshTokenTTL, auditLog)
 
-	approvalSvc := app.NewApprovalService(memory.NewApprovalRepo(net.Approvals...))
+	approvalSvc := app.NewApprovalService(memory.NewApprovalRepo(net.Approvals...), auditLog)
 	taskSvc := app.NewTaskService(memory.NewTaskRepo(net.Tasks...))
 
 	return httpapi.NewRouter(httpapi.Deps{

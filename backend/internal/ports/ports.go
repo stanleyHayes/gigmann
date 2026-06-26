@@ -16,7 +16,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/intel"
 )
 
-//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore,ApprovalRepository,TaskRepository,Answerer,QuestionAnswerer
+//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore,ApprovalRepository,TaskRepository,Answerer,QuestionAnswerer,AuditLogger
 
 // ErrAccountNotFound is returned by UserRepository when no account matches.
 var ErrAccountNotFound = errors.New("ports: account not found")
@@ -101,4 +101,17 @@ type Answerer interface {
 // QuestionAnswerer is the inbound "Ask" use case over the current network.
 type QuestionAnswerer interface {
 	Answer(ctx context.Context, question string) (intel.Answer, error)
+}
+
+// AuditEvent is a security-relevant event recorded to the audit trail.
+type AuditEvent struct {
+	Actor   string // user id or attempted identity
+	Action  string // e.g. "auth.login", "auth.logout", "approval.decide"
+	Target  string // affected resource id (optional)
+	Outcome string // "success" | "failure" | "approved" | "declined" | "forbidden"
+}
+
+// AuditLogger records security-relevant events (auth, decisions).
+type AuditLogger interface {
+	Record(ctx context.Context, e AuditEvent)
 }

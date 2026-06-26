@@ -3,6 +3,7 @@ package httpapi_test
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/xcreativs/gigmann/internal/adapters/inbound/httpapi"
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/audit"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/localnarrator"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/memory"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/passwordhash"
@@ -63,10 +65,11 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 	users := memory.NewUserRepo(ports.Account{User: u, Email: testEmail, PasswordHash: hash})
 	tokens := token.New([]byte("test-secret"), time.Hour)
 	metricsSvc := app.NewMetricsService(seed.Generate(7, time.Date(2026, 6, 24, 0, 0, 0, 0, time.UTC), 14).Metrics)
+	auditLog := audit.New(slog.New(slog.DiscardHandler))
 	approvalSvc := app.NewApprovalService(memory.NewApprovalRepo(approval.Approval{
 		ID: "ap-test", Type: approval.TypeCapital, FacilityID: "kasoa", Title: "Test approval",
 		RequestedBy: "Ama Owusu", Status: approval.StatusPending,
-	}))
+	}), auditLog)
 	taskSvc := app.NewTaskService(memory.NewTaskRepo(task.Task{
 		ID: "task-test", Title: "Test task", Priority: task.PriorityHigh, Status: task.StatusTodo, Source: task.SourceBrief,
 	}))
@@ -78,7 +81,7 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 		Facilities:  app.NewFacilityService(repo),
 		Metrics:     metricsSvc,
 		Briefs:      briefs,
-		Auth:        app.NewAuthService(users, hasher, tokens, memory.NewRefreshStore(), time.Hour),
+		Auth:        app.NewAuthService(users, hasher, tokens, memory.NewRefreshStore(), time.Hour, auditLog),
 		Approvals:   approvalSvc,
 		Tasks:       taskSvc,
 		Ask:         askSvc,

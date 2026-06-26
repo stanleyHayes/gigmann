@@ -36,7 +36,7 @@ func TestLoginSuccess(t *testing.T) {
 	tokens.EXPECT().Issue(gomock.Any()).Return("access-token", nil)
 	refresh.EXPECT().Issue(gomock.Any(), gomock.Any(), gomock.Any()).Return("refresh-token", nil)
 
-	svc := app.NewAuthService(users, hasher, tokens, refresh, time.Hour)
+	svc := app.NewAuthService(users, hasher, tokens, refresh, time.Hour, auditMock(ctrl))
 	access, ref, p, err := svc.Login(context.Background(), "ceo@gigmann.health", "pw")
 
 	require.NoError(t, err)
@@ -51,7 +51,7 @@ func TestLoginUnknownEmail(t *testing.T) {
 	users := mocks.NewMockUserRepository(ctrl)
 	users.EXPECT().FindByEmail(gomock.Any(), gomock.Any()).Return(ports.Account{}, ports.ErrAccountNotFound)
 
-	svc := app.NewAuthService(users, mocks.NewMockPasswordHasher(ctrl), mocks.NewMockTokenService(ctrl), mocks.NewMockRefreshTokenStore(ctrl), time.Hour)
+	svc := app.NewAuthService(users, mocks.NewMockPasswordHasher(ctrl), mocks.NewMockTokenService(ctrl), mocks.NewMockRefreshTokenStore(ctrl), time.Hour, auditMock(ctrl))
 	_, _, _, err := svc.Login(context.Background(), "nobody@gigmann.health", "pw")
 	assert.ErrorIs(t, err, app.ErrInvalidCredentials)
 }
@@ -63,7 +63,7 @@ func TestLoginWrongPassword(t *testing.T) {
 	users.EXPECT().FindByEmail(gomock.Any(), gomock.Any()).Return(execAccount(t), nil)
 	hasher.EXPECT().Verify(gomock.Any(), gomock.Any()).Return(false, nil)
 
-	svc := app.NewAuthService(users, hasher, mocks.NewMockTokenService(ctrl), mocks.NewMockRefreshTokenStore(ctrl), time.Hour)
+	svc := app.NewAuthService(users, hasher, mocks.NewMockTokenService(ctrl), mocks.NewMockRefreshTokenStore(ctrl), time.Hour, auditMock(ctrl))
 	_, _, _, err := svc.Login(context.Background(), "ceo@gigmann.health", "bad")
 	assert.ErrorIs(t, err, app.ErrInvalidCredentials)
 }
@@ -78,7 +78,7 @@ func TestRefreshSuccess(t *testing.T) {
 	tokens.EXPECT().Issue(p).Return("new-access", nil)
 	refresh.EXPECT().Issue(gomock.Any(), p, gomock.Any()).Return("new-refresh", nil)
 
-	svc := app.NewAuthService(mocks.NewMockUserRepository(ctrl), mocks.NewMockPasswordHasher(ctrl), tokens, refresh, time.Hour)
+	svc := app.NewAuthService(mocks.NewMockUserRepository(ctrl), mocks.NewMockPasswordHasher(ctrl), tokens, refresh, time.Hour, auditMock(ctrl))
 	access, ref, got, err := svc.Refresh(context.Background(), "old-refresh")
 	require.NoError(t, err)
 	assert.Equal(t, "new-access", access)
@@ -91,7 +91,7 @@ func TestRefreshInvalid(t *testing.T) {
 	refresh := mocks.NewMockRefreshTokenStore(ctrl)
 	refresh.EXPECT().Consume(gomock.Any(), gomock.Any()).Return(auth.Principal{}, ports.ErrInvalidRefreshToken)
 
-	svc := app.NewAuthService(mocks.NewMockUserRepository(ctrl), mocks.NewMockPasswordHasher(ctrl), mocks.NewMockTokenService(ctrl), refresh, time.Hour)
+	svc := app.NewAuthService(mocks.NewMockUserRepository(ctrl), mocks.NewMockPasswordHasher(ctrl), mocks.NewMockTokenService(ctrl), refresh, time.Hour, auditMock(ctrl))
 	_, _, _, err := svc.Refresh(context.Background(), "bad")
 	assert.ErrorIs(t, err, app.ErrInvalidCredentials)
 }
@@ -101,7 +101,7 @@ func TestLogoutRevokes(t *testing.T) {
 	refresh := mocks.NewMockRefreshTokenStore(ctrl)
 	refresh.EXPECT().Revoke(gomock.Any(), "some-refresh").Return(nil)
 
-	svc := app.NewAuthService(mocks.NewMockUserRepository(ctrl), mocks.NewMockPasswordHasher(ctrl), mocks.NewMockTokenService(ctrl), refresh, time.Hour)
+	svc := app.NewAuthService(mocks.NewMockUserRepository(ctrl), mocks.NewMockPasswordHasher(ctrl), mocks.NewMockTokenService(ctrl), refresh, time.Hour, auditMock(ctrl))
 	require.NoError(t, svc.Logout(context.Background(), "some-refresh"))
 }
 
@@ -115,8 +115,44 @@ func TestLoginTokenError(t *testing.T) {
 	hasher.EXPECT().Verify(gomock.Any(), gomock.Any()).Return(true, nil)
 	tokens.EXPECT().Issue(gomock.Any()).Return("", errors.New("kms down"))
 
-	svc := app.NewAuthService(users, hasher, tokens, mocks.NewMockRefreshTokenStore(ctrl), time.Hour)
+	svc := app.NewAuthService(users, hasher, tokens, mocks.NewMockRefreshTokenStore(ctrl), time.Hour, auditMock(ctrl))
 	_, _, _, err := svc.Login(context.Background(), "ceo@gigmann.health", "pw")
 	require.Error(t, err)
 	assert.NotErrorIs(t, err, app.ErrInvalidCredentials)
+}
+
+func auditMock(ctrl *gomock.Controller) *mocks.MockAuditLogger {
+	m := mocks.NewMockAuditLogger(ctrl)
+	m.EXPECT().Record(gomock.Any(), gomock.Any()).AnyTimes()
+	return m
+}
+
+func TestLoginAuditsSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	users := mocks.NewMockUserRepository(ctrl)
+	hasher := mocks.NewMockPasswordHasher(ctrl)
+	tokens := mocks.NewMockTokenService(ctrl)
+	refresh := mocks.NewMockRefreshTokenStore(ctrl)
+	users.EXPECT().FindByEmail(gomock.Any(), gomock.Any()).Return(execAccount(t), nil)
+	hasher.EXPECT().Verify(gomock.Any(), gomock.Any()).Return(true, nil)
+	tokens.EXPECT().Issue(gomock.Any()).Return("a", nil)
+	refresh.EXPECT().Issue(gomock.Any(), gomock.Any(), gomock.Any()).Return("r", nil)
+	auditL := mocks.NewMockAuditLogger(ctrl)
+	auditL.EXPECT().Record(gomock.Any(), ports.AuditEvent{Actor: "u1", Action: "auth.login", Outcome: "success"})
+
+	svc := app.NewAuthService(users, hasher, tokens, refresh, time.Hour, auditL)
+	_, _, _, err := svc.Login(context.Background(), "ceo@gigmann.health", "pw")
+	require.NoError(t, err)
+}
+
+func TestLoginAuditsFailure(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	users := mocks.NewMockUserRepository(ctrl)
+	users.EXPECT().FindByEmail(gomock.Any(), gomock.Any()).Return(ports.Account{}, ports.ErrAccountNotFound)
+	auditL := mocks.NewMockAuditLogger(ctrl)
+	auditL.EXPECT().Record(gomock.Any(), ports.AuditEvent{Actor: "ghost@x.io", Action: "auth.login", Outcome: "failure"})
+
+	svc := app.NewAuthService(users, mocks.NewMockPasswordHasher(ctrl), mocks.NewMockTokenService(ctrl), mocks.NewMockRefreshTokenStore(ctrl), time.Hour, auditL)
+	_, _, _, err := svc.Login(context.Background(), "ghost@x.io", "pw")
+	require.ErrorIs(t, err, app.ErrInvalidCredentials)
 }
