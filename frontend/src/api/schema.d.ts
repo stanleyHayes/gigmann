@@ -225,6 +225,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/facilities/{facilityId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Facility drill-down (inventory, staff, alerts) */
+        get: operations["getFacility"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -369,6 +386,40 @@ export interface components {
         Answer: {
             text: string;
             citations?: string[];
+        };
+        InventoryItem: {
+            id: string;
+            name: string;
+            category: string;
+            /** Format: int32 */
+            stock_level: number;
+            /** Format: double */
+            days_of_stock?: number;
+            stockout_imminent: boolean;
+        };
+        StaffMember: {
+            id: string;
+            name: string;
+            role: string;
+            status: string;
+            /** Format: double */
+            attrition_risk: number;
+            /** Format: date */
+            licence_expiry?: string;
+        };
+        AlertItem: {
+            id: string;
+            type: string;
+            severity: components["schemas"]["FacilityStatus"];
+            title: string;
+            detail?: string;
+            status: string;
+        };
+        FacilityDetail: {
+            facility: components["schemas"]["Facility"];
+            inventory: components["schemas"]["InventoryItem"][];
+            staff: components["schemas"]["StaffMember"][];
+            alerts: components["schemas"]["AlertItem"][];
         };
         Error: {
             error: string;
@@ -731,6 +782,31 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getFacility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                facilityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The facility detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacilityDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
             500: components["responses"]["InternalError"];
         };
     };

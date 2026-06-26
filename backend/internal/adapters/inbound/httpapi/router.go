@@ -16,11 +16,14 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/xcreativs/gigmann/internal/app"
+	"github.com/xcreativs/gigmann/internal/core/alert"
 	"github.com/xcreativs/gigmann/internal/core/approval"
 	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/brief"
 	"github.com/xcreativs/gigmann/internal/core/facility"
+	"github.com/xcreativs/gigmann/internal/core/inventory"
 	"github.com/xcreativs/gigmann/internal/core/kpi"
+	"github.com/xcreativs/gigmann/internal/core/staff"
 	"github.com/xcreativs/gigmann/internal/core/task"
 	"github.com/xcreativs/gigmann/internal/intel"
 	"github.com/xcreativs/gigmann/internal/ports"
@@ -38,27 +41,29 @@ var authRateLimitedPaths = []string{"/api/v1/auth/login", "/api/v1/auth/refresh"
 
 // Deps are the application use cases the HTTP layer delegates to.
 type Deps struct {
-	Facilities  *app.FacilityService
-	Metrics     *app.MetricsService
-	Briefs      ports.BriefGenerator
-	Auth        *app.AuthService
-	Approvals   *app.ApprovalService
-	Tasks       *app.TaskService
-	Ask         ports.QuestionAnswerer
-	Tokens      ports.TokenService
-	Logger      *slog.Logger
-	CORSOrigins []string
+	Facilities     *app.FacilityService
+	FacilityDetail *app.FacilityDetailService
+	Metrics        *app.MetricsService
+	Briefs         ports.BriefGenerator
+	Auth           *app.AuthService
+	Approvals      *app.ApprovalService
+	Tasks          *app.TaskService
+	Ask            ports.QuestionAnswerer
+	Tokens         ports.TokenService
+	Logger         *slog.Logger
+	CORSOrigins    []string
 }
 
 // Server implements the generated StrictServerInterface, delegating to use cases.
 type Server struct {
-	facilities *app.FacilityService
-	metrics    *app.MetricsService
-	briefs     ports.BriefGenerator
-	auth       *app.AuthService
-	approvals  *app.ApprovalService
-	tasks      *app.TaskService
-	ask        ports.QuestionAnswerer
+	facilities     *app.FacilityService
+	facilityDetail *app.FacilityDetailService
+	metrics        *app.MetricsService
+	briefs         ports.BriefGenerator
+	auth           *app.AuthService
+	approvals      *app.ApprovalService
+	tasks          *app.TaskService
+	ask            ports.QuestionAnswerer
 }
 
 // Compile-time guarantee that Server satisfies the generated contract.
@@ -81,7 +86,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Use(authMiddleware(d.Tokens))
 	r.Get("/readyz", writeReady)
 
-	srv := &Server{facilities: d.Facilities, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask}
+	srv := &Server{facilities: d.Facilities, facilityDetail: d.FacilityDetail, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask}
 	return HandlerFromMux(NewStrictHandler(srv, []StrictMiddlewareFunc{requireAuth()}), r)
 }
 
@@ -173,6 +178,18 @@ func (s *Server) ListFacilities(ctx context.Context, _ ListFacilitiesRequestObje
 		out = append(out, toAPIFacility(f))
 	}
 	return ListFacilities200JSONResponse{Facilities: out}, nil
+}
+
+// GetFacility returns one facility's drill-down (inventory, staff, alerts).
+func (s *Server) GetFacility(ctx context.Context, request GetFacilityRequestObject) (GetFacilityResponseObject, error) {
+	d, err := s.facilityDetail.Detail(ctx, request.FacilityId)
+	switch {
+	case errors.Is(err, app.ErrFacilityNotFound):
+		return GetFacility404JSONResponse{NotFoundJSONResponse{Error: "not_found"}}, nil
+	case err != nil:
+		return GetFacility500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
+	}
+	return GetFacility200JSONResponse(toAPIFacilityDetail(d)), nil
 }
 
 // GetBrief returns the AI-narrated Daily Brief over the current network.
@@ -320,6 +337,66 @@ func toAPIFacility(f facility.Facility) Facility {
 		Beds:   int32(f.Beds), //nolint:gosec // beds is a small, non-negative bed count
 		Status: FacilityStatus(f.Health),
 	}
+}
+
+func toAPIFacilityDetail(d app.FacilityDetail) FacilityDetail {
+	inv := make([]InventoryItem, 0, len(d.Inventory))
+	for _, it := range d.Inventory {
+		inv = append(inv, toAPIInventoryItem(it))
+	}
+	stf := make([]StaffMember, 0, len(d.Staff))
+	for _, m := range d.Staff {
+		stf = append(stf, toAPIStaffMember(m))
+	}
+	alerts := make([]AlertItem, 0, len(d.Alerts))
+	for _, a := range d.Alerts {
+		alerts = append(alerts, toAPIAlertItem(a))
+	}
+	return FacilityDetail{Facility: toAPIFacility(d.Facility), Inventory: inv, Staff: stf, Alerts: alerts}
+}
+
+func toAPIInventoryItem(it inventory.Item) InventoryItem {
+	out := InventoryItem{
+		Id:               it.ID,
+		Name:             it.Name,
+		Category:         it.Category,
+		StockLevel:       int32(it.StockLevel), //nolint:gosec // small non-negative stock count
+		StockoutImminent: it.StockOutImminent(),
+	}
+	if days, ok := it.DaysOfStock(); ok {
+		out.DaysOfStock = &days
+	}
+	return out
+}
+
+func toAPIStaffMember(m staff.Member) StaffMember {
+	out := StaffMember{
+		Id:            m.ID,
+		Name:          m.Name,
+		Role:          m.Role,
+		Status:        m.Status,
+		AttritionRisk: m.AttritionRisk,
+	}
+	if !m.LicenceExpiry.IsZero() {
+		expiry := openapi_types.Date{Time: m.LicenceExpiry}
+		out.LicenceExpiry = &expiry
+	}
+	return out
+}
+
+func toAPIAlertItem(a alert.Alert) AlertItem {
+	out := AlertItem{
+		Id:       a.ID,
+		Type:     a.Type,
+		Severity: FacilityStatus(a.Severity),
+		Title:    a.Title,
+		Status:   string(a.Status),
+	}
+	if a.Detail != "" {
+		detail := a.Detail
+		out.Detail = &detail
+	}
+	return out
 }
 
 func toAPINetworkMetrics(n kpi.Network) NetworkMetrics {

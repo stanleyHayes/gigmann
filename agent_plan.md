@@ -504,7 +504,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 ## E3 — Core Domain APIs (REST + OpenAPI)
 *Goal: the REST surface the cockpit needs — facilities, metrics, inventory, staff, alerts, tasks, approvals, briefs/insights, users (spec §5).*
 
-#### ☐ GEC-25 — Facilities API · 5 SP · Phase: Development
+#### ☑ GEC-25 — Facilities API · 5 SP · Phase: Development
+> **Done 2026-06-26:** list (`GET /api/v1/facilities`) plus drill-down `GET /api/v1/facilities/{id}` returning the facility with its inventory (days-of-stock + stockout-imminent computed), staff (role/status/attrition/licence), and alerts — assembled by `app.FacilityDetailService` from the seeded network; 404 for unknown ids. Live-verified. Gate 92.2%, lint 0.
 - User story: As the cockpit, I want facility list/detail endpoints, so that I can render the network and drill-downs.
 - Business value: Powers Network view + Facility detail (spec §5.2/§5.3).
 - Acceptance criteria:
@@ -1562,3 +1563,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **GEC-77 done — audit logging.** `ports.AuditLogger` (slog adapter) records `auth.login` success/failure, `auth.logout`, and `approval.decide` (actor/target/outcome, incl. forbidden) as structured audit lines. Verified live. Gate 93.0%, lint 0. | Claude |
 | 2026-06-26 | **Frontend robustness — route error boundary.** A React Router v7 `ErrorBoundary` on the layout route catches render errors and failed lazy-chunk loads (e.g. after a redeploy) and shows a friendly message + reload instead of a white screen. 45 tests, lint/typecheck/build green. | Claude |
 | 2026-06-26 | **Brief → Ask follow-through.** The Daily Brief's suggested-action buttons (previously inert) now navigate to the Ask screen with the question prefilled (`action — facility`), connecting the two hero features. 46 tests, lint/typecheck/build green. | Claude |
+| 2026-06-26 | **GEC-25 done — facility drill-down API.** `GET /api/v1/facilities/{id}` returns a facility with its inventory/staff/alerts via `FacilityDetailService` (404 for unknown). Live-verified. Gate 92.2%, lint 0. | Claude |

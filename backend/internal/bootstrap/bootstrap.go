@@ -131,6 +131,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 	}()
 	askSvc := app.NewAskService(engine, answerer, input, 0)
 	metricsSvc := app.NewMetricsService(net.Metrics)
+	detailSvc := app.NewFacilityDetailService(net.Facilities, net.Inventory, net.Staff, net.Alerts)
 
 	hasher := passwordhash.New()
 	accounts, err := demoAccounts(hasher)
@@ -145,16 +146,17 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 	taskSvc := app.NewTaskService(memory.NewTaskRepo(net.Tasks...))
 
 	return httpapi.NewRouter(httpapi.Deps{
-		Facilities:  app.NewFacilityService(facRepo),
-		Metrics:     metricsSvc,
-		Briefs:      briefs,
-		Auth:        authSvc,
-		Approvals:   approvalSvc,
-		Tasks:       taskSvc,
-		Ask:         askSvc,
-		Tokens:      tokens,
-		Logger:      logger,
-		CORSOrigins: cfg.CORSAllowedOrigins,
+		Facilities:     app.NewFacilityService(facRepo),
+		FacilityDetail: detailSvc,
+		Metrics:        metricsSvc,
+		Briefs:         briefs,
+		Auth:           authSvc,
+		Approvals:      approvalSvc,
+		Tasks:          taskSvc,
+		Ask:            askSvc,
+		Tokens:         tokens,
+		Logger:         logger,
+		CORSOrigins:    cfg.CORSAllowedOrigins,
 	}), cleanup, nil
 }
 

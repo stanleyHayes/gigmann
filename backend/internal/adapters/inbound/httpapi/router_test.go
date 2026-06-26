@@ -77,16 +77,19 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 	askSvc := app.NewAskService(signal.Default(signal.DefaultThresholds()), localnarrator.New(),
 		signal.Input{AsOf: net.Metrics[0].Date, Facilities: net.Facilities, Metrics: net.Metrics, Inventory: net.Inventory, Staff: net.Staff}, 0)
 
+	detailSvc := app.NewFacilityDetailService(net.Facilities, net.Inventory, net.Staff, net.Alerts)
+
 	return httpapi.NewRouter(httpapi.Deps{
-		Facilities:  app.NewFacilityService(repo),
-		Metrics:     metricsSvc,
-		Briefs:      briefs,
-		Auth:        app.NewAuthService(users, hasher, tokens, memory.NewRefreshStore(), time.Hour, auditLog),
-		Approvals:   approvalSvc,
-		Tasks:       taskSvc,
-		Ask:         askSvc,
-		Tokens:      tokens,
-		CORSOrigins: []string{"http://localhost:5173"},
+		Facilities:     app.NewFacilityService(repo),
+		FacilityDetail: detailSvc,
+		Metrics:        metricsSvc,
+		Briefs:         briefs,
+		Auth:           app.NewAuthService(users, hasher, tokens, memory.NewRefreshStore(), time.Hour, auditLog),
+		Approvals:      approvalSvc,
+		Tasks:          taskSvc,
+		Ask:            askSvc,
+		Tokens:         tokens,
+		CORSOrigins:    []string{"http://localhost:5173"},
 	})
 }
 
@@ -420,4 +423,23 @@ func TestReadyz(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	rec := serve(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/readyz")
 	require.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestGetFacilityDetail(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	id := seed.Generate(7, time.Date(2026, 6, 24, 0, 0, 0, 0, time.UTC), 14).Facilities[0].ID
+	rec := serveAuth(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/api/v1/facilities/"+id)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body struct {
+		Facility map[string]any   `json:"facility"`
+		Staff    []map[string]any `json:"staff"`
+	}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	assert.Equal(t, id, body.Facility["id"])
+}
+
+func TestGetFacilityDetailNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	rec := serveAuth(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/api/v1/facilities/ghost-facility")
+	require.Equal(t, http.StatusNotFound, rec.Code)
 }

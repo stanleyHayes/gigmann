@@ -247,6 +247,18 @@ func (e TaskStatusRequestStatus) Valid() bool {
 	}
 }
 
+// AlertItem defines model for AlertItem.
+type AlertItem struct {
+	Detail *string `json:"detail,omitempty"`
+	Id     string  `json:"id"`
+
+	// Severity AI-assessed operational health signal.
+	Severity FacilityStatus `json:"severity"`
+	Status   string         `json:"status"`
+	Title    string         `json:"title"`
+	Type     string         `json:"type"`
+}
+
 // Answer defines model for Answer.
 type Answer struct {
 	Citations *[]string `json:"citations,omitempty"`
@@ -349,6 +361,14 @@ type Facility struct {
 	Town   string         `json:"town"`
 }
 
+// FacilityDetail defines model for FacilityDetail.
+type FacilityDetail struct {
+	Alerts    []AlertItem     `json:"alerts"`
+	Facility  Facility        `json:"facility"`
+	Inventory []InventoryItem `json:"inventory"`
+	Staff     []StaffMember   `json:"staff"`
+}
+
 // FacilityList defines model for FacilityList.
 type FacilityList struct {
 	Facilities []Facility `json:"facilities"`
@@ -360,6 +380,16 @@ type FacilityStatus string
 // Health defines model for Health.
 type Health struct {
 	Status string `json:"status"`
+}
+
+// InventoryItem defines model for InventoryItem.
+type InventoryItem struct {
+	Category         string   `json:"category"`
+	DaysOfStock      *float64 `json:"days_of_stock,omitempty"`
+	Id               string   `json:"id"`
+	Name             string   `json:"name"`
+	StockLevel       int32    `json:"stock_level"`
+	StockoutImminent bool     `json:"stockout_imminent"`
 }
 
 // Kpi defines model for Kpi.
@@ -402,6 +432,16 @@ type NetworkMetrics struct {
 // RefreshRequest defines model for RefreshRequest.
 type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
+}
+
+// StaffMember defines model for StaffMember.
+type StaffMember struct {
+	AttritionRisk float64             `json:"attrition_risk"`
+	Id            string              `json:"id"`
+	LicenceExpiry *openapi_types.Date `json:"licence_expiry,omitempty"`
+	Name          string              `json:"name"`
+	Role          string              `json:"role"`
+	Status        string              `json:"status"`
 }
 
 // Task defines model for Task.
@@ -502,6 +542,9 @@ type ServerInterface interface {
 	// List all facilities in the network
 	// (GET /api/v1/facilities)
 	ListFacilities(w http.ResponseWriter, r *http.Request)
+	// Facility drill-down (inventory, staff, alerts)
+	// (GET /api/v1/facilities/{facilityId})
+	GetFacility(w http.ResponseWriter, r *http.Request, facilityId string)
 	// Deterministic network KPIs and weekly trends
 	// (GET /api/v1/metrics)
 	GetMetrics(w http.ResponseWriter, r *http.Request)
@@ -571,6 +614,12 @@ func (_ Unimplemented) GetBrief(w http.ResponseWriter, r *http.Request) {
 // List all facilities in the network
 // (GET /api/v1/facilities)
 func (_ Unimplemented) ListFacilities(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Facility drill-down (inventory, staff, alerts)
+// (GET /api/v1/facilities/{facilityId})
+func (_ Unimplemented) GetFacility(w http.ResponseWriter, r *http.Request, facilityId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -736,6 +785,32 @@ func (siw *ServerInterfaceWrapper) ListFacilities(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListFacilities(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetFacility operation middleware
+func (siw *ServerInterfaceWrapper) GetFacility(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "facilityId" -------------
+	var facilityId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "facilityId", chi.URLParam(r, "facilityId"), &facilityId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "facilityId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetFacility(w, r, facilityId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -952,6 +1027,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/facilities", wrapper.ListFacilities)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/facilities/{facilityId}", wrapper.GetFacility)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/metrics", wrapper.GetMetrics)
@@ -1364,6 +1442,70 @@ func (response ListFacilities500JSONResponse) VisitListFacilitiesResponse(w http
 	return err
 }
 
+type GetFacilityRequestObject struct {
+	FacilityId string `json:"facilityId"`
+}
+
+type GetFacilityResponseObject interface {
+	VisitGetFacilityResponse(w http.ResponseWriter) error
+}
+
+type GetFacility200JSONResponse FacilityDetail
+
+func (response GetFacility200JSONResponse) VisitGetFacilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetFacility401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetFacility401JSONResponse) VisitGetFacilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetFacility404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetFacility404JSONResponse) VisitGetFacilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetFacility500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetFacility500JSONResponse) VisitGetFacilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetMetricsRequestObject struct {
 }
 
@@ -1563,6 +1705,9 @@ type StrictServerInterface interface {
 	// List all facilities in the network
 	// (GET /api/v1/facilities)
 	ListFacilities(ctx context.Context, request ListFacilitiesRequestObject) (ListFacilitiesResponseObject, error)
+	// Facility drill-down (inventory, staff, alerts)
+	// (GET /api/v1/facilities/{facilityId})
+	GetFacility(ctx context.Context, request GetFacilityRequestObject) (GetFacilityResponseObject, error)
 	// Deterministic network KPIs and weekly trends
 	// (GET /api/v1/metrics)
 	GetMetrics(ctx context.Context, request GetMetricsRequestObject) (GetMetricsResponseObject, error)
@@ -1859,6 +2004,32 @@ func (sh *strictHandler) ListFacilities(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// GetFacility operation middleware
+func (sh *strictHandler) GetFacility(w http.ResponseWriter, r *http.Request, facilityId string) {
+	var request GetFacilityRequestObject
+
+	request.FacilityId = facilityId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetFacility(ctx, request.(GetFacilityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetFacility")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetFacilityResponseObject); ok {
+		if err := validResponse.VisitGetFacilityResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetMetrics operation middleware
 func (sh *strictHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	var request GetMetricsRequestObject
@@ -1969,44 +2140,49 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"1Ftfc9s2Ev8qGNzNNJ2jLafJ3czpzY3j1tOkk7Gdp0tGhcgViYoEeMBSsurRd7/BH1KkBEqUY7m9J0sk",
+	"sFjs/va//EhjWZRSgEBNx49UgS6l0GC/vJNilvMYzedYCgRhP7KyzHnMkEsx+l1LYZ7pOIOCmU9/VzCj",
+	"Y/q30YbwyL3Vo/dKSUXX63VEE9Cx4qUhQsf0PgOiQMtKxUC4JlwQRmJ/PBcp0cgQ6Dqi11JNeZKAeBmm",
+	"SsVFzEuWG66ERMLyXC4hIShJCWomVUEw45qw2O5aR/RGICjBckf35FzWxxENagGKgFsY0V8lXstKJKdn",
+	"4bbWnBHQzJ65juhnwSrMpOJ/wAvwcFlhBgI9VaLgvxVXkBCpyIzxHBJq9ngy5pTLHBTeIBTmS6lkCQq5",
+	"w30CyHhuPuGqBDqmGhUXqbkUT4KPNSxAcVwdYv+axTznuLpDhpW2O92nEFHkmEP4jX2w82Id0fredPwf",
+	"w6tf2mKwJtuc/LUmR+X0d4jR0L8UeglqVzAxRyte+4UjFHoPe5QpxVb2OzzgYXbtqiA3ZankguW7/LBC",
+	"VgInJWhYOq0ag2RIx5QL/Ndb2lDjAiEFaxcWh0GGIhorYAjJhGGHWMIQzpAXsCG42ZNAzJMn7NFciomQ",
+	"GFbxzCNl0oO4nsdGoKDNFaarMFIbvIGoCiP3EkRiXkbGLJVcgIFNAnHOBSQthRwDzJp2zEqOLKcRzbgy",
+	"klAgVQIqQHYPeNuyiLaVvgF05+7NTTtK3QevD1xjAGL+bRfy+2y8geuOJWxdcUM6yJae37oL7TJlH3Pn",
+	"NwsuPoBIMaPj14eE2uwLHlhhdgdae7rdExXMFOhsgnLuQu+u6nvfVNr5kr1CqzD7bNbteAVLNtpiwBPt",
+	"u8ZnHfJeTzQpwYow2JXMO2CHB4gr5IsOZAsmWDoY8PYsTzl0uR8VNzLcCVjMeZGO8wn5nRQEqKM9XJ+8",
+	"amsYZBaWdRtvAxGikAmEA26ppB4a6/yt3ZaaaM1nrzjDOQA8lDkTrLayo/1zBiwxHvS504UqTZ2Pcwnn",
+	"UZF4S2atnKDrYRveQzK78qGr1znVsa1tGj6ybAJLMK70BMMtthv6Ie6apHtLm/Xj/aTdshDdWhO7pKeQ",
+	"7GQeb34IZh5HOxhI++C3CePH4QflUgy0ptoXOSb81sjdd2/2WJ961aTRWyHVZN5HxNMmUQ84jllLL0Mk",
+	"YdUgFiBQqtVgFm7qHX1saGSz2WByd2b1RyimDhZ7jbS5YJvv+sColuU+NYTzGk/XfxvEdluGQ3g2tPcx",
+	"dtdgeKuUuzljWoPWpnwrTbzi0hS4GbAcM6J5Klh+TqPGu6RSGsAuGcaZzfe4qQPzoI/52RLZlUcrL35g",
+	"RZlbluf0UNTeYwZd0OzWUgwh9SDcrQ/YSk/kbKJRxvNuoJbVNG9FaVHVMDrWu1jakxwWLvIO8F92h6xw",
+	"wouCC1/L+2VTKXNgYq8raa7cPTxEOCTQX0oeEGOllOdkgIwSyJFNynjweq4gxq1gVpUmjjlvOMs7VUUr",
+	"/vM0AzXhejIFRFAhUUV0DmH952zamw/BgstKD7yABnWMiX8EVDz+JLnAkJurBMdu6VjXYNZIjYpNbXY4",
+	"2TX3rm/pyQZEFjXabd27rcS2gpq7hqDzQaa8P2OBoq/dUzKtl1IlA1IHS6O1I8RGW7xPT+IXLK9gkP63",
+	"MydH0O0P8fcr4FKquWNTByK3cUqDeJyXfDjqjGEfLJbt0Z5wiPdbVyD2KvlQBbt1Xnd56MB2FN+VFKKJ",
+	"QlJMFNff6MFzHoOIYQIPJXfx4qD4D9asexLKI8vUVqNl69Ihod0zJ41tXJmgDskE5TO25XqbuEkFk8HW",
+	"9sSuQam4rEu82l3mcmnKUkh4VXh/F4wdrpve3lkwUdk22tQ2AHzeF9680+BDmUibPk5KJVMF2jpR2VOE",
+	"9TX3gv0533lrLtsCg7/EwfabQUQ4RUWm58OdiEXWIS/iSPax4RLSXg/ybZIdmjiubYUyk7t58e37u3ty",
+	"+emGzKQimAH5iacFE4K8rxtP5J2M5yXHc/JOClQsxrMZVxrHbrmsZ0Qmp1MzFoMmTCT25f2qhDt7GIlz",
+	"DgIJU0CafhGZKeknXTOeA3n1W8Hmm/e/fX9OrqSd/2RMJGeQcGxtjmUC519Eg5gx7WXdXNDEKFCuh0Av",
+	"zl+fXxgNyRIEMykgfXN+cf7GxlrMrD5GrOSjxetRp1mbgtVhU0HcJHRMDdIum1VRd975w8XFsw2qOl3l",
+	"nuHiht11RN9evO6j2TA56szU1hH9p+N4/6buQNKOwaqiYCaUNM1vTZSs0M01DRzavUxkqd7qVxsiO0If",
+	"PdYfb5L1qN0GKqUO6OLKDk6adrnRp2IFIChz3CPlRk5Gx3XEGdPNAbRtTqgqiFqK2Ta9r81w4EeZrJ5N",
+	"x9utsHXXyA1X6xeAWB+8/GCqgdmTUfb24s3hTZvBvN3x9vCOZkBtN/z78Ibm9wjPh3wgUhHfkySM+FlY",
+	"IzLyCh6MejhGpNKgzrjgyI1P+36AYfhUJwj+T1LjpZ7T0yCzNTx6aVC60XEPJFNlFG4w6Zf9aX5Pzwkj",
+	"gmGlWH6WM5FWLAVSD8gIm8oKrScUriZqq9vkth1FV5iNclNiHtB3hZmtRE+k9U6V+9J6b00P9/88AxKi",
+	"64VPUn9Hke8f4oyJFIgtwG06U5fgNk9igrA4Bq1JPTls1FhhFtajrHCQIs2602hyq5gdpMu3uxnjB5mm",
+	"kBDDZ1dqt7CQc+PwfJk7VDiuqgxmVj+BFctHoCdGmR8ThzOqDszsjPgZMGYo+05U6ISDUvNCPowpr/a/",
+	"EKhezEHcSnxu1+BIboPcFD/S+H5Y1p7hH0eYwbSewPcZwY++Qj+ZIN0BPQZwxXi+In7JM8RJQ/Py5kyY",
+	"ctqop0WfSFNKYss2dkOlk1ZHgN3BU2+Rdr1ZdkJZdmZkPSJtMfwcEjVHEZbnLbqEi55Uoz1JCwtx9Fg3",
+	"qG6S9T5cXm8GiYfrrA3N4+usE6vKT5X3K2tFfPvv6SXPkQXMN+PiuuFc8Tw/S+RSkFfNyDciduIbETfw",
+	"/X4ARopNF78PE3Wj/4Rq2xopBNTmV5BfPt34dpQCkTyPsV0ZlBdccI08ru1rc9ISYJ6v6gM3Iq1F15Fn",
+	"047s9Vn3dsUJhdn0SnvQ71j804qq+3bj6DtNvtCPK3LFVl+o52wjYd+I3ZHv6NH8uUnWo023NZwzfS4T",
+	"hrBp2w7ya474X6F3tNtvfuF8zPXLwziqrGwTq7X/IxfqIEGY5fs7TZpZRAh17tckf+xzjz/7JSfUgv85",
+	"SkAPd6AW3P03jGN1tZNILECY9LVUctru0+qVRijMNd0PABa1QWwdwAo4k4qnXJBXdllCppBxPxC4+3RJ",
+	"RnbckDKEJVuZmFOpnI7piK6/rv8XAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

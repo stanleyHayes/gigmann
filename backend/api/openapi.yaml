@@ -264,6 +264,31 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/facilities/{facilityId}:
+    get:
+      operationId: getFacility
+      summary: Facility drill-down (inventory, staff, alerts)
+      tags: [facilities]
+      parameters:
+        - name: facilityId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The facility detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacilityDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   schemas:
     Health:
@@ -554,6 +579,80 @@ components:
           type: array
           items:
             type: string
+
+    InventoryItem:
+      type: object
+      required: [id, name, category, stock_level, stockout_imminent]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        stock_level:
+          type: integer
+          format: int32
+        days_of_stock:
+          type: number
+          format: double
+        stockout_imminent:
+          type: boolean
+
+    StaffMember:
+      type: object
+      required: [id, name, role, status, attrition_risk]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        attrition_risk:
+          type: number
+          format: double
+        licence_expiry:
+          type: string
+          format: date
+
+    AlertItem:
+      type: object
+      required: [id, type, severity, title, status]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        severity:
+          $ref: '#/components/schemas/FacilityStatus'
+        title:
+          type: string
+        detail:
+          type: string
+        status:
+          type: string
+
+    FacilityDetail:
+      type: object
+      required: [facility, inventory, staff, alerts]
+      properties:
+        facility:
+          $ref: '#/components/schemas/Facility'
+        inventory:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryItem'
+        staff:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaffMember'
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertItem'
 
     Error:
       type: object
