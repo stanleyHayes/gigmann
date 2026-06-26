@@ -32,6 +32,12 @@ func TestHexagonalBoundaries(t *testing.T) {
 			"/internal/adapters",
 			"github.com/go-chi",
 		},
+		"internal/ports": {
+			"/internal/adapters",
+			"github.com/go-chi",
+			"github.com/jackc/pgx",
+			"github.com/redis",
+		},
 	}
 
 	for rel, forbidden := range rules {

@@ -44,6 +44,15 @@ type Brief struct {
 	SourceSignalIds []string
 }
 
+type Credential struct {
+	UserID       string
+	Email        string
+	PasswordHash string
+	MfaSecret    string
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
+}
+
 type Facility struct {
 	ID            string
 	Name          string
@@ -99,6 +108,16 @@ type InventoryItem struct {
 	ReorderPoint int32
 	LeadTimeDays int32
 	UnitCost     int64
+}
+
+type RefreshToken struct {
+	TokenHash  string
+	UserID     string
+	Name       string
+	Role       string
+	FacilityID string
+	ExpiresAt  pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
 }
 
 type Staff struct {

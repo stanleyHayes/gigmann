@@ -28,6 +28,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/core/user"
 	"github.com/xcreativs/gigmann/internal/ports"
 	"github.com/xcreativs/gigmann/internal/seed"
+	"github.com/xcreativs/gigmann/migrations"
 )
 
 const (
@@ -40,6 +41,15 @@ const (
 	accessTokenTTL  = 15 * time.Minute
 	refreshTokenTTL = 7 * 24 * time.Hour
 )
+
+// repos bundles the persistence ports selected at wiring time.
+type repos struct {
+	facilities ports.FacilityRepository
+	users      ports.UserRepository
+	refresh    ports.RefreshTokenStore
+	approvals  ports.ApprovalRepository
+	tasks      ports.TaskRepository
+}
 
 // Run loads configuration, wires dependencies, and serves HTTP until interrupted.
 func Run() error {
@@ -63,16 +73,21 @@ func Run() error {
 		WriteTimeout: writeTimeout,
 	}
 
+	serverErr := make(chan error, 1)
 	go func() {
 		logger.Info("api listening", "addr", cfg.HTTPAddr(), "env", cfg.AppEnv)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Error("server error", "err", err)
+			serverErr <- err
 		}
 	}()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-	<-stop
+	select {
+	case err := <-serverErr:
+		return fmt.Errorf("bootstrap: http server failed: %w", err)
+	case <-stop:
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
@@ -87,18 +102,15 @@ func Run() error {
 func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (http.Handler, func(), error) {
 	net := seed.Generate(demoSeed, time.Now(), seed.DefaultDays)
 
-	facRepo := ports.FacilityRepository(memory.NewFacilityRepo(net.Facilities...))
-	cleanup := func() {}
-	if cfg.DatabaseURL != "" {
-		pool, err := postgres.Connect(ctx, cfg.DatabaseURL)
-		if err != nil {
-			return nil, nil, err
-		}
-		logger.Info("using postgres repository")
-		facRepo = postgres.NewFacilityRepo(pool)
-		cleanup = pool.Close
-	} else {
-		logger.Info("using in-memory repository seeded from synthetic network", "facilities", len(net.Facilities))
+	hasher := passwordhash.New()
+	accounts, err := demoAccounts(hasher)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	r, cleanup, err := selectRepos(ctx, cfg, net, accounts, logger)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	engine := signalengine.Default(signalengine.DefaultThresholds())
@@ -133,20 +145,14 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 	metricsSvc := app.NewMetricsService(net.Metrics)
 	detailSvc := app.NewFacilityDetailService(net.Facilities, net.Inventory, net.Staff, net.Alerts)
 
-	hasher := passwordhash.New()
-	accounts, err := demoAccounts(hasher)
-	if err != nil {
-		return nil, nil, err
-	}
 	tokens := token.New([]byte(cfg.JWTSecret), accessTokenTTL)
 	auditLog := audit.New(logger)
-	authSvc := app.NewAuthService(memory.NewUserRepo(accounts...), hasher, tokens, memory.NewRefreshStore(), refreshTokenTTL, auditLog)
-
-	approvalSvc := app.NewApprovalService(memory.NewApprovalRepo(net.Approvals...), auditLog)
-	taskSvc := app.NewTaskService(memory.NewTaskRepo(net.Tasks...))
+	authSvc := app.NewAuthService(r.users, hasher, tokens, r.refresh, refreshTokenTTL, auditLog)
+	approvalSvc := app.NewApprovalService(r.approvals, auditLog)
+	taskSvc := app.NewTaskService(r.tasks)
 
 	return httpapi.NewRouter(httpapi.Deps{
-		Facilities:     app.NewFacilityService(facRepo),
+		Facilities:     app.NewFacilityService(r.facilities),
 		FacilityDetail: detailSvc,
 		Metrics:        metricsSvc,
 		Briefs:         briefs,
@@ -160,9 +166,55 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 	}), cleanup, nil
 }
 
-// demoAccounts seeds the in-memory user store for the demo. The password comes
-// from DEMO_PASSWORD (a low-entropy dev default otherwise); real deployments use
-// a database-backed user store.
+// selectRepos chooses Postgres-backed repositories when DATABASE_URL is set
+// (running migrations first and seeding an empty database), and otherwise the
+// in-memory repositories seeded from the synthetic network.
+func selectRepos(
+	ctx context.Context, cfg config.Config, net seed.Network, accounts []ports.Account, logger *slog.Logger,
+) (repos, func(), error) {
+	if cfg.DatabaseURL == "" {
+		logger.Info("using in-memory repositories seeded from synthetic network", "facilities", len(net.Facilities))
+		return repos{
+			facilities: memory.NewFacilityRepo(net.Facilities...),
+			users:      memory.NewUserRepo(accounts...),
+			refresh:    memory.NewRefreshStore(),
+			approvals:  memory.NewApprovalRepo(net.Approvals...),
+			tasks:      memory.NewTaskRepo(net.Tasks...),
+		}, func() {}, nil
+	}
+
+	if err := postgres.Migrate(ctx, cfg.DatabaseURL, migrations.Files); err != nil {
+		return repos{}, nil, err
+	}
+	pool, err := postgres.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return repos{}, nil, err
+	}
+
+	seeded, err := postgres.EnsureSeeded(ctx, pool, net.Facilities, net.Approvals, net.Tasks, accounts)
+	if err != nil {
+		pool.Close()
+		return repos{}, nil, err
+	}
+	if seeded {
+		logger.Info("seeded empty postgres database", "facilities", len(net.Facilities))
+	} else {
+		logger.Info("postgres already seeded; preserving persisted data")
+	}
+
+	logger.Info("using postgres repositories")
+	return repos{
+		facilities: postgres.NewFacilityRepo(pool),
+		users:      postgres.NewUserRepo(pool),
+		refresh:    postgres.NewRefreshRepo(pool),
+		approvals:  postgres.NewApprovalRepo(pool),
+		tasks:      postgres.NewTaskRepo(pool),
+	}, pool.Close, nil
+}
+
+// demoAccounts seeds the user store for the demo. The password comes from
+// DEMO_PASSWORD (a low-entropy dev default otherwise). The manager is scoped to a
+// real facility in the synthetic network so facility-scoped authorization works.
 func demoAccounts(hasher ports.PasswordHasher) ([]ports.Account, error) {
 	password := os.Getenv("DEMO_PASSWORD")
 	if password == "" {
@@ -176,7 +228,7 @@ func demoAccounts(hasher ports.PasswordHasher) ([]ports.Account, error) {
 	if err != nil {
 		return nil, fmt.Errorf("bootstrap: ceo account: %w", err)
 	}
-	manager, err := user.New(user.User{ID: "u-ama", Name: "Ama Owusu", Role: user.RoleFacilityManager, FacilityID: "kasoa-polyclinic"})
+	manager, err := user.New(user.User{ID: "u-ama", Name: "Ama Owusu", Role: user.RoleFacilityManager, FacilityID: "kasoa"})
 	if err != nil {
 		return nil, fmt.Errorf("bootstrap: manager account: %w", err)
 	}

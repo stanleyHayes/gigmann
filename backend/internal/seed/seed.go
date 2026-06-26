@@ -236,7 +236,7 @@ func genApprovals(asOf time.Time) []approval.Approval {
 		}
 		return v
 	}
-	return []approval.Approval{
+	approvals := []approval.Approval{
 		must(approval.Approval{ID: "ap-ultrasound", Type: approval.TypeCapital, FacilityID: "assin-fosu",
 			Amount: money.FromCedis(85000, 0), Title: "Ultrasound machine for Assin Fosu",
 			Context: "Replaces ageing unit; supports OB scans.", RequestedBy: "Dr. Kwame Mensah",
@@ -250,6 +250,12 @@ func genApprovals(asOf time.Time) []approval.Approval {
 			Context: "Dumsor continuity; oxygen plant depends on it.", RequestedBy: "Mohammed Iddrisu",
 			Status: approval.StatusPending, CreatedAt: asOf}),
 	}
+	// Distinct, monotonically-increasing timestamps in seed order so the Postgres
+	// adapter's ORDER BY created_at reproduces the in-memory adapter's insertion order.
+	for i := range approvals {
+		approvals[i].CreatedAt = asOf.Add(time.Duration(i) * time.Second)
+	}
+	return approvals
 }
 
 func genTasks(asOf time.Time) []task.Task {
@@ -260,7 +266,7 @@ func genTasks(asOf time.Time) []task.Task {
 		}
 		return v
 	}
-	return []task.Task{
+	tasks := []task.Task{
 		must(task.Task{ID: "task-tafo-claims", Title: "Message Tafo manager about unsubmitted claims",
 			Detail: "Claims recorded but not submitted for 6 days; demand is flat.", FacilityID: "tafo-maternity",
 			Priority: task.PriorityHigh, Status: task.StatusTodo, Source: task.SourceBrief,
@@ -278,4 +284,8 @@ func genTasks(asOf time.Time) []task.Task {
 			Priority: task.PriorityMedium, Status: task.StatusTodo, Source: task.SourceManual,
 			AssignedTo: "Sammy Adjei", DueDate: asOf.AddDate(0, 0, 5), CreatedAt: asOf}),
 	}
+	for i := range tasks {
+		tasks[i].CreatedAt = asOf.Add(time.Duration(i) * time.Second)
+	}
+	return tasks
 }

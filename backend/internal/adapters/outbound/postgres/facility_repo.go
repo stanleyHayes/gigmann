@@ -41,6 +41,33 @@ func (r *FacilityRepo) List(ctx context.Context) ([]facility.Facility, error) {
 	return out, nil
 }
 
+// Create inserts a facility. Used for first-run seeding of an empty database.
+func (r *FacilityRepo) Create(ctx context.Context, f facility.Facility) error {
+	if err := r.q.CreateFacility(ctx, facilityParams(f)); err != nil {
+		return fmt.Errorf("postgres: create facility %q: %w", f.ID, err)
+	}
+	return nil
+}
+
+func facilityParams(f facility.Facility) sqlcgen.CreateFacilityParams {
+	return sqlcgen.CreateFacilityParams{
+		ID:            f.ID,
+		Name:          f.Name,
+		Region:        string(f.Region),
+		Town:          f.Town,
+		Type:          f.Type,
+		Beds:          i32(f.Beds),
+		Lifecycle:     string(f.Lifecycle),
+		Health:        string(f.Health),
+		ManagerName:   f.ManagerName,
+		PayerNhis:     i16(f.PayerMix.NHIS),
+		PayerCashMomo: i16(f.PayerMix.CashMoMo),
+		PayerPrivate:  i16(f.PayerMix.Private),
+		Latitude:      f.Latitude,
+		Longitude:     f.Longitude,
+	}
+}
+
 func facilityFromRow(row sqlcgen.ListFacilitiesRow) (facility.Facility, error) {
 	mix, err := payer.New(int(row.PayerNhis), int(row.PayerCashMomo), int(row.PayerPrivate))
 	if err != nil {
