@@ -413,14 +413,27 @@ type KpiUnit string
 
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Code     *string `json:"code,omitempty"`
+	Email    string  `json:"email"`
+	Password string  `json:"password"`
 }
 
 // MetricPoint defines model for MetricPoint.
 type MetricPoint struct {
 	Date  openapi_types.Date `json:"date"`
 	Value float64            `json:"value"`
+}
+
+// MfaConfirmRequest defines model for MfaConfirmRequest.
+type MfaConfirmRequest struct {
+	Code   string `json:"code"`
+	Secret string `json:"secret"`
+}
+
+// MfaEnrollment defines model for MfaEnrollment.
+type MfaEnrollment struct {
+	OtpauthUri string `json:"otpauth_uri"`
+	Secret     string `json:"secret"`
 }
 
 // NetworkMetrics defines model for NetworkMetrics.
@@ -480,6 +493,9 @@ type TaskStatusRequest struct {
 // TaskStatusRequestStatus defines model for TaskStatusRequest.Status.
 type TaskStatusRequestStatus string
 
+// BadRequest defines model for BadRequest.
+type BadRequest = Error
+
 // Conflict defines model for Conflict.
 type Conflict = Error
 
@@ -507,6 +523,9 @@ type PostAuthLoginJSONRequestBody = LoginRequest
 // PostAuthLogoutJSONRequestBody defines body for PostAuthLogout for application/json ContentType.
 type PostAuthLogoutJSONRequestBody = RefreshRequest
 
+// PostAuthMfaConfirmJSONRequestBody defines body for PostAuthMfaConfirm for application/json ContentType.
+type PostAuthMfaConfirmJSONRequestBody = MfaConfirmRequest
+
 // PostAuthRefreshJSONRequestBody defines body for PostAuthRefresh for application/json ContentType.
 type PostAuthRefreshJSONRequestBody = RefreshRequest
 
@@ -533,6 +552,12 @@ type ServerInterface interface {
 	// The current authenticated user
 	// (GET /api/v1/auth/me)
 	GetAuthMe(w http.ResponseWriter, r *http.Request)
+	// Confirm TOTP enrollment with a code
+	// (POST /api/v1/auth/mfa/confirm)
+	PostAuthMfaConfirm(w http.ResponseWriter, r *http.Request)
+	// Begin TOTP enrollment (returns a secret + otpauth URI)
+	// (POST /api/v1/auth/mfa/enroll)
+	PostAuthMfaEnroll(w http.ResponseWriter, r *http.Request)
 	// Rotate a refresh token into a new access + refresh token
 	// (POST /api/v1/auth/refresh)
 	PostAuthRefresh(w http.ResponseWriter, r *http.Request)
@@ -596,6 +621,18 @@ func (_ Unimplemented) PostAuthLogout(w http.ResponseWriter, r *http.Request) {
 // The current authenticated user
 // (GET /api/v1/auth/me)
 func (_ Unimplemented) GetAuthMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Confirm TOTP enrollment with a code
+// (POST /api/v1/auth/mfa/confirm)
+func (_ Unimplemented) PostAuthMfaConfirm(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Begin TOTP enrollment (returns a secret + otpauth URI)
+// (POST /api/v1/auth/mfa/enroll)
+func (_ Unimplemented) PostAuthMfaEnroll(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -743,6 +780,34 @@ func (siw *ServerInterfaceWrapper) GetAuthMe(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAuthMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAuthMfaConfirm operation middleware
+func (siw *ServerInterfaceWrapper) PostAuthMfaConfirm(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAuthMfaConfirm(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAuthMfaEnroll operation middleware
+func (siw *ServerInterfaceWrapper) PostAuthMfaEnroll(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAuthMfaEnroll(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1020,6 +1085,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/auth/me", wrapper.GetAuthMe)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/mfa/confirm", wrapper.PostAuthMfaConfirm)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/mfa/enroll", wrapper.PostAuthMfaEnroll)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/auth/refresh", wrapper.PostAuthRefresh)
 	})
 	r.Group(func(r chi.Router) {
@@ -1046,6 +1117,8 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 
 	return r
 }
+
+type BadRequestJSONResponse Error
 
 type ConflictJSONResponse Error
 
@@ -1332,6 +1405,113 @@ func (response GetAuthMe401JSONResponse) VisitGetAuthMeResponse(w http.ResponseW
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAuthMfaConfirmRequestObject struct {
+	Body *PostAuthMfaConfirmJSONRequestBody
+}
+
+type PostAuthMfaConfirmResponseObject interface {
+	VisitPostAuthMfaConfirmResponse(w http.ResponseWriter) error
+}
+
+type PostAuthMfaConfirm204Response struct {
+}
+
+func (response PostAuthMfaConfirm204Response) VisitPostAuthMfaConfirmResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PostAuthMfaConfirm400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostAuthMfaConfirm400JSONResponse) VisitPostAuthMfaConfirmResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAuthMfaConfirm401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAuthMfaConfirm401JSONResponse) VisitPostAuthMfaConfirmResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAuthMfaConfirm500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response PostAuthMfaConfirm500JSONResponse) VisitPostAuthMfaConfirmResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAuthMfaEnrollRequestObject struct {
+}
+
+type PostAuthMfaEnrollResponseObject interface {
+	VisitPostAuthMfaEnrollResponse(w http.ResponseWriter) error
+}
+
+type PostAuthMfaEnroll200JSONResponse MfaEnrollment
+
+func (response PostAuthMfaEnroll200JSONResponse) VisitPostAuthMfaEnrollResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAuthMfaEnroll401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAuthMfaEnroll401JSONResponse) VisitPostAuthMfaEnrollResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAuthMfaEnroll500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response PostAuthMfaEnroll500JSONResponse) VisitPostAuthMfaEnrollResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1696,6 +1876,12 @@ type StrictServerInterface interface {
 	// The current authenticated user
 	// (GET /api/v1/auth/me)
 	GetAuthMe(ctx context.Context, request GetAuthMeRequestObject) (GetAuthMeResponseObject, error)
+	// Confirm TOTP enrollment with a code
+	// (POST /api/v1/auth/mfa/confirm)
+	PostAuthMfaConfirm(ctx context.Context, request PostAuthMfaConfirmRequestObject) (PostAuthMfaConfirmResponseObject, error)
+	// Begin TOTP enrollment (returns a secret + otpauth URI)
+	// (POST /api/v1/auth/mfa/enroll)
+	PostAuthMfaEnroll(ctx context.Context, request PostAuthMfaEnrollRequestObject) (PostAuthMfaEnrollResponseObject, error)
 	// Rotate a refresh token into a new access + refresh token
 	// (POST /api/v1/auth/refresh)
 	PostAuthRefresh(ctx context.Context, request PostAuthRefreshRequestObject) (PostAuthRefreshResponseObject, error)
@@ -1925,6 +2111,61 @@ func (sh *strictHandler) GetAuthMe(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// PostAuthMfaConfirm operation middleware
+func (sh *strictHandler) PostAuthMfaConfirm(w http.ResponseWriter, r *http.Request) {
+	var request PostAuthMfaConfirmRequestObject
+
+	var body PostAuthMfaConfirmJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAuthMfaConfirm(ctx, request.(PostAuthMfaConfirmRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAuthMfaConfirm")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAuthMfaConfirmResponseObject); ok {
+		if err := validResponse.VisitPostAuthMfaConfirmResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAuthMfaEnroll operation middleware
+func (sh *strictHandler) PostAuthMfaEnroll(w http.ResponseWriter, r *http.Request) {
+	var request PostAuthMfaEnrollRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAuthMfaEnroll(ctx, request.(PostAuthMfaEnrollRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAuthMfaEnroll")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAuthMfaEnrollResponseObject); ok {
+		if err := validResponse.VisitPostAuthMfaEnrollResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // PostAuthRefresh operation middleware
 func (sh *strictHandler) PostAuthRefresh(w http.ResponseWriter, r *http.Request) {
 	var request PostAuthRefreshRequestObject
@@ -2140,49 +2381,52 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"RnbckDKEJVuZmFOpnI7piK6/rv8XAAD//w==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

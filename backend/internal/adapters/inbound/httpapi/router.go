@@ -292,8 +292,15 @@ func (s *Server) PostAuthLogin(ctx context.Context, request PostAuthLoginRequest
 	if request.Body == nil {
 		return PostAuthLogin401JSONResponse{UnauthorizedJSONResponse{Error: "invalid_credentials"}}, nil
 	}
-	access, refresh, p, err := s.auth.Login(ctx, request.Body.Email, request.Body.Password)
-	if err != nil {
+	code := ""
+	if request.Body.Code != nil {
+		code = *request.Body.Code
+	}
+	access, refresh, p, err := s.auth.Login(ctx, request.Body.Email, request.Body.Password, code)
+	switch {
+	case errors.Is(err, app.ErrMFARequired):
+		return PostAuthLogin401JSONResponse{UnauthorizedJSONResponse{Error: "mfa_required"}}, nil
+	case err != nil:
 		return PostAuthLogin401JSONResponse{UnauthorizedJSONResponse{Error: "invalid_credentials"}}, nil //nolint:nilerr
 	}
 	return PostAuthLogin200JSONResponse(AuthSession{Token: access, RefreshToken: refresh, User: toAPIAuthUser(p)}), nil
@@ -306,6 +313,38 @@ func (s *Server) GetAuthMe(ctx context.Context, _ GetAuthMeRequestObject) (GetAu
 		return GetAuthMe401JSONResponse{UnauthorizedJSONResponse{Error: "unauthorized"}}, nil
 	}
 	return GetAuthMe200JSONResponse(toAPIAuthUser(p)), nil
+}
+
+// PostAuthMfaEnroll mints a TOTP secret + otpauth URI for the current user.
+func (s *Server) PostAuthMfaEnroll(ctx context.Context, _ PostAuthMfaEnrollRequestObject) (PostAuthMfaEnrollResponseObject, error) {
+	p, ok := principalFrom(ctx)
+	if !ok {
+		return PostAuthMfaEnroll401JSONResponse{UnauthorizedJSONResponse{Error: "unauthorized"}}, nil
+	}
+	secret, uri, err := s.auth.BeginMFAEnrollment(ctx, p)
+	if err != nil {
+		return PostAuthMfaEnroll500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
+	}
+	return PostAuthMfaEnroll200JSONResponse(MfaEnrollment{Secret: secret, OtpauthUri: uri}), nil
+}
+
+// PostAuthMfaConfirm activates MFA after the user proves a valid code.
+func (s *Server) PostAuthMfaConfirm(ctx context.Context, request PostAuthMfaConfirmRequestObject) (PostAuthMfaConfirmResponseObject, error) {
+	p, ok := principalFrom(ctx)
+	if !ok {
+		return PostAuthMfaConfirm401JSONResponse{UnauthorizedJSONResponse{Error: "unauthorized"}}, nil
+	}
+	if request.Body == nil {
+		return PostAuthMfaConfirm400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
+	}
+	err := s.auth.ConfirmMFAEnrollment(ctx, p, request.Body.Secret, request.Body.Code)
+	switch {
+	case errors.Is(err, app.ErrInvalidMFACode):
+		return PostAuthMfaConfirm400JSONResponse{BadRequestJSONResponse{Error: "invalid_code"}}, nil
+	case err != nil:
+		return PostAuthMfaConfirm500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
+	}
+	return PostAuthMfaConfirm204Response{}, nil
 }
 
 // PostAuthRefresh rotates a refresh token into a fresh access + refresh pair.

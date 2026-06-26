@@ -25,6 +25,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/brief"
 	"github.com/xcreativs/gigmann/internal/core/facility"
+	"github.com/xcreativs/gigmann/internal/core/mfa"
 	"github.com/xcreativs/gigmann/internal/core/payer"
 	"github.com/xcreativs/gigmann/internal/core/severity"
 	"github.com/xcreativs/gigmann/internal/core/signal"
@@ -442,4 +443,56 @@ func TestGetFacilityDetailNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	rec := serveAuth(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/api/v1/facilities/ghost-facility")
 	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestMFAEnrollAndStepUp(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+
+	// initial login (no MFA enrolled yet)
+	rec := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234"}`)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var sess struct {
+		Token string `json:"token"`
+	}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&sess))
+
+	authed := func(method, target, body string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		var r *http.Request
+		if body == "" {
+			r = httptest.NewRequest(method, target, nil)
+		} else {
+			r = httptest.NewRequest(method, target, strings.NewReader(body))
+			r.Header.Set("Content-Type", "application/json")
+		}
+		r.Header.Set("Authorization", "Bearer "+sess.Token)
+		h.ServeHTTP(w, r)
+		return w
+	}
+
+	// enroll → get a secret
+	enroll := authed(http.MethodPost, "/api/v1/auth/mfa/enroll", "")
+	require.Equal(t, http.StatusOK, enroll.Code)
+	var enr struct {
+		Secret string `json:"secret"`
+	}
+	require.NoError(t, json.NewDecoder(enroll.Body).Decode(&enr))
+	require.NotEmpty(t, enr.Secret)
+
+	// confirm with a valid code → activates MFA
+	code, err := mfa.Code(enr.Secret, time.Now())
+	require.NoError(t, err)
+	confirm := authed(http.MethodPost, "/api/v1/auth/mfa/confirm", `{"secret":"`+enr.Secret+`","code":"`+code+`"}`)
+	require.Equal(t, http.StatusNoContent, confirm.Code)
+
+	// login without a code now requires MFA
+	noCode := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234"}`)
+	require.Equal(t, http.StatusUnauthorized, noCode.Code)
+
+	// login with a valid code succeeds
+	code2, err := mfa.Code(enr.Secret, time.Now())
+	require.NoError(t, err)
+	withCode := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234","code":"`+code2+`"}`)
+	require.Equal(t, http.StatusOK, withCode.Code)
 }

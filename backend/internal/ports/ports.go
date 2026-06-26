@@ -42,11 +42,14 @@ type Account struct {
 	User         user.User
 	Email        string
 	PasswordHash string
+	MFASecret    string // base32 TOTP secret; empty means MFA is not enrolled
 }
 
 // UserRepository is a driven port for looking up accounts by email.
 type UserRepository interface {
 	FindByEmail(ctx context.Context, email string) (Account, error)
+	FindByID(ctx context.Context, id string) (Account, error)
+	Save(ctx context.Context, account Account) error
 }
 
 // PasswordHasher hashes and verifies passwords (argon2id in the adapter).
