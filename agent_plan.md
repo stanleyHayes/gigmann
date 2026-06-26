@@ -927,7 +927,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-31.
 
-#### ☐ GEC-63 — Reports screen (generate & export) · 5 SP · Phase: Development
+#### ◐ GEC-63 — Reports screen (generate & export) · 5 SP · Phase: Development
+> **Started 2026-06-26:** the Daily Brief can be **exported** — Copy (to clipboard) and Download (`.md`) actions on the Today screen render the brief as shareable Markdown (`briefToMarkdown`). _Remaining: a dedicated Reports screen with KPI/period exports (CSV/PDF)._
 - User story: As Sammy, I want one-tap network/investor/board reports from live data, so that reporting isn't hand-assembled.
 - Business value: Spec §5.10.
 - Acceptance criteria:
@@ -1566,3 +1567,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **Brief → Ask follow-through.** The Daily Brief's suggested-action buttons (previously inert) now navigate to the Ask screen with the question prefilled (`action — facility`), connecting the two hero features. 46 tests, lint/typecheck/build green. | Claude |
 | 2026-06-26 | **GEC-25 done — facility drill-down API.** `GET /api/v1/facilities/{id}` returns a facility with its inventory/staff/alerts via `FacilityDetailService` (404 for unknown). Live-verified. Gate 92.2%, lint 0. | Claude |
 | 2026-06-26 | **GEC-58 done — facility drill-down screen.** Clicking a Network card opens `/facilities/:id` showing the facility's alerts/inventory/staff from the detail API. Completes the GEC-25+58 vertical. 49 tests @ 90.3%, lint/build green. | Claude |
+| 2026-06-26 | **GEC-63 (export) — share the brief.** Copy/Download actions on the Today screen export the Daily Brief as Markdown (`briefToMarkdown`, pure + tested). 52 tests @ 88.2%, lint/build green. | Claude |
