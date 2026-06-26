@@ -1105,7 +1105,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-6.
 
-#### ☐ GEC-79 — Dependency, SAST & secret scanning in CI · 3 SP · Phase: Development
+#### ◐ GEC-79 — Dependency, SAST & secret scanning in CI · 3 SP · Phase: Development
+> **Started 2026-06-26:** CI now runs `govulncheck` (Go vuln scan), `npm audit --omit=dev` (frontend: 0 vulns), and `gitleaks` (secret scan) on every push; the backend Go version is pinned to the patched `1.25.x` line (resolves the reachable crypto/tls stdlib advisories; dependency vulns are all non-reachable per govulncheck). _Remaining: a dedicated SAST (e.g. CodeQL/Semgrep) and SBOM generation._
 - User story: As the team, I want automated security scanning, so that vulns and leaked secrets are caught pre-merge.
 - Business value: Shift-left security.
 - Acceptance criteria:
@@ -1576,3 +1577,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **GEC-66 (started) — motion polish.** Framer Motion route-content fade/slide on navigation + staggered Daily Brief items, both reduced-motion aware. 56 tests, lint/build green. | Claude |
 | 2026-06-26 | **GEC-66 done — circular-reveal theme toggle.** Light/dark toggle animates a clip-path circle from the button via the View Transitions API (feature-detected fallback; reduced-motion aware). Cockpit motion polish complete. 56 tests, lint/build green. | Claude |
 | 2026-06-26 | **GEC-91 (started) — Prometheus /metrics.** RED HTTP metrics (request count by method/status + duration histogram) at `/metrics` via client_golang + a per-router registry. Verified live. Gate 91.8%, lint 0. | Claude |
+| 2026-06-26 | **GEC-79 (started) — supply-chain scanning in CI.** Added govulncheck + npm audit + gitleaks jobs; pinned backend Go to the patched 1.25.x (clears the reachable crypto/tls advisories). npm audit: 0 vulns. | Claude |
