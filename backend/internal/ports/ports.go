@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/xcreativs/gigmann/internal/core/approval"
 	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/brief"
 	"github.com/xcreativs/gigmann/internal/core/facility"
@@ -14,7 +15,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/intel"
 )
 
-//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore
+//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore,ApprovalRepository
 
 // ErrAccountNotFound is returned by UserRepository when no account matches.
 var ErrAccountNotFound = errors.New("ports: account not found")
@@ -68,4 +69,14 @@ type RefreshTokenStore interface {
 	Issue(ctx context.Context, p auth.Principal, ttl time.Duration) (string, error)
 	Consume(ctx context.Context, raw string) (auth.Principal, error)
 	Revoke(ctx context.Context, raw string) error
+}
+
+// ErrApprovalNotFound is returned by ApprovalRepository when no approval matches.
+var ErrApprovalNotFound = errors.New("ports: approval not found")
+
+// ApprovalRepository is a driven port for reading and updating approvals.
+type ApprovalRepository interface {
+	List(ctx context.Context) ([]approval.Approval, error)
+	Get(ctx context.Context, id string) (approval.Approval, error)
+	Save(ctx context.Context, a approval.Approval) error
 }

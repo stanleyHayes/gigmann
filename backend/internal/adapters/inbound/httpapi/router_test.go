@@ -18,6 +18,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/passwordhash"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/token"
 	"github.com/xcreativs/gigmann/internal/app"
+	"github.com/xcreativs/gigmann/internal/core/approval"
 	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/brief"
 	"github.com/xcreativs/gigmann/internal/core/facility"
@@ -59,12 +60,17 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 	users := memory.NewUserRepo(ports.Account{User: u, Email: testEmail, PasswordHash: hash})
 	tokens := token.New([]byte("test-secret"), time.Hour)
 	metricsSvc := app.NewMetricsService(seed.Generate(7, time.Date(2026, 6, 24, 0, 0, 0, 0, time.UTC), 14).Metrics)
+	approvalSvc := app.NewApprovalService(memory.NewApprovalRepo(approval.Approval{
+		ID: "ap-test", Type: approval.TypeCapital, FacilityID: "kasoa", Title: "Test approval",
+		RequestedBy: "Ama Owusu", Status: approval.StatusPending,
+	}))
 
 	return httpapi.NewRouter(httpapi.Deps{
 		Facilities: app.NewFacilityService(repo),
 		Metrics:    metricsSvc,
 		Briefs:     briefs,
 		Auth:       app.NewAuthService(users, hasher, tokens, memory.NewRefreshStore(), time.Hour),
+		Approvals:  approvalSvc,
 		Tokens:     tokens,
 	})
 }
@@ -241,7 +247,7 @@ func TestAuthMeRejectsBadToken(t *testing.T) {
 
 func TestProtectedEndpointRequiresAuth(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	for _, target := range []string{"/api/v1/facilities", "/api/v1/brief", "/api/v1/metrics"} {
+	for _, target := range []string{"/api/v1/facilities", "/api/v1/brief", "/api/v1/metrics", "/api/v1/approvals"} {
 		rec := serve(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, target)
 		require.Equal(t, http.StatusUnauthorized, rec.Code, target)
 	}
@@ -298,4 +304,51 @@ func TestAuthLogoutRevokes(t *testing.T) {
 	// after logout the refresh token can no longer be rotated
 	after := postJSON(t, h, "/api/v1/auth/refresh", `{"refresh_token":"`+refreshToken+`"}`)
 	require.Equal(t, http.StatusUnauthorized, after.Code)
+}
+
+func postAuthJSON(t *testing.T, h http.Handler, target, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, target, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+bearerToken(t))
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestListApprovals(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	rec := serveAuth(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/api/v1/approvals")
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body struct {
+		Approvals []map[string]any `json:"approvals"`
+	}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	require.Len(t, body.Approvals, 1)
+	assert.Equal(t, "ap-test", body.Approvals[0]["id"])
+}
+
+func TestDecideApprovalApproves(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+	rec := postAuthJSON(t, h, "/api/v1/approvals/ap-test/decision", `{"decision":"approve","note":"Go ahead"}`)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body map[string]any
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	assert.Equal(t, "approved", body["status"])
+	assert.Equal(t, "Go ahead", body["decision_note"])
+}
+
+func TestDecideApprovalNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+	rec := postAuthJSON(t, h, "/api/v1/approvals/missing/decision", `{"decision":"approve"}`)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestDecideApprovalRequiresAuth(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+	rec := postJSON(t, h, "/api/v1/approvals/ap-test/decision", `{"decision":"approve"}`)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }

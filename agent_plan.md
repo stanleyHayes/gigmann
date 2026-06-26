@@ -63,7 +63,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | **E0** | Foundations & Engineering Operations | 9 | 41 | ◐ In progress — GEC-1/2/5/9 done; 3/4/6/7/8 in progress |
 | **E1** | Domain Model, Data Layer & Synthetic Network | 8 | 47 | ◐ In progress — GEC-10/11/14/15/16 done |
 | **E2** | Authentication & Authorization | 7 | 39 | ◐ In progress — GEC-18/19/20/21/22/24 done; only GEC-17/23 left |
-| **E3** | Core Domain APIs (REST + OpenAPI) | 9 | 52 | ◐ In progress — GEC-26 done |
+| **E3** | Core Domain APIs (REST + OpenAPI) | 9 | 52 | ◐ In progress — GEC-26/31 done |
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
 | **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-42 done; 41/43 mock-first |
 | **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ◐ In progress — GEC-49/50 done |
@@ -565,7 +565,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-14.
 
-#### ☐ GEC-31 — Approvals & decision routing API · 5 SP · Phase: Development
+#### ☑ GEC-31 — Approvals & decision routing API · 5 SP · Phase: Development
+> **Done 2026-06-26:** `GET /api/v1/approvals` lists the approvals routed to the executive; `POST /api/v1/approvals/{id}/decision` records an explicit approve/decline. Authorization lives at the use-case boundary — `ApprovalService.Decide` is **executive-only** (managers → 403), a missing id → 404, and an already-decided approval → 409 (the domain's `ErrAlreadyDecided`). Backed by an in-memory `ApprovalRepository` seeded from the synthetic network. Decisions are explicit, user-initiated side-effects (never AI-triggered). Live-verified (approve→200, re-decide→409, no token→401). Gate 93.4%, lint 0.
 - User story: As Sammy, I want an approval queue I can act on from my phone, so that governance flows to one place.
 - Business value: Spec §5.8.
 - Acceptance criteria:
@@ -1531,3 +1532,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-25 | **GEC-18/19/22 — auth foundation (non-breaking).** argon2id password hashing + HS256 JWTs (golang-jwt v5) behind `ports.PasswordHasher`/`TokenService`; `app.AuthService.Login`; `POST /auth/login` + protected `GET /auth/me` with Bearer-token middleware that sets a `core/auth.Principal` (with facility-scoping rules) in context. Seeded in-memory users; `JWT_SECRET` config (dev default, required in prod). Business endpoints stay open until the SPA login (GEC-24) lands. Live-verified login→/me; backend lint 0, gate 94.4%. | Claude |
 | 2026-06-25 | **GEC-21/24 — the cockpit is locked.** A `requireAuth` strict middleware gates every business endpoint (401 without a valid token; `/healthz` + `/auth/login` public), verified live. The SPA now gates behind an `AuthProvider`: a login screen, persisted token, `Authorization` header on every request via an openapi-fetch middleware, 401→auto-logout, and a sign-out control in the shell. Backend lint 0 / gate 94.3%; frontend 28 tests, lint clean, build ok. Demo login: ceo@gigmann.health / ahenfie-demo. | Claude |
 | 2026-06-26 | **GEC-20/22 — refresh-token rotation.** Access tokens shortened to 15 min; login now also issues a single-use, SHA-256-hashed refresh token (7 days) via a `RefreshTokenStore`. `POST /auth/refresh` rotates (old invalidated, reuse→401), `POST /auth/logout` revokes. The SPA transparently rotates + replays on 401 (one in-flight refresh, raw-fetch to avoid recursion), logging out only if refresh fails. Live-verified end to end. Backend lint 0 / gate 94.3%; frontend lint clean, build ok. | Claude |
+| 2026-06-26 | **GEC-31 done — Approvals & decision-routing API.** `GET /approvals` + `POST /approvals/{id}/decision` (executive-only via `ApprovalService`, 403/404/409 mapped). In-memory `ApprovalRepository` seeded from the network; decisions are explicit human-in-the-loop side-effects. Live-verified. Gate 93.4%, lint 0. | Claude |

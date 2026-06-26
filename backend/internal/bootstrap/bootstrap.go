@@ -123,11 +123,14 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 	tokens := token.New([]byte(cfg.JWTSecret), accessTokenTTL)
 	authSvc := app.NewAuthService(memory.NewUserRepo(accounts...), hasher, tokens, memory.NewRefreshStore(), refreshTokenTTL)
 
+	approvalSvc := app.NewApprovalService(memory.NewApprovalRepo(net.Approvals...))
+
 	return httpapi.NewRouter(httpapi.Deps{
 		Facilities: app.NewFacilityService(facRepo),
 		Metrics:    metricsSvc,
 		Briefs:     briefs,
 		Auth:       authSvc,
+		Approvals:  approvalSvc,
 		Tokens:     tokens,
 	}), cleanup, nil
 }

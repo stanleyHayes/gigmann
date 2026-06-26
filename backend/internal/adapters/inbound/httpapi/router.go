@@ -5,6 +5,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/xcreativs/gigmann/internal/app"
+	"github.com/xcreativs/gigmann/internal/core/approval"
 	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/brief"
 	"github.com/xcreativs/gigmann/internal/core/facility"
@@ -32,6 +34,7 @@ type Deps struct {
 	Metrics    *app.MetricsService
 	Briefs     ports.BriefGenerator
 	Auth       *app.AuthService
+	Approvals  *app.ApprovalService
 	Tokens     ports.TokenService
 }
 
@@ -41,6 +44,7 @@ type Server struct {
 	metrics    *app.MetricsService
 	briefs     ports.BriefGenerator
 	auth       *app.AuthService
+	approvals  *app.ApprovalService
 }
 
 // Compile-time guarantee that Server satisfies the generated contract.
@@ -54,7 +58,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Use(middleware.Timeout(requestTimeout))
 	r.Use(authMiddleware(d.Tokens))
 
-	srv := &Server{facilities: d.Facilities, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth}
+	srv := &Server{facilities: d.Facilities, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals}
 	return HandlerFromMux(NewStrictHandler(srv, []StrictMiddlewareFunc{requireAuth()}), r)
 }
 
@@ -166,6 +170,43 @@ func (s *Server) GetMetrics(ctx context.Context, _ GetMetricsRequestObject) (Get
 	return GetMetrics200JSONResponse(toAPINetworkMetrics(n)), nil
 }
 
+// ListApprovals returns the approvals routed to the executive.
+func (s *Server) ListApprovals(ctx context.Context, _ ListApprovalsRequestObject) (ListApprovalsResponseObject, error) {
+	items, err := s.approvals.List(ctx)
+	if err != nil {
+		return ListApprovals500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
+	}
+	out := make([]Approval, 0, len(items))
+	for _, a := range items {
+		out = append(out, toAPIApproval(a))
+	}
+	return ListApprovals200JSONResponse{Approvals: out}, nil
+}
+
+// DecideApproval records an explicit approve/decline decision (executive only).
+func (s *Server) DecideApproval(ctx context.Context, request DecideApprovalRequestObject) (DecideApprovalResponseObject, error) {
+	if request.Body == nil {
+		return DecideApproval404JSONResponse{NotFoundJSONResponse{Error: "not_found"}}, nil
+	}
+	p, _ := principalFrom(ctx)
+	note := ""
+	if request.Body.Note != nil {
+		note = *request.Body.Note
+	}
+	a, err := s.approvals.Decide(ctx, p, request.ApprovalId, string(request.Body.Decision) == "approve", note, time.Now())
+	switch {
+	case errors.Is(err, app.ErrForbidden):
+		return DecideApproval403JSONResponse{ForbiddenJSONResponse{Error: "forbidden"}}, nil
+	case errors.Is(err, ports.ErrApprovalNotFound):
+		return DecideApproval404JSONResponse{NotFoundJSONResponse{Error: "not_found"}}, nil
+	case errors.Is(err, approval.ErrAlreadyDecided):
+		return DecideApproval409JSONResponse{ConflictJSONResponse{Error: "already_decided"}}, nil
+	case err != nil:
+		return DecideApproval500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
+	}
+	return DecideApproval200JSONResponse(toAPIApproval(a)), nil
+}
+
 // PostAuthLogin exchanges email/password for a signed access token.
 func (s *Server) PostAuthLogin(ctx context.Context, request PostAuthLoginRequestObject) (PostAuthLoginResponseObject, error) {
 	if request.Body == nil {
@@ -238,6 +279,32 @@ func toAPINetworkMetrics(n kpi.Network) NetworkMetrics {
 		})
 	}
 	return NetworkMetrics{AsOf: openapi_types.Date{Time: n.AsOf}, Kpis: kpis}
+}
+
+func toAPIApproval(a approval.Approval) Approval {
+	out := Approval{
+		Id:            a.ID,
+		Type:          ApprovalType(a.Type),
+		FacilityId:    a.FacilityID,
+		AmountPesewas: a.Amount.Pesewas(),
+		Title:         a.Title,
+		RequestedBy:   a.RequestedBy,
+		Status:        ApprovalStatus(a.Status),
+		CreatedAt:     a.CreatedAt,
+	}
+	if a.Context != "" {
+		ctxText := a.Context
+		out.Context = &ctxText
+	}
+	if !a.DecidedAt.IsZero() {
+		decidedAt := a.DecidedAt
+		out.DecidedAt = &decidedAt
+	}
+	if a.DecisionNote != "" {
+		note := a.DecisionNote
+		out.DecisionNote = &note
+	}
+	return out
 }
 
 func toAPIBrief(b brief.Brief) Brief {

@@ -18,8 +18,51 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for ApprovalStatus.
+const (
+	Approved ApprovalStatus = "approved"
+	Declined ApprovalStatus = "declined"
+	Pending  ApprovalStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the ApprovalStatus enum.
+func (e ApprovalStatus) Valid() bool {
+	switch e {
+	case Approved:
+		return true
+	case Declined:
+		return true
+	case Pending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ApprovalType.
+const (
+	Capital ApprovalType = "capital"
+	Hire    ApprovalType = "hire"
+	Reorder ApprovalType = "reorder"
+)
+
+// Valid indicates whether the value is a known member of the ApprovalType enum.
+func (e ApprovalType) Valid() bool {
+	switch e {
+	case Capital:
+		return true
+	case Hire:
+		return true
+	case Reorder:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for AuthUserRole.
 const (
@@ -33,6 +76,24 @@ func (e AuthUserRole) Valid() bool {
 	case Executive:
 		return true
 	case FacilityManager:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DecisionRequestDecision.
+const (
+	Approve DecisionRequestDecision = "approve"
+	Decline DecisionRequestDecision = "decline"
+)
+
+// Valid indicates whether the value is a known member of the DecisionRequestDecision enum.
+func (e DecisionRequestDecision) Valid() bool {
+	switch e {
+	case Approve:
+		return true
+	case Decline:
 		return true
 	default:
 		return false
@@ -102,6 +163,32 @@ func (e KpiUnit) Valid() bool {
 	}
 }
 
+// Approval defines model for Approval.
+type Approval struct {
+	AmountPesewas int64          `json:"amount_pesewas"`
+	Context       *string        `json:"context,omitempty"`
+	CreatedAt     time.Time      `json:"created_at"`
+	DecidedAt     *time.Time     `json:"decided_at,omitempty"`
+	DecisionNote  *string        `json:"decision_note,omitempty"`
+	FacilityId    string         `json:"facility_id"`
+	Id            string         `json:"id"`
+	RequestedBy   string         `json:"requested_by"`
+	Status        ApprovalStatus `json:"status"`
+	Title         string         `json:"title"`
+	Type          ApprovalType   `json:"type"`
+}
+
+// ApprovalStatus defines model for Approval.Status.
+type ApprovalStatus string
+
+// ApprovalType defines model for Approval.Type.
+type ApprovalType string
+
+// ApprovalList defines model for ApprovalList.
+type ApprovalList struct {
+	Approvals []Approval `json:"approvals"`
+}
+
 // AuthSession defines model for AuthSession.
 type AuthSession struct {
 	RefreshToken string   `json:"refresh_token"`
@@ -140,6 +227,15 @@ type BriefItem struct {
 	Severity         FacilityStatus `json:"severity"`
 	SuggestedActions *[]string      `json:"suggested_actions,omitempty"`
 }
+
+// DecisionRequest defines model for DecisionRequest.
+type DecisionRequest struct {
+	Decision DecisionRequestDecision `json:"decision"`
+	Note     *string                 `json:"note,omitempty"`
+}
+
+// DecisionRequestDecision defines model for DecisionRequest.Decision.
+type DecisionRequestDecision string
 
 // Error defines model for Error.
 type Error struct {
@@ -213,11 +309,23 @@ type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+// Conflict defines model for Conflict.
+type Conflict = Error
+
+// Forbidden defines model for Forbidden.
+type Forbidden = Error
+
 // InternalError defines model for InternalError.
 type InternalError = Error
 
+// NotFound defines model for NotFound.
+type NotFound = Error
+
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
+
+// DecideApprovalJSONRequestBody defines body for DecideApproval for application/json ContentType.
+type DecideApprovalJSONRequestBody = DecisionRequest
 
 // PostAuthLoginJSONRequestBody defines body for PostAuthLogin for application/json ContentType.
 type PostAuthLoginJSONRequestBody = LoginRequest
@@ -230,6 +338,12 @@ type PostAuthRefreshJSONRequestBody = RefreshRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Approvals routed to the executive
+	// (GET /api/v1/approvals)
+	ListApprovals(w http.ResponseWriter, r *http.Request)
+	// Approve or decline a pending approval (explicit, user-initiated)
+	// (POST /api/v1/approvals/{approvalId}/decision)
+	DecideApproval(w http.ResponseWriter, r *http.Request, approvalId string)
 	// Exchange email and password for an access token
 	// (POST /api/v1/auth/login)
 	PostAuthLogin(w http.ResponseWriter, r *http.Request)
@@ -259,6 +373,18 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// Approvals routed to the executive
+// (GET /api/v1/approvals)
+func (_ Unimplemented) ListApprovals(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Approve or decline a pending approval (explicit, user-initiated)
+// (POST /api/v1/approvals/{approvalId}/decision)
+func (_ Unimplemented) DecideApproval(w http.ResponseWriter, r *http.Request, approvalId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // Exchange email and password for an access token
 // (POST /api/v1/auth/login)
@@ -316,6 +442,46 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListApprovals operation middleware
+func (siw *ServerInterfaceWrapper) ListApprovals(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListApprovals(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DecideApproval operation middleware
+func (siw *ServerInterfaceWrapper) DecideApproval(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "approvalId" -------------
+	var approvalId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "approvalId", chi.URLParam(r, "approvalId"), &approvalId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "approvalId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DecideApproval(w, r, approvalId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // PostAuthLogin operation middleware
 func (siw *ServerInterfaceWrapper) PostAuthLogin(w http.ResponseWriter, r *http.Request) {
@@ -543,6 +709,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/approvals", wrapper.ListApprovals)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/approvals/{approvalId}/decision", wrapper.DecideApproval)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/auth/login", wrapper.PostAuthLogin)
 	})
 	r.Group(func(r chi.Router) {
@@ -570,9 +742,157 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	return r
 }
 
+type ConflictJSONResponse Error
+
+type ForbiddenJSONResponse Error
+
 type InternalErrorJSONResponse Error
 
+type NotFoundJSONResponse Error
+
 type UnauthorizedJSONResponse Error
+
+type ListApprovalsRequestObject struct {
+}
+
+type ListApprovalsResponseObject interface {
+	VisitListApprovalsResponse(w http.ResponseWriter) error
+}
+
+type ListApprovals200JSONResponse ApprovalList
+
+func (response ListApprovals200JSONResponse) VisitListApprovalsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApprovals401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListApprovals401JSONResponse) VisitListApprovalsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApprovals500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListApprovals500JSONResponse) VisitListApprovalsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DecideApprovalRequestObject struct {
+	ApprovalId string `json:"approvalId"`
+	Body       *DecideApprovalJSONRequestBody
+}
+
+type DecideApprovalResponseObject interface {
+	VisitDecideApprovalResponse(w http.ResponseWriter) error
+}
+
+type DecideApproval200JSONResponse Approval
+
+func (response DecideApproval200JSONResponse) VisitDecideApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DecideApproval401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DecideApproval401JSONResponse) VisitDecideApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DecideApproval403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DecideApproval403JSONResponse) VisitDecideApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DecideApproval404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DecideApproval404JSONResponse) VisitDecideApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DecideApproval409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DecideApproval409JSONResponse) VisitDecideApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DecideApproval500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DecideApproval500JSONResponse) VisitDecideApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type PostAuthLoginRequestObject struct {
 	Body *PostAuthLoginJSONRequestBody
@@ -825,6 +1145,12 @@ func (response GetHealthz200JSONResponse) VisitGetHealthzResponse(w http.Respons
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Approvals routed to the executive
+	// (GET /api/v1/approvals)
+	ListApprovals(ctx context.Context, request ListApprovalsRequestObject) (ListApprovalsResponseObject, error)
+	// Approve or decline a pending approval (explicit, user-initiated)
+	// (POST /api/v1/approvals/{approvalId}/decision)
+	DecideApproval(ctx context.Context, request DecideApprovalRequestObject) (DecideApprovalResponseObject, error)
 	// Exchange email and password for an access token
 	// (POST /api/v1/auth/login)
 	PostAuthLogin(ctx context.Context, request PostAuthLoginRequestObject) (PostAuthLoginResponseObject, error)
@@ -878,6 +1204,63 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// ListApprovals operation middleware
+func (sh *strictHandler) ListApprovals(w http.ResponseWriter, r *http.Request) {
+	var request ListApprovalsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListApprovals(ctx, request.(ListApprovalsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListApprovals")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListApprovalsResponseObject); ok {
+		if err := validResponse.VisitListApprovalsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DecideApproval operation middleware
+func (sh *strictHandler) DecideApproval(w http.ResponseWriter, r *http.Request, approvalId string) {
+	var request DecideApprovalRequestObject
+
+	request.ApprovalId = approvalId
+
+	var body DecideApprovalJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DecideApproval(ctx, request.(DecideApprovalRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DecideApproval")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DecideApprovalResponseObject); ok {
+		if err := validResponse.VisitDecideApprovalResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // PostAuthLogin operation middleware
@@ -1098,31 +1481,39 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"/w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

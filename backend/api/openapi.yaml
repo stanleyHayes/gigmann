@@ -141,6 +141,58 @@ paths:
         '204':
           description: Logged out
 
+  /api/v1/approvals:
+    get:
+      operationId: listApprovals
+      summary: Approvals routed to the executive
+      tags: [approvals]
+      responses:
+        '200':
+          description: The approvals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/approvals/{approvalId}/decision:
+    post:
+      operationId: decideApproval
+      summary: Approve or decline a pending approval (explicit, user-initiated)
+      tags: [approvals]
+      parameters:
+        - name: approvalId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisionRequest'
+      responses:
+        '200':
+          description: The decided approval
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Approval'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   schemas:
     Health:
@@ -315,6 +367,57 @@ components:
         refresh_token:
           type: string
 
+    Approval:
+      type: object
+      required: [id, type, facility_id, amount_pesewas, title, requested_by, status, created_at]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [capital, hire, reorder]
+        facility_id:
+          type: string
+        amount_pesewas:
+          type: integer
+          format: int64
+        title:
+          type: string
+        context:
+          type: string
+        requested_by:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, declined]
+        decided_at:
+          type: string
+          format: date-time
+        decision_note:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ApprovalList:
+      type: object
+      required: [approvals]
+      properties:
+        approvals:
+          type: array
+          items:
+            $ref: '#/components/schemas/Approval'
+
+    DecisionRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [approve, decline]
+        note:
+          type: string
+
     Error:
       type: object
       required: [error]
@@ -323,6 +426,24 @@ components:
           type: string
 
   responses:
+    Forbidden:
+      description: The principal is not allowed to perform this action
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: The resource is in a conflicting state
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     Unauthorized:
       description: Authentication required or failed
       content:
