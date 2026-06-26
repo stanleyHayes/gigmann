@@ -956,7 +956,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-33.
 
-#### ☐ GEC-66 — The "alive" details & motion polish · 5 SP · Phase: Polish
+#### ◐ GEC-66 — The "alive" details & motion polish · 5 SP · Phase: Polish
+> **Started 2026-06-26:** tasteful Framer Motion polish — route content fades/slides in on navigation (keyed by path), and the Daily Brief items stagger in. Both honour `prefers-reduced-motion` (via `useReducedMotion`, skipped entirely when set). _Remaining: the theme-toggle circular reveal (View Transitions API) and marketing 3D reveals._
 - User story: As Sammy, I want subtle live motion, so that the cockpit feels like it's always awake and thinking.
 - Business value: Spec §9.4 — protects the magic.
 - Acceptance criteria:
@@ -1571,3 +1572,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **GEC-63 (export) — share the brief.** Copy/Download actions on the Today screen export the Daily Brief as Markdown (`briefToMarkdown`, pure + tested). 52 tests @ 88.2%, lint/build green. | Claude |
 | 2026-06-26 | **GEC-23 (backend) — optional TOTP MFA.** RFC 6238 `core/mfa` (passes the RFC vector); opt-in `/auth/mfa/enroll`+`/confirm`; login step-up with an optional `code` → 401 `mfa_required` when needed. Live-verified end to end. Gate 91.7%, lint 0. | Claude |
 | 2026-06-26 | **GEC-23 done — MFA frontend.** Settings screen enrols TOTP (secret + confirm); login auto-prompts for the code on `mfa_required`. Completes optional MFA end to end. 56 tests @ 87.9%, lint/build green. | Claude |
+| 2026-06-26 | **GEC-66 (started) — motion polish.** Framer Motion route-content fade/slide on navigation + staggered Daily Brief items, both reduced-motion aware. 56 tests, lint/build green. | Claude |

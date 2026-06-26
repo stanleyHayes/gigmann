@@ -6,6 +6,8 @@ import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 
+import { motion, useReducedMotion } from 'framer-motion'
+
 import type { Brief } from '../api/useBrief'
 import { StatusChip, type FacilityStatus } from './StatusChip'
 
@@ -18,6 +20,7 @@ type Props = {
 
 /** DailyBrief is the hero surface: the morning brief, worst item first. */
 export function DailyBrief({ brief, isLoading, isError, onAction }: Props) {
+  const reduceMotion = useReducedMotion()
   if (isLoading) {
     return (
       <Box data-testid="brief-skeleton">
@@ -38,7 +41,13 @@ export function DailyBrief({ brief, isLoading, isError, onAction }: Props) {
     <Stack spacing={2}>
       <Typography variant="body1">{brief.prose}</Typography>
       {brief.items.map((item, i) => (
-        <Paper key={`${item.facility_id}-${i}`} variant="outlined" sx={{ p: 2 }}>
+        <motion.div
+          key={`${item.facility_id}-${i}`}
+          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, delay: reduceMotion ? 0 : i * 0.06 }}
+        >
+        <Paper variant="outlined" sx={{ p: 2 }}>
           <Stack spacing={1}>
             <StatusChip status={item.severity as FacilityStatus} label={item.facility_id} />
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -66,6 +75,7 @@ export function DailyBrief({ brief, isLoading, isError, onAction }: Props) {
             ) : null}
           </Stack>
         </Paper>
+        </motion.div>
       ))}
     </Stack>
   )

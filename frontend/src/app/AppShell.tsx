@@ -21,7 +21,8 @@ import LogoutOutlined from '@mui/icons-material/LogoutOutlined'
 import SettingsOutlined from '@mui/icons-material/SettingsOutlined'
 import TaskAltOutlined from '@mui/icons-material/TaskAltOutlined'
 import TodayOutlined from '@mui/icons-material/TodayOutlined'
-import { NavLink, Outlet, useNavigation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigation } from 'react-router-dom'
+import { motion, useReducedMotion } from 'framer-motion'
 import type { ReactNode } from 'react'
 
 import { useAuth } from '../auth/authContext'
@@ -45,6 +46,8 @@ export function AppShell() {
   const { mode, toggle } = useColorMode()
   const { user, logout } = useAuth()
   const navigation = useNavigation()
+  const location = useLocation()
+  const reduceMotion = useReducedMotion()
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
@@ -117,7 +120,14 @@ export function AppShell() {
       <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 } }}>
         <Toolbar />
         <Container maxWidth="md" disableGutters>
-          <Outlet />
+          <motion.div
+            key={location.pathname}
+            initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+          >
+            <Outlet />
+          </motion.div>
         </Container>
       </Box>
     </Box>
