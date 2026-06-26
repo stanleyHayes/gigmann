@@ -241,6 +241,29 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/ask:
+    post:
+      operationId: postAsk
+      summary: Ask a natural-language question about the network
+      tags: [ask]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AskRequest'
+      responses:
+        '200':
+          description: The grounded answer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Answer'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   schemas:
     Health:
@@ -512,6 +535,25 @@ components:
         status:
           type: string
           enum: [todo, in_progress, done]
+
+    AskRequest:
+      type: object
+      required: [question]
+      properties:
+        question:
+          type: string
+          minLength: 1
+
+    Answer:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+        citations:
+          type: array
+          items:
+            type: string
 
     Error:
       type: object

@@ -36,6 +36,12 @@ type Context struct {
 	Items []Item       `json:"items"`
 }
 
+// Answer is a grounded response to a natural-language question about the network.
+type Answer struct {
+	Text      string   `json:"text"`
+	Citations []string `json:"citations,omitempty"`
+}
+
 // BuildContext maps ranked signals to context items (resolving facility names)
 // and trims to the top N (0 = keep all). Order is preserved from the engine.
 func BuildContext(asOf time.Time, facilities []facility.Facility, signals []signal.Signal, pulse signal.Pulse, topN int) Context {

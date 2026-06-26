@@ -28,3 +28,14 @@ func TestNarrateBrief(t *testing.T) {
 	assert.Equal(t, severity.Critical, b.Items[0].Severity)
 	assert.Equal(t, "local-deterministic", b.Model)
 }
+
+func TestLocalAnswer(t *testing.T) {
+	c := intel.Context{
+		Pulse: intel.PulseSummary{Headline: "Network steady"},
+		Items: []intel.Item{{FacilityID: "kasoa", FacilityName: "Kasoa", Headline: "Denials high"}},
+	}
+	a, err := localnarrator.New().Answer(context.Background(), "anything", c)
+	require.NoError(t, err)
+	assert.Contains(t, a.Text, "Network steady")
+	assert.Contains(t, a.Citations, "kasoa")
+}

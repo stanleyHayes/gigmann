@@ -27,6 +27,12 @@ const (
 		"Return the brief via the emit_brief tool."
 	maxTokens = 4096
 	toolName  = "emit_brief"
+
+	answerSystemPrompt = "You are Sammy Adjei's chief of staff for Gigmann Medicals, a hospital network in Ghana. " +
+		"Answer his question using ONLY the supplied network context (JSON). Speak in plain English, in cedis, about NHIS, MoMo, and his facilities. " +
+		"CRITICAL: use only the figures in the context — never invent or estimate numbers. If the context does not contain the answer, say so plainly. " +
+		"List the facility_ids you drew on in citations. Return via the emit_answer tool."
+	answerToolName = "emit_answer"
 )
 
 // Narrator narrates briefs using the Anthropic Messages API.
@@ -36,7 +42,10 @@ type Narrator struct {
 }
 
 // Compile-time guarantee that Narrator satisfies the port.
-var _ ports.Narrator = (*Narrator)(nil)
+var (
+	_ ports.Narrator = (*Narrator)(nil)
+	_ ports.Answerer = (*Narrator)(nil)
+)
 
 // NewNarrator builds a Narrator. model defaults to claude-sonnet-4-6 when empty.
 func NewNarrator(apiKey, model string) *Narrator {
@@ -160,4 +169,57 @@ func parseBrief(meta briefMeta, raw []byte) (brief.Brief, error) {
 		ID: meta.id, Date: meta.date, Prose: dto.Prose, Items: items,
 		GeneratedAt: meta.generatedAt, Model: meta.model,
 	})
+}
+
+type answerDTO struct {
+	Text      string   `json:"text"`
+	Citations []string `json:"citations"`
+}
+
+func parseAnswer(raw []byte) (intel.Answer, error) {
+	var dto answerDTO
+	if err := json.Unmarshal(raw, &dto); err != nil {
+		return intel.Answer{}, fmt.Errorf("anthropic: parse answer json: %w", err)
+	}
+	return intel.Answer{Text: dto.Text, Citations: dto.Citations}, nil
+}
+
+// Answer calls Claude to answer a question grounded in the computed context.
+func (n *Narrator) Answer(ctx context.Context, question string, c intel.Context) (intel.Answer, error) {
+	ctxJSON, err := json.Marshal(c)
+	if err != nil {
+		return intel.Answer{}, fmt.Errorf("anthropic: marshal context: %w", err)
+	}
+	tool := anthropic.ToolParam{
+		Name:        answerToolName,
+		Description: anthropic.String("Emit the grounded answer."),
+		InputSchema: anthropic.ToolInputSchemaParam{
+			Properties: map[string]any{
+				"text":      map[string]any{"type": "string", "description": "Plain-English answer grounded in the context."},
+				"citations": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "facility_ids referenced."},
+			},
+			ExtraFields: map[string]any{"required": []string{"text"}, "additionalProperties": false},
+		},
+		Strict: anthropic.Bool(true),
+	}
+	resp, err := n.client.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:      n.model,
+		MaxTokens:  maxTokens,
+		System:     []anthropic.TextBlockParam{{Text: answerSystemPrompt}},
+		Tools:      []anthropic.ToolUnionParam{{OfTool: &tool}},
+		ToolChoice: anthropic.ToolChoiceParamOfTool(answerToolName),
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(
+				"Question: " + question + "\n\nNetwork context (JSON):\n" + string(ctxJSON))),
+		},
+	})
+	if err != nil {
+		return intel.Answer{}, fmt.Errorf("anthropic: messages: %w", err)
+	}
+	for _, block := range resp.Content {
+		if tu, ok := block.AsAny().(anthropic.ToolUseBlock); ok && tu.Name == answerToolName {
+			return parseAnswer([]byte(tu.JSON.Input.Raw()))
+		}
+	}
+	return intel.Answer{}, fmt.Errorf("anthropic: response had no %s tool call", answerToolName)
 }

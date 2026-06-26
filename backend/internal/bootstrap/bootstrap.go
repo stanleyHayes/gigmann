@@ -32,7 +32,7 @@ import (
 const (
 	shutdownTimeout = 10 * time.Second
 	readTimeout     = 10 * time.Second
-	writeTimeout    = 30 * time.Second // headroom for a cold LLM brief generation
+	writeTimeout    = 45 * time.Second // headroom for synchronous LLM calls (Ask)
 	demoSeed        = 42
 	briefTopN       = 5
 	briefCacheTTL   = 10 * time.Minute
@@ -100,15 +100,22 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		logger.Info("using in-memory repository seeded from synthetic network", "facilities", len(net.Facilities))
 	}
 
-	var narrator ports.Narrator = localnarrator.New()
+	engine := signalengine.Default(signalengine.DefaultThresholds())
+	var (
+		narrator ports.Narrator
+		answerer ports.Answerer
+	)
 	if cfg.AnthropicAPIKey != "" {
+		n := anthropic.NewNarrator(cfg.AnthropicAPIKey, cfg.AnthropicModel)
+		narrator, answerer = n, n
 		logger.Info("using Claude narrator", "model", cfg.AnthropicModel)
-		narrator = anthropic.NewNarrator(cfg.AnthropicAPIKey, cfg.AnthropicModel)
 	} else {
+		n := localnarrator.New()
+		narrator, answerer = n, n
 		logger.Info("no ANTHROPIC_API_KEY set — using the deterministic local narrator")
 	}
 
-	briefSvc := app.NewBriefService(signalengine.Default(signalengine.DefaultThresholds()), narrator, briefTopN)
+	briefSvc := app.NewBriefService(engine, narrator, briefTopN)
 	input := signalengine.Input{
 		AsOf: time.Now().UTC(), Facilities: net.Facilities, Metrics: net.Metrics,
 		Inventory: net.Inventory, Staff: net.Staff,
@@ -121,6 +128,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		}
 		logger.Info("brief cache warmed")
 	}()
+	askSvc := app.NewAskService(engine, answerer, input, 0)
 	metricsSvc := app.NewMetricsService(net.Metrics)
 
 	hasher := passwordhash.New()
@@ -141,6 +149,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		Auth:       authSvc,
 		Approvals:  approvalSvc,
 		Tasks:      taskSvc,
+		Ask:        askSvc,
 		Tokens:     tokens,
 	}), cleanup, nil
 }

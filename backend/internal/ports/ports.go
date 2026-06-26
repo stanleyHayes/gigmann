@@ -16,7 +16,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/intel"
 )
 
-//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore,ApprovalRepository,TaskRepository
+//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore,ApprovalRepository,TaskRepository,Answerer,QuestionAnswerer
 
 // ErrAccountNotFound is returned by UserRepository when no account matches.
 var ErrAccountNotFound = errors.New("ports: account not found")
@@ -90,4 +90,15 @@ type TaskRepository interface {
 	List(ctx context.Context) ([]task.Task, error)
 	Get(ctx context.Context, id string) (task.Task, error)
 	Save(ctx context.Context, t task.Task) error
+}
+
+// Answerer answers a natural-language question grounded in a computed context.
+// Implementations must use only the supplied figures and never invent numbers.
+type Answerer interface {
+	Answer(ctx context.Context, question string, c intel.Context) (intel.Answer, error)
+}
+
+// QuestionAnswerer is the inbound "Ask" use case over the current network.
+type QuestionAnswerer interface {
+	Answer(ctx context.Context, question string) (intel.Answer, error)
 }

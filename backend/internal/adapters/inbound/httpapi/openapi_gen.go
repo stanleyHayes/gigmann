@@ -247,6 +247,12 @@ func (e TaskStatusRequestStatus) Valid() bool {
 	}
 }
 
+// Answer defines model for Answer.
+type Answer struct {
+	Citations *[]string `json:"citations,omitempty"`
+	Text      string    `json:"text"`
+}
+
 // Approval defines model for Approval.
 type Approval struct {
 	AmountPesewas int64          `json:"amount_pesewas"`
@@ -271,6 +277,11 @@ type ApprovalType string
 // ApprovalList defines model for ApprovalList.
 type ApprovalList struct {
 	Approvals []Approval `json:"approvals"`
+}
+
+// AskRequest defines model for AskRequest.
+type AskRequest struct {
+	Question string `json:"question"`
 }
 
 // AuthSession defines model for AuthSession.
@@ -447,6 +458,9 @@ type Unauthorized = Error
 // DecideApprovalJSONRequestBody defines body for DecideApproval for application/json ContentType.
 type DecideApprovalJSONRequestBody = DecisionRequest
 
+// PostAskJSONRequestBody defines body for PostAsk for application/json ContentType.
+type PostAskJSONRequestBody = AskRequest
+
 // PostAuthLoginJSONRequestBody defines body for PostAuthLogin for application/json ContentType.
 type PostAuthLoginJSONRequestBody = LoginRequest
 
@@ -467,6 +481,9 @@ type ServerInterface interface {
 	// Approve or decline a pending approval (explicit, user-initiated)
 	// (POST /api/v1/approvals/{approvalId}/decision)
 	DecideApproval(w http.ResponseWriter, r *http.Request, approvalId string)
+	// Ask a natural-language question about the network
+	// (POST /api/v1/ask)
+	PostAsk(w http.ResponseWriter, r *http.Request)
 	// Exchange email and password for an access token
 	// (POST /api/v1/auth/login)
 	PostAuthLogin(w http.ResponseWriter, r *http.Request)
@@ -512,6 +529,12 @@ func (_ Unimplemented) ListApprovals(w http.ResponseWriter, r *http.Request) {
 // Approve or decline a pending approval (explicit, user-initiated)
 // (POST /api/v1/approvals/{approvalId}/decision)
 func (_ Unimplemented) DecideApproval(w http.ResponseWriter, r *http.Request, approvalId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Ask a natural-language question about the network
+// (POST /api/v1/ask)
+func (_ Unimplemented) PostAsk(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -615,6 +638,20 @@ func (siw *ServerInterfaceWrapper) DecideApproval(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DecideApproval(w, r, approvalId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAsk operation middleware
+func (siw *ServerInterfaceWrapper) PostAsk(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAsk(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -896,6 +933,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/approvals/{approvalId}/decision", wrapper.DecideApproval)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/ask", wrapper.PostAsk)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/auth/login", wrapper.PostAuthLogin)
 	})
 	r.Group(func(r chi.Router) {
@@ -1070,6 +1110,56 @@ func (response DecideApproval409JSONResponse) VisitDecideApprovalResponse(w http
 type DecideApproval500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response DecideApproval500JSONResponse) VisitDecideApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAskRequestObject struct {
+	Body *PostAskJSONRequestBody
+}
+
+type PostAskResponseObject interface {
+	VisitPostAskResponse(w http.ResponseWriter) error
+}
+
+type PostAsk200JSONResponse Answer
+
+func (response PostAsk200JSONResponse) VisitPostAskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAsk401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAsk401JSONResponse) VisitPostAskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAsk500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response PostAsk500JSONResponse) VisitPostAskResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1452,6 +1542,9 @@ type StrictServerInterface interface {
 	// Approve or decline a pending approval (explicit, user-initiated)
 	// (POST /api/v1/approvals/{approvalId}/decision)
 	DecideApproval(ctx context.Context, request DecideApprovalRequestObject) (DecideApprovalResponseObject, error)
+	// Ask a natural-language question about the network
+	// (POST /api/v1/ask)
+	PostAsk(ctx context.Context, request PostAskRequestObject) (PostAskResponseObject, error)
 	// Exchange email and password for an access token
 	// (POST /api/v1/auth/login)
 	PostAuthLogin(ctx context.Context, request PostAuthLoginRequestObject) (PostAuthLoginResponseObject, error)
@@ -1563,6 +1656,37 @@ func (sh *strictHandler) DecideApproval(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DecideApprovalResponseObject); ok {
 		if err := validResponse.VisitDecideApprovalResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAsk operation middleware
+func (sh *strictHandler) PostAsk(w http.ResponseWriter, r *http.Request) {
+	var request PostAskRequestObject
+
+	var body PostAskJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAsk(ctx, request.(PostAskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAsk")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAskResponseObject); ok {
+		if err := validResponse.VisitPostAskResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -1845,43 +1969,44 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"m6+b/wUAAP//",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

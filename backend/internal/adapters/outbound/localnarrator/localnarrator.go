@@ -5,6 +5,7 @@ package localnarrator
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/xcreativs/gigmann/internal/core/brief"
@@ -16,7 +17,10 @@ import (
 type Narrator struct{}
 
 // Compile-time guarantee that Narrator satisfies the port.
-var _ ports.Narrator = (*Narrator)(nil)
+var (
+	_ ports.Narrator = (*Narrator)(nil)
+	_ ports.Answerer = (*Narrator)(nil)
+)
 
 // New builds a local narrator.
 func New() *Narrator { return &Narrator{} }
@@ -41,4 +45,16 @@ func (Narrator) NarrateBrief(_ context.Context, c intel.Context) (brief.Brief, e
 		GeneratedAt: c.Date,
 		Model:       "local-deterministic",
 	})
+}
+
+// Answer deterministically summarises the context (no LLM) for the no-key path.
+func (Narrator) Answer(_ context.Context, _ string, c intel.Context) (intel.Answer, error) {
+	var b strings.Builder
+	b.WriteString("From the current signals — " + c.Pulse.Headline + ".")
+	citations := make([]string, 0, len(c.Items))
+	for _, it := range c.Items {
+		b.WriteString(" " + it.FacilityName + ": " + it.Headline + ".")
+		citations = append(citations, it.FacilityID)
+	}
+	return intel.Answer{Text: b.String(), Citations: citations}, nil
 }

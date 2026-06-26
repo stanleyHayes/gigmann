@@ -21,11 +21,12 @@ import (
 	"github.com/xcreativs/gigmann/internal/core/facility"
 	"github.com/xcreativs/gigmann/internal/core/kpi"
 	"github.com/xcreativs/gigmann/internal/core/task"
+	"github.com/xcreativs/gigmann/internal/intel"
 	"github.com/xcreativs/gigmann/internal/ports"
 )
 
 const (
-	requestTimeout = 30 * time.Second // an uncached LLM brief can take ~15s
+	requestTimeout = 45 * time.Second // the Ask endpoint calls the LLM synchronously (~20s)
 	bearerPrefix   = "Bearer "
 )
 
@@ -37,6 +38,7 @@ type Deps struct {
 	Auth       *app.AuthService
 	Approvals  *app.ApprovalService
 	Tasks      *app.TaskService
+	Ask        ports.QuestionAnswerer
 	Tokens     ports.TokenService
 }
 
@@ -48,6 +50,7 @@ type Server struct {
 	auth       *app.AuthService
 	approvals  *app.ApprovalService
 	tasks      *app.TaskService
+	ask        ports.QuestionAnswerer
 }
 
 // Compile-time guarantee that Server satisfies the generated contract.
@@ -61,7 +64,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Use(middleware.Timeout(requestTimeout))
 	r.Use(authMiddleware(d.Tokens))
 
-	srv := &Server{facilities: d.Facilities, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks}
+	srv := &Server{facilities: d.Facilities, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask}
 	return HandlerFromMux(NewStrictHandler(srv, []StrictMiddlewareFunc{requireAuth()}), r)
 }
 
@@ -238,6 +241,18 @@ func (s *Server) UpdateTaskStatus(ctx context.Context, request UpdateTaskStatusR
 	return UpdateTaskStatus200JSONResponse(toAPITask(t)), nil
 }
 
+// PostAsk answers a natural-language question grounded in the network context.
+func (s *Server) PostAsk(ctx context.Context, request PostAskRequestObject) (PostAskResponseObject, error) {
+	if request.Body == nil {
+		return PostAsk500JSONResponse{InternalErrorJSONResponse{Error: "bad_request"}}, nil
+	}
+	a, err := s.ask.Answer(ctx, request.Body.Question)
+	if err != nil {
+		return PostAsk500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
+	}
+	return PostAsk200JSONResponse(toAPIAnswer(a)), nil
+}
+
 // PostAuthLogin exchanges email/password for a signed access token.
 func (s *Server) PostAuthLogin(ctx context.Context, request PostAuthLoginRequestObject) (PostAuthLoginResponseObject, error) {
 	if request.Body == nil {
@@ -362,6 +377,15 @@ func toAPITask(t task.Task) Task {
 	if !t.DueDate.IsZero() {
 		dueDate := openapi_types.Date{Time: t.DueDate}
 		out.DueDate = &dueDate
+	}
+	return out
+}
+
+func toAPIAnswer(a intel.Answer) Answer {
+	out := Answer{Text: a.Text}
+	if len(a.Citations) > 0 {
+		citations := a.Citations
+		out.Citations = &citations
 	}
 	return out
 }

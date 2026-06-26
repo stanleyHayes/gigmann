@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/xcreativs/gigmann/internal/adapters/inbound/httpapi"
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/localnarrator"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/memory"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/passwordhash"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/token"
@@ -24,6 +25,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/core/facility"
 	"github.com/xcreativs/gigmann/internal/core/payer"
 	"github.com/xcreativs/gigmann/internal/core/severity"
+	"github.com/xcreativs/gigmann/internal/core/signal"
 	"github.com/xcreativs/gigmann/internal/core/task"
 	"github.com/xcreativs/gigmann/internal/core/user"
 	"github.com/xcreativs/gigmann/internal/ports"
@@ -68,6 +70,9 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 	taskSvc := app.NewTaskService(memory.NewTaskRepo(task.Task{
 		ID: "task-test", Title: "Test task", Priority: task.PriorityHigh, Status: task.StatusTodo, Source: task.SourceBrief,
 	}))
+	net := seed.Generate(7, time.Date(2026, 6, 24, 0, 0, 0, 0, time.UTC), 14)
+	askSvc := app.NewAskService(signal.Default(signal.DefaultThresholds()), localnarrator.New(),
+		signal.Input{AsOf: net.Metrics[0].Date, Facilities: net.Facilities, Metrics: net.Metrics, Inventory: net.Inventory, Staff: net.Staff}, 0)
 
 	return httpapi.NewRouter(httpapi.Deps{
 		Facilities: app.NewFacilityService(repo),
@@ -76,6 +81,7 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 		Auth:       app.NewAuthService(users, hasher, tokens, memory.NewRefreshStore(), time.Hour),
 		Approvals:  approvalSvc,
 		Tasks:      taskSvc,
+		Ask:        askSvc,
 		Tokens:     tokens,
 	})
 }
@@ -385,4 +391,23 @@ func TestUpdateTaskStatusNotFound(t *testing.T) {
 	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
 	rec := postAuthJSON(t, h, "/api/v1/tasks/missing/status", `{"status":"done"}`)
 	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestAsk(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+	rec := postAuthJSON(t, h, "/api/v1/ask", `{"question":"What is happening across the network?"}`)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body struct {
+		Text string `json:"text"`
+	}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	require.NotEmpty(t, body.Text)
+}
+
+func TestAskRequiresAuth(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+	rec := postJSON(t, h, "/api/v1/ask", `{"question":"x"}`)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
