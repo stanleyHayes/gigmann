@@ -67,7 +67,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
 | **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-41/42/43/44/46 done (live) |
 | **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ◐ In progress — GEC-49/50 done |
-| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — GEC-55/56/57/59/61/62 done |
+| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — all 6 screens live (GEC-55/56/57/59/60/61/62) |
 | **E8** | Realtime, Notifications & Alerts | 5 | 26 | ☐ Not started |
 | **E9** | Security Hardening & Compliance | 11 | 63 | ☐ Not started |
 | **E10** | SEO & Web Performance | 7 | 31 | ☐ Not started |
@@ -894,7 +894,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-26.
 
-#### ☐ GEC-60 — Ask screen (NL query + generated docs) · 8 SP · Phase: Development
+#### ◐ GEC-60 — Ask screen (NL query + generated docs) · 8 SP · Phase: Development
+> **Core done 2026-06-26:** `/ask` lets Sammy ask natural-language questions (typed or via suggested-prompt chips); `useAsk` posts to `/api/v1/ask` and renders the grounded Claude answer with citation chips (animated-dot loading). Completes the last placeholder — every nav slot is now functional. Lazily code-split. _Remaining: 'generated docs' (turn an answer into an exportable report/email) and markdown rendering of the answer._ 44 tests @ 90.8%.
 - User story: As Sammy, I want a plain-English query box with generated-document output, so that I interrogate and command in words.
 - Business value: Spec §5.6 — the close.
 - Acceptance criteria:
@@ -1548,3 +1549,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **GEC-61 done — My Day screen (completes the My Day vertical).** `/my-day` renders tasks from `/api/v1/tasks`; a checkbox completes a task (POST status), active-first sorting, done sinks with strikethrough. Lazily code-split. 40 tests @ 90.5%, lint clean, build ok. | Claude |
 | 2026-06-26 | **GEC-41/43/46 — live Claude brief, verified and cached.** Confirmed the Anthropic narrator against the real API (`claude-sonnet-4-6`): a build-tagged integration test proves the grounding guardrail (supplied figures only, no invented facility). Added `app.CachedBrief` (TTL cache + startup pre-warm + background refresh) so `/api/v1/brief` serves the real Claude brief in ~29 ms instead of timing out at 15 s; timeouts raised to 30 s. Backend gate 92.3%, lint 0. Key stored in gitignored `backend/.env`. | Claude |
 | 2026-06-26 | **GEC-44 done (live) — grounded NL Ask API.** `POST /api/v1/ask` answers questions over the deterministic network context via a new `Answerer` port (Claude `emit_answer` tool + grounding prompt; local fallback) and `AskService`. Live-verified: real Claude answer used only supplied figures (Kasoa 20% denial, Tafo −41% submission, Asokwa stockout). HTTP timeouts → 45s. Gate 92.3%, lint 0. | Claude |
+| 2026-06-26 | **GEC-60 (core) — Ask screen; cockpit screens complete.** `/ask` posts NL questions to `/api/v1/ask` and renders the grounded answer + citation chips, with suggested-prompt chips and animated-dot loading. Every nav slot (Today/Network/KPIs/Ask/My Day/Approvals) is now a working screen. Lazily code-split. 44 tests @ 90.8%, lint clean, build ok. | Claude |

@@ -13,7 +13,7 @@ export const routes: RouteObject[] = [
       { index: true, lazy: { Component: async () => (await import('../screens/HomeScreen')).HomeScreen } },
       { path: 'network', lazy: { Component: async () => (await import('../screens/NetworkScreen')).NetworkScreen } },
       { path: 'kpis', lazy: { Component: async () => (await import('../screens/KpisScreen')).KpisScreen } },
-      { path: 'ask', element: <Placeholder title="Ask" note="Natural-language query and generated docs — planned in GEC-60." /> },
+      { path: 'ask', lazy: { Component: async () => (await import('../screens/AskScreen')).AskScreen } },
       { path: 'my-day', lazy: { Component: async () => (await import('../screens/MyDayScreen')).MyDayScreen } },
       { path: 'approvals', lazy: { Component: async () => (await import('../screens/ApprovalsScreen')).ApprovalsScreen } },
       { path: '*', element: <Placeholder title="Not found" note="That page does not exist." /> },
