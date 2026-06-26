@@ -44,13 +44,27 @@ func TestLoadInvalidEnv(t *testing.T) {
 	}
 }
 
-func TestLoadProductionRequiresSecrets(t *testing.T) {
+func TestLoadProductionRequiresJWTSecret(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("HTTP_PORT", "8080")
+	t.Setenv("DATABASE_URL", "postgres://x") // present — proves DB is not the requirement
+	t.Setenv("ANTHROPIC_API_KEY", "sk-test")
+	t.Setenv("JWT_SECRET", "")
+	if _, err := config.Load(); err == nil {
+		t.Fatal("expected production to require JWT_SECRET")
+	}
+}
+
+func TestLoadProductionMinimal(t *testing.T) {
+	// JWT_SECRET alone suffices outside dev; DATABASE_URL and ANTHROPIC_API_KEY
+	// are optional (in-memory + local-narrator fallbacks).
 	t.Setenv("APP_ENV", "production")
 	t.Setenv("HTTP_PORT", "8080")
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("ANTHROPIC_API_KEY", "")
-	if _, err := config.Load(); err == nil {
-		t.Fatal("expected production to require DATABASE_URL and ANTHROPIC_API_KEY")
+	t.Setenv("JWT_SECRET", "prod-signing-secret")
+	if _, err := config.Load(); err != nil {
+		t.Fatalf("expected JWT_SECRET to suffice in production: %v", err)
 	}
 }
 

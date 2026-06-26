@@ -77,16 +77,12 @@ func (c Config) validate() error {
 	if c.HTTPPort < 1 || c.HTTPPort > 65535 {
 		return fmt.Errorf("config: HTTP_PORT out of range: %d", c.HTTPPort)
 	}
-	if c.AppEnv != EnvDevelopment {
-		if c.DatabaseURL == "" {
-			return errors.New("config: DATABASE_URL is required outside development")
-		}
-		if c.AnthropicAPIKey == "" {
-			return errors.New("config: ANTHROPIC_API_KEY is required outside development")
-		}
-		if c.JWTSecret == "" {
-			return errors.New("config: JWT_SECRET is required outside development")
-		}
+	// JWT_SECRET is the only hard requirement outside development — there is no
+	// safe default for token signing. DATABASE_URL and ANTHROPIC_API_KEY are
+	// optional: the app falls back to in-memory repositories and the
+	// deterministic local narrator when they are absent.
+	if c.AppEnv != EnvDevelopment && c.JWTSecret == "" {
+		return errors.New("config: JWT_SECRET is required outside development")
 	}
 	return nil
 }

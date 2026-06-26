@@ -20,22 +20,19 @@ services:
         value: production
       - key: HTTP_PORT
         value: "8080"
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://gigmann-frontend.onrender.com
       - fromGroup: gigmann-secrets
-      - key: DATABASE_URL
-        fromDatabase:
-          name: gigmann-postgres
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          name: gigmann-redis
-          type: redis
-          property: connectionString
+      # DATABASE_URL / REDIS_URL are re-enabled when persistence lands
+      # (GEC-11/12/13). The demo runs fully in-memory from the seeded
+      # synthetic network, so the API needs neither to boot.
 
-  - type: redis
-    name: gigmann-redis
-    plan: starter
-    maxmemoryPolicy: noeviction
-    ipAllowList: [] # internal only
+  # Redis is provisioned with persistence/clustered rate-limiting (GEC-11/74).
+  # - type: redis
+  #   name: gigmann-redis
+  #   plan: starter
+  #   maxmemoryPolicy: noeviction
+  #   ipAllowList: []
 
   - type: web
     name: gigmann-frontend
@@ -64,17 +61,18 @@ services:
   #   envVars:
   #     - fromGroup: gigmann-secrets
 
-databases:
-  - name: gigmann-postgres
-    plan: basic-256mb
-    postgresMajorVersion: "16"
+# Postgres (pgvector) is provisioned with the persistence layer (GEC-11/12/13).
+# databases:
+#   - name: gigmann-postgres
+#     plan: basic-256mb
+#     postgresMajorVersion: "16"
 
 envVarGroups:
   - name: gigmann-secrets
     envVars:
-      - key: ANTHROPIC_API_KEY
+      - key: ANTHROPIC_API_KEY # optional — local narrator fallback when unset
         sync: false
-      - key: JWT_PRIVATE_KEY
+      - key: JWT_SECRET # required: HS256 token-signing secret
         sync: false
-      - key: JWT_PUBLIC_KEY
+      - key: DEMO_PASSWORD # optional — seed login password (defaults otherwise)
         sync: false
