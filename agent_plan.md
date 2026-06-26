@@ -67,7 +67,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
 | **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-41/42/43/44/46 done (live) |
 | **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ◐ In progress — GEC-49/50 done |
-| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — all 6 screens live (GEC-55/56/57/59/60/61/62) |
+| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — all screens + facility drill-down |
 | **E8** | Realtime, Notifications & Alerts | 5 | 26 | ☐ Not started |
 | **E9** | Security Hardening & Compliance | 11 | 63 | ◐ In progress — CORS/rate-limit/audit done |
 | **E10** | SEO & Web Performance | 7 | 31 | ☐ Not started |
@@ -877,7 +877,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-25, GEC-40, GEC-55.
 
-#### ☐ GEC-58 — Facility detail (drill-down) · 5 SP · Phase: Development
+#### ☑ GEC-58 — Facility detail (drill-down) · 5 SP · Phase: Development
+> **Done 2026-06-26:** `/facilities/:id` (reached by clicking a Network card) renders the facility header + status, and Alerts / Inventory (with days-of-stock + stockout-imminent flags) / Staff (attrition + licence) sections from `GET /api/v1/facilities/{id}` via `useFacilityDetail`. Skeleton/error states, back-to-Network link, lazily code-split. Completes the drill-down vertical (GEC-25 + GEC-58). 49 tests @ 90.3%.
 - User story: As Sammy, I want one facility in depth one tap away, so that I can investigate.
 - Business value: Spec §5.3.
 - Acceptance criteria:
@@ -1564,3 +1565,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **Frontend robustness — route error boundary.** A React Router v7 `ErrorBoundary` on the layout route catches render errors and failed lazy-chunk loads (e.g. after a redeploy) and shows a friendly message + reload instead of a white screen. 45 tests, lint/typecheck/build green. | Claude |
 | 2026-06-26 | **Brief → Ask follow-through.** The Daily Brief's suggested-action buttons (previously inert) now navigate to the Ask screen with the question prefilled (`action — facility`), connecting the two hero features. 46 tests, lint/typecheck/build green. | Claude |
 | 2026-06-26 | **GEC-25 done — facility drill-down API.** `GET /api/v1/facilities/{id}` returns a facility with its inventory/staff/alerts via `FacilityDetailService` (404 for unknown). Live-verified. Gate 92.2%, lint 0. | Claude |
+| 2026-06-26 | **GEC-58 done — facility drill-down screen.** Clicking a Network card opens `/facilities/:id` showing the facility's alerts/inventory/staff from the detail API. Completes the GEC-25+58 vertical. 49 tests @ 90.3%, lint/build green. | Claude |

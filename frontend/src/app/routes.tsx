@@ -14,6 +14,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, lazy: { Component: async () => (await import('../screens/HomeScreen')).HomeScreen } },
       { path: 'network', lazy: { Component: async () => (await import('../screens/NetworkScreen')).NetworkScreen } },
+      { path: 'facilities/:facilityId', lazy: { Component: async () => (await import('../screens/FacilityDetailScreen')).FacilityDetailScreen } },
       { path: 'kpis', lazy: { Component: async () => (await import('../screens/KpisScreen')).KpisScreen } },
       { path: 'ask', lazy: { Component: async () => (await import('../screens/AskScreen')).AskScreen } },
       { path: 'my-day', lazy: { Component: async () => (await import('../screens/MyDayScreen')).MyDayScreen } },

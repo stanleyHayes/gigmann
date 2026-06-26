@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Facility } from '../api/useFacilities'
@@ -20,7 +21,7 @@ const facilities: Facility[] = [
 
 describe('NetworkOverview', () => {
   it('summarises the network and sorts facilities worst-first', () => {
-    render(<NetworkOverview facilities={facilities} />)
+    render(<NetworkOverview facilities={facilities} />, { wrapper: MemoryRouter })
     expect(screen.getByText(/3 facilities/i)).toBeInTheDocument()
     expect(screen.getByText(/1 critical/i)).toBeInTheDocument()
 
@@ -30,7 +31,7 @@ describe('NetworkOverview', () => {
   })
 
   it('handles an empty network', () => {
-    render(<NetworkOverview facilities={[]} />)
+    render(<NetworkOverview facilities={[]} />, { wrapper: MemoryRouter })
     expect(screen.getByText(/0 facilities/i)).toBeInTheDocument()
   })
 })
@@ -41,19 +42,19 @@ describe('NetworkScreen', () => {
   })
 
   it('shows a skeleton while loading', () => {
-    render(<NetworkScreen />)
+    render(<NetworkScreen />, { wrapper: MemoryRouter })
     expect(screen.getByTestId('network-skeleton')).toBeInTheDocument()
   })
 
   it('shows an error state', () => {
     hoisted.result = { data: undefined, isLoading: false, isError: true }
-    render(<NetworkScreen />)
+    render(<NetworkScreen />, { wrapper: MemoryRouter })
     expect(screen.getByText(/couldn.t load the network/i)).toBeInTheDocument()
   })
 
   it('renders the network once loaded', () => {
     hoisted.result = { data: facilities, isLoading: false, isError: false }
-    render(<NetworkScreen />)
+    render(<NetworkScreen />, { wrapper: MemoryRouter })
     expect(screen.getByRole('heading', { name: 'Network' })).toBeInTheDocument()
     expect(screen.getByText('Tafo Maternity')).toBeInTheDocument()
   })

@@ -1,10 +1,13 @@
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
+import CardActionArea from '@mui/material/CardActionArea'
 import CardContent from '@mui/material/CardContent'
 import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+
+import { Link as RouterLink } from 'react-router-dom'
 
 import { useFacilities, type Facility } from '../api/useFacilities'
 import { StatusChip, type FacilityStatus } from '../components/StatusChip'
@@ -57,6 +60,7 @@ function NetworkSummary({ facilities }: { facilities: Facility[] }) {
 function FacilityCard({ facility }: { facility: Facility }) {
   return (
     <Card variant="outlined" component="article" aria-label={facility.name}>
+      <CardActionArea component={RouterLink} to={`/facilities/${facility.id}`}>
       <CardContent>
         <Stack spacing={1}>
           <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -73,6 +77,7 @@ function FacilityCard({ facility }: { facility: Facility }) {
           </Typography>
         </Stack>
       </CardContent>
+      </CardActionArea>
     </Card>
   )
 }
