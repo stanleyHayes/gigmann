@@ -7,7 +7,8 @@ export type AuthUser = components['schemas']['AuthUser']
 export type AuthValue = {
   user: AuthUser | undefined
   isAuthenticated: boolean
-  login: (email: string, password: string) => void
+  mfaRequired: boolean
+  login: (email: string, password: string, code?: string) => void
   logout: () => void
   loginPending: boolean
   loginError: string | null

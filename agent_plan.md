@@ -62,7 +62,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 |---|---|---|---|---|
 | **E0** | Foundations & Engineering Operations | 9 | 41 | ◐ In progress — GEC-1/2/5/9 done; 3/4/6/7/8 in progress |
 | **E1** | Domain Model, Data Layer & Synthetic Network | 8 | 47 | ◐ In progress — GEC-10/11/14/15/16 done |
-| **E2** | Authentication & Authorization | 7 | 39 | ◐ In progress — GEC-18/19/20/21/22/24 done; only GEC-17/23 left |
+| **E2** | Authentication & Authorization | 7 | 39 | ◐ In progress — GEC-18/19/20/21/22/23/24 done; only GEC-17 left |
 | **E3** | Core Domain APIs (REST + OpenAPI) | 9 | 52 | ◐ In progress — GEC-26/30/31 done |
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
 | **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-41/42/43/44/46 done (live) |
@@ -478,8 +478,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-20, GEC-5.
 
-#### ◐ GEC-23 — Optional TOTP MFA · 5 SP · Phase: Development
-> **Backend done 2026-06-26 (live-verified):** RFC 6238 TOTP (`core/mfa`, HMAC-SHA1, 30s/6-digit, ±1 skew; passes the RFC test vector). Opt-in enrollment: `POST /auth/mfa/enroll` (returns a base32 secret + otpauth URI) → `POST /auth/mfa/confirm` (validates a code, persists the secret on the account). Login gains an optional `code`; if MFA is enrolled, a missing/invalid code returns 401 `mfa_required`, a valid one issues tokens. `UserRepository` gained `FindByID`/`Save`. Full enroll→step-up flow verified live + an E2E handler test. _Remaining: the frontend (login step-up + a settings enrolment screen); recovery codes._
+#### ☑ GEC-23 — Optional TOTP MFA · 5 SP · Phase: Development
+> **Backend done 2026-06-26 (live-verified):** RFC 6238 TOTP (`core/mfa`, HMAC-SHA1, 30s/6-digit, ±1 skew; passes the RFC test vector). Opt-in enrollment: `POST /auth/mfa/enroll` (returns a base32 secret + otpauth URI) → `POST /auth/mfa/confirm` (validates a code, persists the secret on the account). Login gains an optional `code`; if MFA is enrolled, a missing/invalid code returns 401 `mfa_required`, a valid one issues tokens. `UserRepository` gained `FindByID`/`Save`. Full enroll→step-up flow verified live + an E2E handler test. **Frontend done 2026-06-26:** a Settings screen (⚙ in the app bar) enrols MFA — *Set up* → shows the secret → confirm a code; the login screen auto-prompts for the 6-digit code on an `mfa_required` response. _Remaining: recovery codes + a QR image (the otpauth URI/secret is shown as text)._
 - User story: As an executive, I want optional 2FA, so that my high-value account is harder to compromise.
 - Business value: Executive accounts are high-value targets.
 - Acceptance criteria:
@@ -1570,3 +1570,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **GEC-58 done — facility drill-down screen.** Clicking a Network card opens `/facilities/:id` showing the facility's alerts/inventory/staff from the detail API. Completes the GEC-25+58 vertical. 49 tests @ 90.3%, lint/build green. | Claude |
 | 2026-06-26 | **GEC-63 (export) — share the brief.** Copy/Download actions on the Today screen export the Daily Brief as Markdown (`briefToMarkdown`, pure + tested). 52 tests @ 88.2%, lint/build green. | Claude |
 | 2026-06-26 | **GEC-23 (backend) — optional TOTP MFA.** RFC 6238 `core/mfa` (passes the RFC vector); opt-in `/auth/mfa/enroll`+`/confirm`; login step-up with an optional `code` → 401 `mfa_required` when needed. Live-verified end to end. Gate 91.7%, lint 0. | Claude |
+| 2026-06-26 | **GEC-23 done — MFA frontend.** Settings screen enrols TOTP (secret + confirm); login auto-prompts for the code on `mfa_required`. Completes optional MFA end to end. 56 tests @ 87.9%, lint/build green. | Claude |

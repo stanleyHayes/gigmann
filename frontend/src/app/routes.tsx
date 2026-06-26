@@ -19,6 +19,7 @@ export const routes: RouteObject[] = [
       { path: 'ask', lazy: { Component: async () => (await import('../screens/AskScreen')).AskScreen } },
       { path: 'my-day', lazy: { Component: async () => (await import('../screens/MyDayScreen')).MyDayScreen } },
       { path: 'approvals', lazy: { Component: async () => (await import('../screens/ApprovalsScreen')).ApprovalsScreen } },
+      { path: 'settings', lazy: { Component: async () => (await import('../screens/SettingsScreen')).SettingsScreen } },
       { path: '*', element: <Placeholder title="Not found" note="That page does not exist." /> },
     ],
   },

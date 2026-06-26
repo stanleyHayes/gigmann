@@ -18,6 +18,7 @@ import HubOutlined from '@mui/icons-material/HubOutlined'
 import InsightsOutlined from '@mui/icons-material/InsightsOutlined'
 import LightModeOutlined from '@mui/icons-material/LightModeOutlined'
 import LogoutOutlined from '@mui/icons-material/LogoutOutlined'
+import SettingsOutlined from '@mui/icons-material/SettingsOutlined'
 import TaskAltOutlined from '@mui/icons-material/TaskAltOutlined'
 import TodayOutlined from '@mui/icons-material/TodayOutlined'
 import { NavLink, Outlet, useNavigation } from 'react-router-dom'
@@ -69,6 +70,9 @@ export function AppShell() {
             aria-label={mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
           >
             {mode === 'light' ? <DarkModeOutlined /> : <LightModeOutlined />}
+          </IconButton>
+          <IconButton color="inherit" component={NavLink} to="/settings" aria-label="Settings">
+            <SettingsOutlined />
           </IconButton>
           <IconButton color="inherit" onClick={logout} aria-label="Sign out">
             <LogoutOutlined />

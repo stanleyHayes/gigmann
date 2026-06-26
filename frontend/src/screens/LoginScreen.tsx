@@ -13,13 +13,14 @@ import { ButtonLoadingDots } from '../components/ButtonLoadingDots'
 
 /** LoginScreen gates the cockpit until the user signs in. */
 export function LoginScreen() {
-  const { login, loginPending, loginError } = useAuth()
+  const { login, loginPending, loginError, mfaRequired } = useAuth()
   const [email, setEmail] = useState('ceo@gigmann.health')
   const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()
-    login(email, password)
+    login(email, password, mfaRequired ? code : undefined)
   }
 
   return (
@@ -51,10 +52,21 @@ export function LoginScreen() {
               autoComplete="current-password"
               required
             />
+            {mfaRequired ? (
+              <TextField
+                label="Authenticator code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                helperText="Enter the 6-digit code from your authenticator app."
+                autoFocus
+              />
+            ) : null}
             {loginError ? <Alert severity="error">{loginError}</Alert> : null}
             <Button type="submit" variant="contained" size="large" disabled={loginPending}>
               {loginPending ? <ButtonLoadingDots /> : null}
-              Sign in
+              {mfaRequired ? 'Verify' : 'Sign in'}
             </Button>
           </Stack>
         </CardContent>

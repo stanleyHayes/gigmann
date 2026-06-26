@@ -10,6 +10,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const token = useSyncExternalStore(subscribeToken, getToken, getToken)
   const queryClient = useQueryClient()
   const [loginError, setLoginError] = useState<string | null>(null)
+  const [mfaRequired, setMfaRequired] = useState(false)
 
   const meQuery = useQuery({
     queryKey: ['auth', 'me', token],
@@ -25,24 +26,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   })
 
   const loginMutation = useMutation({
-    mutationFn: async (vars: { email: string; password: string }) => {
+    mutationFn: async (vars: { email: string; password: string; code?: string }) => {
       const { data, error } = await api.POST('/api/v1/auth/login', { body: vars })
-      if (error || !data) {
+      if (error) {
+        throw error
+      }
+      if (!data) {
         throw new Error('invalid_credentials')
       }
       return data
     },
     onSuccess: (session) => {
       setLoginError(null)
+      setMfaRequired(false)
       setSession(session.token, session.refresh_token)
     },
-    onError: () => setLoginError('Invalid email or password.'),
+    onError: (err: unknown) => {
+      if ((err as { error?: string } | null)?.error === 'mfa_required') {
+        setMfaRequired(true)
+        setLoginError(null)
+      } else {
+        setMfaRequired(false)
+        setLoginError('Invalid email or password.')
+      }
+    },
   })
 
   const value: AuthValue = {
     user: meQuery.data,
     isAuthenticated: !!token,
-    login: (email, password) => loginMutation.mutate({ email, password }),
+    mfaRequired,
+    login: (email, password, code) => loginMutation.mutate({ email, password, code: code || undefined }),
     logout: () => {
       const refreshToken = getRefreshToken()
       if (refreshToken) {

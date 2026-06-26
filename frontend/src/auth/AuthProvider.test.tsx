@@ -63,4 +63,15 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(screen.getByText(/invalid email or password/i)).toBeInTheDocument())
     expect(screen.getByTestId('probe')).toHaveTextContent('anon')
   })
+
+  it('prompts for a code when MFA is required', async () => {
+    post.mockResolvedValue({ data: undefined, error: { error: 'mfa_required' } })
+
+    renderAuth()
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'ceo@gigmann.health' } })
+    fireEvent.change(screen.getByLabelText(/^password/i), { target: { value: 'pw' } })
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+
+    await waitFor(() => expect(screen.getByLabelText(/authenticator code/i)).toBeInTheDocument())
+  })
 })
