@@ -124,6 +124,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 	authSvc := app.NewAuthService(memory.NewUserRepo(accounts...), hasher, tokens, memory.NewRefreshStore(), refreshTokenTTL)
 
 	approvalSvc := app.NewApprovalService(memory.NewApprovalRepo(net.Approvals...))
+	taskSvc := app.NewTaskService(memory.NewTaskRepo(net.Tasks...))
 
 	return httpapi.NewRouter(httpapi.Deps{
 		Facilities: app.NewFacilityService(facRepo),
@@ -131,6 +132,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		Briefs:     briefs,
 		Auth:       authSvc,
 		Approvals:  approvalSvc,
+		Tasks:      taskSvc,
 		Tokens:     tokens,
 	}), cleanup, nil
 }

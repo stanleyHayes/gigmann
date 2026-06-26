@@ -16,6 +16,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/core/payer"
 	"github.com/xcreativs/gigmann/internal/core/severity"
 	"github.com/xcreativs/gigmann/internal/core/staff"
+	"github.com/xcreativs/gigmann/internal/core/task"
 )
 
 // DefaultDays is the length of the generated daily metric history.
@@ -29,6 +30,7 @@ type Network struct {
 	Staff      []staff.Member
 	Alerts     []alert.Alert
 	Approvals  []approval.Approval
+	Tasks      []task.Task
 }
 
 type spec struct {
@@ -76,6 +78,7 @@ func Generate(seedVal int64, asOf time.Time, days int) Network {
 	net.Staff = genStaff(asOf)
 	net.Alerts = genAlerts(asOf)
 	net.Approvals = genApprovals(asOf)
+	net.Tasks = genTasks(asOf)
 	return net
 }
 
@@ -246,5 +249,33 @@ func genApprovals(asOf time.Time) []approval.Approval {
 			Amount: money.FromCedis(14000, 0), Title: "Generator servicing at Nima",
 			Context: "Dumsor continuity; oxygen plant depends on it.", RequestedBy: "Mohammed Iddrisu",
 			Status: approval.StatusPending, CreatedAt: asOf}),
+	}
+}
+
+func genTasks(asOf time.Time) []task.Task {
+	must := func(t task.Task) task.Task {
+		v, err := task.New(t)
+		if err != nil {
+			panic(err)
+		}
+		return v
+	}
+	return []task.Task{
+		must(task.Task{ID: "task-tafo-claims", Title: "Message Tafo manager about unsubmitted claims",
+			Detail: "Claims recorded but not submitted for 6 days; demand is flat.", FacilityID: "tafo-maternity",
+			Priority: task.PriorityHigh, Status: task.StatusTodo, Source: task.SourceBrief,
+			AssignedTo: "Sammy Adjei", DueDate: asOf, CreatedAt: asOf}),
+		must(task.Task{ID: "task-kasoa-denials", Title: "Review NHIS denial spike at Kasoa",
+			Detail: "Denial rate at 19% — call the claims officer.", FacilityID: "kasoa",
+			Priority: task.PriorityHigh, Status: task.StatusInProgress, Source: task.SourceAlert,
+			AssignedTo: "Sammy Adjei", DueDate: asOf, CreatedAt: asOf}),
+		must(task.Task{ID: "task-asokwa-stock", Title: "Confirm RDT reorder for Asokwa",
+			Detail: "Malaria RDT kits run out in ~5 days (7d lead time).", FacilityID: "asokwa",
+			Priority: task.PriorityMedium, Status: task.StatusTodo, Source: task.SourceBrief,
+			AssignedTo: "Sammy Adjei", DueDate: asOf.AddDate(0, 0, 2), CreatedAt: asOf}),
+		must(task.Task{ID: "task-board-deck", Title: "Finalise Q3 board deck",
+			Detail:   "Network pulse summary + capital asks.",
+			Priority: task.PriorityMedium, Status: task.StatusTodo, Source: task.SourceManual,
+			AssignedTo: "Sammy Adjei", DueDate: asOf.AddDate(0, 0, 5), CreatedAt: asOf}),
 	}
 }

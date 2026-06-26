@@ -163,6 +163,90 @@ func (e KpiUnit) Valid() bool {
 	}
 }
 
+// Defines values for TaskPriority.
+const (
+	High   TaskPriority = "high"
+	Low    TaskPriority = "low"
+	Medium TaskPriority = "medium"
+)
+
+// Valid indicates whether the value is a known member of the TaskPriority enum.
+func (e TaskPriority) Valid() bool {
+	switch e {
+	case High:
+		return true
+	case Low:
+		return true
+	case Medium:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskSource.
+const (
+	TaskSourceAlert  TaskSource = "alert"
+	TaskSourceBrief  TaskSource = "brief"
+	TaskSourceManual TaskSource = "manual"
+)
+
+// Valid indicates whether the value is a known member of the TaskSource enum.
+func (e TaskSource) Valid() bool {
+	switch e {
+	case TaskSourceAlert:
+		return true
+	case TaskSourceBrief:
+		return true
+	case TaskSourceManual:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskStatus.
+const (
+	TaskStatusDone       TaskStatus = "done"
+	TaskStatusInProgress TaskStatus = "in_progress"
+	TaskStatusTodo       TaskStatus = "todo"
+)
+
+// Valid indicates whether the value is a known member of the TaskStatus enum.
+func (e TaskStatus) Valid() bool {
+	switch e {
+	case TaskStatusDone:
+		return true
+	case TaskStatusInProgress:
+		return true
+	case TaskStatusTodo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskStatusRequestStatus.
+const (
+	TaskStatusRequestStatusDone       TaskStatusRequestStatus = "done"
+	TaskStatusRequestStatusInProgress TaskStatusRequestStatus = "in_progress"
+	TaskStatusRequestStatusTodo       TaskStatusRequestStatus = "todo"
+)
+
+// Valid indicates whether the value is a known member of the TaskStatusRequestStatus enum.
+func (e TaskStatusRequestStatus) Valid() bool {
+	switch e {
+	case TaskStatusRequestStatusDone:
+		return true
+	case TaskStatusRequestStatusInProgress:
+		return true
+	case TaskStatusRequestStatusTodo:
+		return true
+	default:
+		return false
+	}
+}
+
 // Approval defines model for Approval.
 type Approval struct {
 	AmountPesewas int64          `json:"amount_pesewas"`
@@ -309,6 +393,42 @@ type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+// Task defines model for Task.
+type Task struct {
+	AssignedTo *string             `json:"assigned_to,omitempty"`
+	CreatedAt  time.Time           `json:"created_at"`
+	Detail     *string             `json:"detail,omitempty"`
+	DueDate    *openapi_types.Date `json:"due_date,omitempty"`
+	FacilityId *string             `json:"facility_id,omitempty"`
+	Id         string              `json:"id"`
+	Priority   TaskPriority        `json:"priority"`
+	Source     TaskSource          `json:"source"`
+	Status     TaskStatus          `json:"status"`
+	Title      string              `json:"title"`
+}
+
+// TaskPriority defines model for Task.Priority.
+type TaskPriority string
+
+// TaskSource defines model for Task.Source.
+type TaskSource string
+
+// TaskStatus defines model for Task.Status.
+type TaskStatus string
+
+// TaskList defines model for TaskList.
+type TaskList struct {
+	Tasks []Task `json:"tasks"`
+}
+
+// TaskStatusRequest defines model for TaskStatusRequest.
+type TaskStatusRequest struct {
+	Status TaskStatusRequestStatus `json:"status"`
+}
+
+// TaskStatusRequestStatus defines model for TaskStatusRequest.Status.
+type TaskStatusRequestStatus string
+
 // Conflict defines model for Conflict.
 type Conflict = Error
 
@@ -335,6 +455,9 @@ type PostAuthLogoutJSONRequestBody = RefreshRequest
 
 // PostAuthRefreshJSONRequestBody defines body for PostAuthRefresh for application/json ContentType.
 type PostAuthRefreshJSONRequestBody = RefreshRequest
+
+// UpdateTaskStatusJSONRequestBody defines body for UpdateTaskStatus for application/json ContentType.
+type UpdateTaskStatusJSONRequestBody = TaskStatusRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -365,6 +488,12 @@ type ServerInterface interface {
 	// Deterministic network KPIs and weekly trends
 	// (GET /api/v1/metrics)
 	GetMetrics(w http.ResponseWriter, r *http.Request)
+	// The executive's "My Day" tasks
+	// (GET /api/v1/tasks)
+	ListTasks(w http.ResponseWriter, r *http.Request)
+	// Update a task's status
+	// (POST /api/v1/tasks/{taskId}/status)
+	UpdateTaskStatus(w http.ResponseWriter, r *http.Request, taskId string)
 	// Liveness probe
 	// (GET /healthz)
 	GetHealthz(w http.ResponseWriter, r *http.Request)
@@ -425,6 +554,18 @@ func (_ Unimplemented) ListFacilities(w http.ResponseWriter, r *http.Request) {
 // Deterministic network KPIs and weekly trends
 // (GET /api/v1/metrics)
 func (_ Unimplemented) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// The executive's "My Day" tasks
+// (GET /api/v1/tasks)
+func (_ Unimplemented) ListTasks(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update a task's status
+// (POST /api/v1/tasks/{taskId}/status)
+func (_ Unimplemented) UpdateTaskStatus(w http.ResponseWriter, r *http.Request, taskId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -572,6 +713,46 @@ func (siw *ServerInterfaceWrapper) GetMetrics(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMetrics(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListTasks operation middleware
+func (siw *ServerInterfaceWrapper) ListTasks(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTasks(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateTaskStatus operation middleware
+func (siw *ServerInterfaceWrapper) UpdateTaskStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "taskId" -------------
+	var taskId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "taskId", chi.URLParam(r, "taskId"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "taskId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateTaskStatus(w, r, taskId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -734,6 +915,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/metrics", wrapper.GetMetrics)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/tasks", wrapper.ListTasks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/tasks/{taskId}/status", wrapper.UpdateTaskStatus)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/healthz", wrapper.GetHealthz)
@@ -1122,6 +1309,120 @@ func (response GetMetrics500JSONResponse) VisitGetMetricsResponse(w http.Respons
 	return err
 }
 
+type ListTasksRequestObject struct {
+}
+
+type ListTasksResponseObject interface {
+	VisitListTasksResponse(w http.ResponseWriter) error
+}
+
+type ListTasks200JSONResponse TaskList
+
+func (response ListTasks200JSONResponse) VisitListTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTasks401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListTasks401JSONResponse) VisitListTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTasks500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListTasks500JSONResponse) VisitListTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTaskStatusRequestObject struct {
+	TaskId string `json:"taskId"`
+	Body   *UpdateTaskStatusJSONRequestBody
+}
+
+type UpdateTaskStatusResponseObject interface {
+	VisitUpdateTaskStatusResponse(w http.ResponseWriter) error
+}
+
+type UpdateTaskStatus200JSONResponse Task
+
+func (response UpdateTaskStatus200JSONResponse) VisitUpdateTaskStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTaskStatus401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateTaskStatus401JSONResponse) VisitUpdateTaskStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTaskStatus404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateTaskStatus404JSONResponse) VisitUpdateTaskStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTaskStatus500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response UpdateTaskStatus500JSONResponse) VisitUpdateTaskStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetHealthzRequestObject struct {
 }
 
@@ -1172,6 +1473,12 @@ type StrictServerInterface interface {
 	// Deterministic network KPIs and weekly trends
 	// (GET /api/v1/metrics)
 	GetMetrics(ctx context.Context, request GetMetricsRequestObject) (GetMetricsResponseObject, error)
+	// The executive's "My Day" tasks
+	// (GET /api/v1/tasks)
+	ListTasks(ctx context.Context, request ListTasksRequestObject) (ListTasksResponseObject, error)
+	// Update a task's status
+	// (POST /api/v1/tasks/{taskId}/status)
+	UpdateTaskStatus(ctx context.Context, request UpdateTaskStatusRequestObject) (UpdateTaskStatusResponseObject, error)
 	// Liveness probe
 	// (GET /healthz)
 	GetHealthz(ctx context.Context, request GetHealthzRequestObject) (GetHealthzResponseObject, error)
@@ -1452,6 +1759,63 @@ func (sh *strictHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ListTasks operation middleware
+func (sh *strictHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
+	var request ListTasksRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTasks(ctx, request.(ListTasksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTasks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListTasksResponseObject); ok {
+		if err := validResponse.VisitListTasksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateTaskStatus operation middleware
+func (sh *strictHandler) UpdateTaskStatus(w http.ResponseWriter, r *http.Request, taskId string) {
+	var request UpdateTaskStatusRequestObject
+
+	request.TaskId = taskId
+
+	var body UpdateTaskStatusJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateTaskStatus(ctx, request.(UpdateTaskStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateTaskStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateTaskStatusResponseObject); ok {
+		if err := validResponse.VisitUpdateTaskStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetHealthz operation middleware
 func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 	var request GetHealthzRequestObject
@@ -1481,39 +1845,43 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"/w==",
+	"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",
+	"m6+b/wUAAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

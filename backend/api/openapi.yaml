@@ -193,6 +193,54 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/tasks:
+    get:
+      operationId: listTasks
+      summary: The executive's "My Day" tasks
+      tags: [tasks]
+      responses:
+        '200':
+          description: The tasks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/tasks/{taskId}/status:
+    post:
+      operationId: updateTaskStatus
+      summary: Update a task's status
+      tags: [tasks]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskStatusRequest'
+      responses:
+        '200':
+          description: The updated task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   schemas:
     Health:
@@ -417,6 +465,53 @@ components:
           enum: [approve, decline]
         note:
           type: string
+
+    Task:
+      type: object
+      required: [id, title, priority, status, source, created_at]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        detail:
+          type: string
+        facility_id:
+          type: string
+        priority:
+          type: string
+          enum: [low, medium, high]
+        status:
+          type: string
+          enum: [todo, in_progress, done]
+        due_date:
+          type: string
+          format: date
+        assigned_to:
+          type: string
+        source:
+          type: string
+          enum: [manual, brief, alert]
+        created_at:
+          type: string
+          format: date-time
+
+    TaskList:
+      type: object
+      required: [tasks]
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+
+    TaskStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [todo, in_progress, done]
 
     Error:
       type: object

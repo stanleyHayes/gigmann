@@ -20,6 +20,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/core/brief"
 	"github.com/xcreativs/gigmann/internal/core/facility"
 	"github.com/xcreativs/gigmann/internal/core/kpi"
+	"github.com/xcreativs/gigmann/internal/core/task"
 	"github.com/xcreativs/gigmann/internal/ports"
 )
 
@@ -35,6 +36,7 @@ type Deps struct {
 	Briefs     ports.BriefGenerator
 	Auth       *app.AuthService
 	Approvals  *app.ApprovalService
+	Tasks      *app.TaskService
 	Tokens     ports.TokenService
 }
 
@@ -45,6 +47,7 @@ type Server struct {
 	briefs     ports.BriefGenerator
 	auth       *app.AuthService
 	approvals  *app.ApprovalService
+	tasks      *app.TaskService
 }
 
 // Compile-time guarantee that Server satisfies the generated contract.
@@ -58,7 +61,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Use(middleware.Timeout(requestTimeout))
 	r.Use(authMiddleware(d.Tokens))
 
-	srv := &Server{facilities: d.Facilities, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals}
+	srv := &Server{facilities: d.Facilities, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks}
 	return HandlerFromMux(NewStrictHandler(srv, []StrictMiddlewareFunc{requireAuth()}), r)
 }
 
@@ -207,6 +210,34 @@ func (s *Server) DecideApproval(ctx context.Context, request DecideApprovalReque
 	return DecideApproval200JSONResponse(toAPIApproval(a)), nil
 }
 
+// ListTasks returns the executive's "My Day" tasks.
+func (s *Server) ListTasks(ctx context.Context, _ ListTasksRequestObject) (ListTasksResponseObject, error) {
+	items, err := s.tasks.List(ctx)
+	if err != nil {
+		return ListTasks500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
+	}
+	out := make([]Task, 0, len(items))
+	for _, t := range items {
+		out = append(out, toAPITask(t))
+	}
+	return ListTasks200JSONResponse{Tasks: out}, nil
+}
+
+// UpdateTaskStatus moves a task to a new status.
+func (s *Server) UpdateTaskStatus(ctx context.Context, request UpdateTaskStatusRequestObject) (UpdateTaskStatusResponseObject, error) {
+	if request.Body == nil {
+		return UpdateTaskStatus404JSONResponse{NotFoundJSONResponse{Error: "not_found"}}, nil
+	}
+	t, err := s.tasks.UpdateStatus(ctx, request.TaskId, task.Status(request.Body.Status))
+	switch {
+	case errors.Is(err, ports.ErrTaskNotFound):
+		return UpdateTaskStatus404JSONResponse{NotFoundJSONResponse{Error: "not_found"}}, nil
+	case err != nil:
+		return UpdateTaskStatus500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
+	}
+	return UpdateTaskStatus200JSONResponse(toAPITask(t)), nil
+}
+
 // PostAuthLogin exchanges email/password for a signed access token.
 func (s *Server) PostAuthLogin(ctx context.Context, request PostAuthLoginRequestObject) (PostAuthLoginResponseObject, error) {
 	if request.Body == nil {
@@ -303,6 +334,34 @@ func toAPIApproval(a approval.Approval) Approval {
 	if a.DecisionNote != "" {
 		note := a.DecisionNote
 		out.DecisionNote = &note
+	}
+	return out
+}
+
+func toAPITask(t task.Task) Task {
+	out := Task{
+		Id:        t.ID,
+		Title:     t.Title,
+		Priority:  TaskPriority(t.Priority),
+		Status:    TaskStatus(t.Status),
+		Source:    TaskSource(t.Source),
+		CreatedAt: t.CreatedAt,
+	}
+	if t.Detail != "" {
+		detail := t.Detail
+		out.Detail = &detail
+	}
+	if t.FacilityID != "" {
+		facilityID := t.FacilityID
+		out.FacilityId = &facilityID
+	}
+	if t.AssignedTo != "" {
+		assignedTo := t.AssignedTo
+		out.AssignedTo = &assignedTo
+	}
+	if !t.DueDate.IsZero() {
+		dueDate := openapi_types.Date{Time: t.DueDate}
+		out.DueDate = &dueDate
 	}
 	return out
 }

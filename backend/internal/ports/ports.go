@@ -11,11 +11,12 @@ import (
 	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/brief"
 	"github.com/xcreativs/gigmann/internal/core/facility"
+	"github.com/xcreativs/gigmann/internal/core/task"
 	"github.com/xcreativs/gigmann/internal/core/user"
 	"github.com/xcreativs/gigmann/internal/intel"
 )
 
-//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore,ApprovalRepository
+//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore,ApprovalRepository,TaskRepository
 
 // ErrAccountNotFound is returned by UserRepository when no account matches.
 var ErrAccountNotFound = errors.New("ports: account not found")
@@ -79,4 +80,14 @@ type ApprovalRepository interface {
 	List(ctx context.Context) ([]approval.Approval, error)
 	Get(ctx context.Context, id string) (approval.Approval, error)
 	Save(ctx context.Context, a approval.Approval) error
+}
+
+// ErrTaskNotFound is returned by TaskRepository when no task matches.
+var ErrTaskNotFound = errors.New("ports: task not found")
+
+// TaskRepository is a driven port for reading and updating "My Day" tasks.
+type TaskRepository interface {
+	List(ctx context.Context) ([]task.Task, error)
+	Get(ctx context.Context, id string) (task.Task, error)
+	Save(ctx context.Context, t task.Task) error
 }

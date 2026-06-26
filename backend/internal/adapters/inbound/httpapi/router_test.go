@@ -24,6 +24,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/core/facility"
 	"github.com/xcreativs/gigmann/internal/core/payer"
 	"github.com/xcreativs/gigmann/internal/core/severity"
+	"github.com/xcreativs/gigmann/internal/core/task"
 	"github.com/xcreativs/gigmann/internal/core/user"
 	"github.com/xcreativs/gigmann/internal/ports"
 	"github.com/xcreativs/gigmann/internal/ports/mocks"
@@ -64,6 +65,9 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 		ID: "ap-test", Type: approval.TypeCapital, FacilityID: "kasoa", Title: "Test approval",
 		RequestedBy: "Ama Owusu", Status: approval.StatusPending,
 	}))
+	taskSvc := app.NewTaskService(memory.NewTaskRepo(task.Task{
+		ID: "task-test", Title: "Test task", Priority: task.PriorityHigh, Status: task.StatusTodo, Source: task.SourceBrief,
+	}))
 
 	return httpapi.NewRouter(httpapi.Deps{
 		Facilities: app.NewFacilityService(repo),
@@ -71,6 +75,7 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 		Briefs:     briefs,
 		Auth:       app.NewAuthService(users, hasher, tokens, memory.NewRefreshStore(), time.Hour),
 		Approvals:  approvalSvc,
+		Tasks:      taskSvc,
 		Tokens:     tokens,
 	})
 }
@@ -247,7 +252,7 @@ func TestAuthMeRejectsBadToken(t *testing.T) {
 
 func TestProtectedEndpointRequiresAuth(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	for _, target := range []string{"/api/v1/facilities", "/api/v1/brief", "/api/v1/metrics", "/api/v1/approvals"} {
+	for _, target := range []string{"/api/v1/facilities", "/api/v1/brief", "/api/v1/metrics", "/api/v1/approvals", "/api/v1/tasks"} {
 		rec := serve(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, target)
 		require.Equal(t, http.StatusUnauthorized, rec.Code, target)
 	}
@@ -351,4 +356,33 @@ func TestDecideApprovalRequiresAuth(t *testing.T) {
 	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
 	rec := postJSON(t, h, "/api/v1/approvals/ap-test/decision", `{"decision":"approve"}`)
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestListTasks(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	rec := serveAuth(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/api/v1/tasks")
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body struct {
+		Tasks []map[string]any `json:"tasks"`
+	}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	require.Len(t, body.Tasks, 1)
+	assert.Equal(t, "task-test", body.Tasks[0]["id"])
+}
+
+func TestUpdateTaskStatus(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+	rec := postAuthJSON(t, h, "/api/v1/tasks/task-test/status", `{"status":"done"}`)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body map[string]any
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	assert.Equal(t, "done", body["status"])
+}
+
+func TestUpdateTaskStatusNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+	rec := postAuthJSON(t, h, "/api/v1/tasks/missing/status", `{"status":"done"}`)
+	require.Equal(t, http.StatusNotFound, rec.Code)
 }
