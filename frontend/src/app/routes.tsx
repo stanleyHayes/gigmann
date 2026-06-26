@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router-dom'
 
 import { Placeholder } from '../screens/Placeholder'
 import { AppShell } from './AppShell'
+import { RouteError } from './RouteError'
 
 // The AppShell layout stays eager; each real screen is a lazily-loaded chunk
 // (dynamic import auto-splits in Vite). Charts/MUI-X load only when visited.
@@ -9,6 +10,7 @@ export const routes: RouteObject[] = [
   {
     path: '/',
     Component: AppShell,
+    ErrorBoundary: RouteError,
     children: [
       { index: true, lazy: { Component: async () => (await import('../screens/HomeScreen')).HomeScreen } },
       { path: 'network', lazy: { Component: async () => (await import('../screens/NetworkScreen')).NetworkScreen } },
