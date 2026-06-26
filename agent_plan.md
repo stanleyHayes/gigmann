@@ -67,7 +67,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
 | **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-42 done; 41/43 mock-first |
 | **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ◐ In progress — GEC-49/50 done |
-| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — GEC-55/56/57/59/62 done |
+| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — GEC-55/56/57/59/61/62 done |
 | **E8** | Realtime, Notifications & Alerts | 5 | 26 | ☐ Not started |
 | **E9** | Security Hardening & Compliance | 11 | 63 | ☐ Not started |
 | **E10** | SEO & Web Performance | 7 | 31 | ☐ Not started |
@@ -898,7 +898,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-44, GEC-45, GEC-55.
 
-#### ☐ GEC-61 — My Day screen · 5 SP · Phase: Development
+#### ☑ GEC-61 — My Day screen · 5 SP · Phase: Development
+> **Done 2026-06-26:** `/my-day` lists the executive's tasks from `GET /api/v1/tasks` via a typed `useTasks` hook — active tasks first (sorted by priority), completed sink to the bottom (strikethrough). A checkbox toggles a task done/todo through `useUpdateTaskStatus` (POST status), with priority/source/facility/due chips and an in-progress marker. Skeleton/error/empty states; lazily code-split. Gate green: tsc/eslint clean, 40 tests @ 90.5%. Completes the My Day vertical (GEC-30 + GEC-61).
 - User story: As Sammy, I want a clean personal task board tied to facilities, so that I run my day.
 - Business value: Spec §5.7.
 - Acceptance criteria:
@@ -1539,3 +1540,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **GEC-62 done — Approvals screen (completes the approvals vertical).** `/approvals` renders the queue from `/api/v1/approvals`; Approve/Decline open a confirmation dialog (+ optional note) so a decision is never a one-click side-effect; settled approvals show status + note. Gate green: 36 tests @ 91.4%, build ok. | Claude |
 | 2026-06-26 | **GEC-86 (code-split) — SPA bundle split.** React Router v7 lazy routes + Vite 8 Rolldown `codeSplitting.groups` split the 1.1 MB bundle into a 57 kB entry + vendor chunks (react/mui/mui-charts), with mui-charts (435 kB) loaded on-demand only on `/kpis`. 500 kB warning cleared; nav shows a progress bar during lazy loads. APIs verified pre-code (research workflow). 36 tests (routes now async `findBy`), lint clean, build ok. | Claude |
 | 2026-06-26 | **GEC-30 done — Tasks / "My Day" API.** `GET /tasks` + `POST /tasks/{id}/status` (todo/in_progress/done) via a new `TaskRepository`/`TaskService`; the seed network now generates 4 tasks. Live-verified. Gate 92.1%, lint 0. | Claude |
+| 2026-06-26 | **GEC-61 done — My Day screen (completes the My Day vertical).** `/my-day` renders tasks from `/api/v1/tasks`; a checkbox completes a task (POST status), active-first sorting, done sinks with strikethrough. Lazily code-split. 40 tests @ 90.5%, lint clean, build ok. | Claude |

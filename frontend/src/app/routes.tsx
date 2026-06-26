@@ -14,7 +14,7 @@ export const routes: RouteObject[] = [
       { path: 'network', lazy: { Component: async () => (await import('../screens/NetworkScreen')).NetworkScreen } },
       { path: 'kpis', lazy: { Component: async () => (await import('../screens/KpisScreen')).KpisScreen } },
       { path: 'ask', element: <Placeholder title="Ask" note="Natural-language query and generated docs — planned in GEC-60." /> },
-      { path: 'my-day', element: <Placeholder title="My Day" note="Planned in GEC-61." /> },
+      { path: 'my-day', lazy: { Component: async () => (await import('../screens/MyDayScreen')).MyDayScreen } },
       { path: 'approvals', lazy: { Component: async () => (await import('../screens/ApprovalsScreen')).ApprovalsScreen } },
       { path: '*', element: <Placeholder title="Not found" note="That page does not exist." /> },
     ],
