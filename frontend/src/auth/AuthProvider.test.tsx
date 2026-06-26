@@ -39,7 +39,7 @@ describe('AuthProvider', () => {
   })
 
   it('authenticates on a successful login', async () => {
-    post.mockResolvedValue({ data: { token: 'tok', user: { id: 'u1', name: 'Sammy Adjei', role: 'executive' } }, error: undefined })
+    post.mockResolvedValue({ data: { token: 'tok', refresh_token: 'ref', user: { id: 'u1', name: 'Sammy Adjei', role: 'executive' } }, error: undefined })
     get.mockResolvedValue({ data: { id: 'u1', name: 'Sammy Adjei', role: 'executive' }, error: undefined })
 
     renderAuth()

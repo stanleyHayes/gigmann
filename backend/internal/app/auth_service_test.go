@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/xcreativs/gigmann/internal/app"
+	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/user"
 	"github.com/xcreativs/gigmann/internal/ports"
 	"github.com/xcreativs/gigmann/internal/ports/mocks"
@@ -27,16 +29,19 @@ func TestLoginSuccess(t *testing.T) {
 	users := mocks.NewMockUserRepository(ctrl)
 	hasher := mocks.NewMockPasswordHasher(ctrl)
 	tokens := mocks.NewMockTokenService(ctrl)
+	refresh := mocks.NewMockRefreshTokenStore(ctrl)
 
 	users.EXPECT().FindByEmail(gomock.Any(), "ceo@gigmann.health").Return(execAccount(t), nil)
 	hasher.EXPECT().Verify("pw", "stored-hash").Return(true, nil)
-	tokens.EXPECT().Issue(gomock.Any()).Return("signed-token", nil)
+	tokens.EXPECT().Issue(gomock.Any()).Return("access-token", nil)
+	refresh.EXPECT().Issue(gomock.Any(), gomock.Any(), gomock.Any()).Return("refresh-token", nil)
 
-	svc := app.NewAuthService(users, hasher, tokens)
-	tok, p, err := svc.Login(context.Background(), "ceo@gigmann.health", "pw")
+	svc := app.NewAuthService(users, hasher, tokens, refresh, time.Hour)
+	access, ref, p, err := svc.Login(context.Background(), "ceo@gigmann.health", "pw")
 
 	require.NoError(t, err)
-	assert.Equal(t, "signed-token", tok)
+	assert.Equal(t, "access-token", access)
+	assert.Equal(t, "refresh-token", ref)
 	assert.Equal(t, "u1", p.UserID)
 	assert.Equal(t, user.RoleExecutive, p.Role)
 }
@@ -46,8 +51,8 @@ func TestLoginUnknownEmail(t *testing.T) {
 	users := mocks.NewMockUserRepository(ctrl)
 	users.EXPECT().FindByEmail(gomock.Any(), gomock.Any()).Return(ports.Account{}, ports.ErrAccountNotFound)
 
-	svc := app.NewAuthService(users, mocks.NewMockPasswordHasher(ctrl), mocks.NewMockTokenService(ctrl))
-	_, _, err := svc.Login(context.Background(), "nobody@gigmann.health", "pw")
+	svc := app.NewAuthService(users, mocks.NewMockPasswordHasher(ctrl), mocks.NewMockTokenService(ctrl), mocks.NewMockRefreshTokenStore(ctrl), time.Hour)
+	_, _, _, err := svc.Login(context.Background(), "nobody@gigmann.health", "pw")
 	assert.ErrorIs(t, err, app.ErrInvalidCredentials)
 }
 
@@ -55,13 +60,49 @@ func TestLoginWrongPassword(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	users := mocks.NewMockUserRepository(ctrl)
 	hasher := mocks.NewMockPasswordHasher(ctrl)
-
 	users.EXPECT().FindByEmail(gomock.Any(), gomock.Any()).Return(execAccount(t), nil)
 	hasher.EXPECT().Verify(gomock.Any(), gomock.Any()).Return(false, nil)
 
-	svc := app.NewAuthService(users, hasher, mocks.NewMockTokenService(ctrl))
-	_, _, err := svc.Login(context.Background(), "ceo@gigmann.health", "bad")
+	svc := app.NewAuthService(users, hasher, mocks.NewMockTokenService(ctrl), mocks.NewMockRefreshTokenStore(ctrl), time.Hour)
+	_, _, _, err := svc.Login(context.Background(), "ceo@gigmann.health", "bad")
 	assert.ErrorIs(t, err, app.ErrInvalidCredentials)
+}
+
+func TestRefreshSuccess(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	tokens := mocks.NewMockTokenService(ctrl)
+	refresh := mocks.NewMockRefreshTokenStore(ctrl)
+
+	p := auth.Principal{UserID: "u1", Name: "Sammy", Role: user.RoleExecutive}
+	refresh.EXPECT().Consume(gomock.Any(), "old-refresh").Return(p, nil)
+	tokens.EXPECT().Issue(p).Return("new-access", nil)
+	refresh.EXPECT().Issue(gomock.Any(), p, gomock.Any()).Return("new-refresh", nil)
+
+	svc := app.NewAuthService(mocks.NewMockUserRepository(ctrl), mocks.NewMockPasswordHasher(ctrl), tokens, refresh, time.Hour)
+	access, ref, got, err := svc.Refresh(context.Background(), "old-refresh")
+	require.NoError(t, err)
+	assert.Equal(t, "new-access", access)
+	assert.Equal(t, "new-refresh", ref)
+	assert.Equal(t, "u1", got.UserID)
+}
+
+func TestRefreshInvalid(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	refresh := mocks.NewMockRefreshTokenStore(ctrl)
+	refresh.EXPECT().Consume(gomock.Any(), gomock.Any()).Return(auth.Principal{}, ports.ErrInvalidRefreshToken)
+
+	svc := app.NewAuthService(mocks.NewMockUserRepository(ctrl), mocks.NewMockPasswordHasher(ctrl), mocks.NewMockTokenService(ctrl), refresh, time.Hour)
+	_, _, _, err := svc.Refresh(context.Background(), "bad")
+	assert.ErrorIs(t, err, app.ErrInvalidCredentials)
+}
+
+func TestLogoutRevokes(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	refresh := mocks.NewMockRefreshTokenStore(ctrl)
+	refresh.EXPECT().Revoke(gomock.Any(), "some-refresh").Return(nil)
+
+	svc := app.NewAuthService(mocks.NewMockUserRepository(ctrl), mocks.NewMockPasswordHasher(ctrl), mocks.NewMockTokenService(ctrl), refresh, time.Hour)
+	require.NoError(t, svc.Logout(context.Background(), "some-refresh"))
 }
 
 func TestLoginTokenError(t *testing.T) {
@@ -74,8 +115,8 @@ func TestLoginTokenError(t *testing.T) {
 	hasher.EXPECT().Verify(gomock.Any(), gomock.Any()).Return(true, nil)
 	tokens.EXPECT().Issue(gomock.Any()).Return("", errors.New("kms down"))
 
-	svc := app.NewAuthService(users, hasher, tokens)
-	_, _, err := svc.Login(context.Background(), "ceo@gigmann.health", "pw")
+	svc := app.NewAuthService(users, hasher, tokens, mocks.NewMockRefreshTokenStore(ctrl), time.Hour)
+	_, _, _, err := svc.Login(context.Background(), "ceo@gigmann.health", "pw")
 	require.Error(t, err)
 	assert.NotErrorIs(t, err, app.ErrInvalidCredentials)
 }

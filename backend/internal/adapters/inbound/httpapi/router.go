@@ -101,8 +101,10 @@ var unauthorizedBody = []byte(`{"error":"unauthorized"}`)
 
 // publicOperations may be called without authentication.
 var publicOperations = map[string]bool{
-	"PostAuthLogin": true,
-	"GetHealthz":    true,
+	"PostAuthLogin":   true,
+	"PostAuthRefresh": true,
+	"PostAuthLogout":  true,
+	"GetHealthz":      true,
 }
 
 // requireAuth rejects any non-public operation that lacks an authenticated
@@ -169,11 +171,11 @@ func (s *Server) PostAuthLogin(ctx context.Context, request PostAuthLoginRequest
 	if request.Body == nil {
 		return PostAuthLogin401JSONResponse{UnauthorizedJSONResponse{Error: "invalid_credentials"}}, nil
 	}
-	tok, p, err := s.auth.Login(ctx, request.Body.Email, request.Body.Password)
+	access, refresh, p, err := s.auth.Login(ctx, request.Body.Email, request.Body.Password)
 	if err != nil {
 		return PostAuthLogin401JSONResponse{UnauthorizedJSONResponse{Error: "invalid_credentials"}}, nil //nolint:nilerr
 	}
-	return PostAuthLogin200JSONResponse(AuthSession{Token: tok, User: toAPIAuthUser(p)}), nil
+	return PostAuthLogin200JSONResponse(AuthSession{Token: access, RefreshToken: refresh, User: toAPIAuthUser(p)}), nil
 }
 
 // GetAuthMe returns the current authenticated user (set by authMiddleware).
@@ -183,6 +185,26 @@ func (s *Server) GetAuthMe(ctx context.Context, _ GetAuthMeRequestObject) (GetAu
 		return GetAuthMe401JSONResponse{UnauthorizedJSONResponse{Error: "unauthorized"}}, nil
 	}
 	return GetAuthMe200JSONResponse(toAPIAuthUser(p)), nil
+}
+
+// PostAuthRefresh rotates a refresh token into a fresh access + refresh pair.
+func (s *Server) PostAuthRefresh(ctx context.Context, request PostAuthRefreshRequestObject) (PostAuthRefreshResponseObject, error) {
+	if request.Body == nil {
+		return PostAuthRefresh401JSONResponse{UnauthorizedJSONResponse{Error: "invalid_token"}}, nil
+	}
+	access, refresh, p, err := s.auth.Refresh(ctx, request.Body.RefreshToken)
+	if err != nil {
+		return PostAuthRefresh401JSONResponse{UnauthorizedJSONResponse{Error: "invalid_token"}}, nil //nolint:nilerr
+	}
+	return PostAuthRefresh200JSONResponse(AuthSession{Token: access, RefreshToken: refresh, User: toAPIAuthUser(p)}), nil
+}
+
+// PostAuthLogout revokes a refresh token (best-effort) and returns 204.
+func (s *Server) PostAuthLogout(ctx context.Context, request PostAuthLogoutRequestObject) (PostAuthLogoutResponseObject, error) {
+	if request.Body != nil {
+		_ = s.auth.Logout(ctx, request.Body.RefreshToken)
+	}
+	return PostAuthLogout204Response{}, nil
 }
 
 func toAPIFacility(f facility.Facility) Facility {

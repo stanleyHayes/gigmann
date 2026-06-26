@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '../api/client'
 import { AuthContext, type AuthUser, type AuthValue } from './authContext'
-import { getToken, setToken, subscribeToken } from './authStore'
+import { clearSession, getRefreshToken, getToken, setSession, subscribeToken } from './authStore'
 
 /** AuthProvider holds the session: the token, the current user, and login/logout. */
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -25,16 +25,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   })
 
   const loginMutation = useMutation({
-    mutationFn: async (vars: { email: string; password: string }): Promise<string> => {
+    mutationFn: async (vars: { email: string; password: string }) => {
       const { data, error } = await api.POST('/api/v1/auth/login', { body: vars })
       if (error || !data) {
         throw new Error('invalid_credentials')
       }
-      return data.token
+      return data
     },
-    onSuccess: (newToken) => {
+    onSuccess: (session) => {
       setLoginError(null)
-      setToken(newToken)
+      setSession(session.token, session.refresh_token)
     },
     onError: () => setLoginError('Invalid email or password.'),
   })
@@ -44,7 +44,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!token,
     login: (email, password) => loginMutation.mutate({ email, password }),
     logout: () => {
-      setToken(null)
+      const refreshToken = getRefreshToken()
+      if (refreshToken) {
+        void api.POST('/api/v1/auth/logout', { body: { refresh_token: refreshToken } })
+      }
+      clearSession()
       queryClient.clear()
     },
     loginPending: loginMutation.isPending,

@@ -1,6 +1,7 @@
 import createClient from 'openapi-fetch'
 
-import { getToken, setToken } from '../auth/authStore'
+import { clearSession, getToken } from '../auth/authStore'
+import { refreshSession } from '../auth/refreshSession'
 import type { paths } from './schema'
 
 // Typed API client generated from backend/api/openapi.yaml.
@@ -9,7 +10,6 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '/'
 
 export const api = createClient<paths>({ baseUrl })
 
-// Attach the access token to every request and force re-login on 401.
 api.use({
   onRequest({ request }) {
     const token = getToken()
@@ -18,9 +18,15 @@ api.use({
     }
     return request
   },
-  onResponse({ response }) {
-    if (response.status === 401) {
-      setToken(null)
+  async onResponse({ request, response }) {
+    // On a 401 for a business call, try to rotate the refresh token once and
+    // replay the request transparently; if that fails, drop to the login screen.
+    if (response.status === 401 && !request.url.includes('/api/v1/auth/')) {
+      if (await refreshSession()) {
+        request.headers.set('Authorization', `Bearer ${getToken()}`)
+        return fetch(request)
+      }
+      clearSession()
     }
     return response
   },

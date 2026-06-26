@@ -104,8 +104,9 @@ func (e KpiUnit) Valid() bool {
 
 // AuthSession defines model for AuthSession.
 type AuthSession struct {
-	Token string   `json:"token"`
-	User  AuthUser `json:"user"`
+	RefreshToken string   `json:"refresh_token"`
+	Token        string   `json:"token"`
+	User         AuthUser `json:"user"`
 }
 
 // AuthUser defines model for AuthUser.
@@ -207,6 +208,11 @@ type NetworkMetrics struct {
 	Kpis []Kpi              `json:"kpis"`
 }
 
+// RefreshRequest defines model for RefreshRequest.
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
 // InternalError defines model for InternalError.
 type InternalError = Error
 
@@ -216,14 +222,26 @@ type Unauthorized = Error
 // PostAuthLoginJSONRequestBody defines body for PostAuthLogin for application/json ContentType.
 type PostAuthLoginJSONRequestBody = LoginRequest
 
+// PostAuthLogoutJSONRequestBody defines body for PostAuthLogout for application/json ContentType.
+type PostAuthLogoutJSONRequestBody = RefreshRequest
+
+// PostAuthRefreshJSONRequestBody defines body for PostAuthRefresh for application/json ContentType.
+type PostAuthRefreshJSONRequestBody = RefreshRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Exchange email and password for an access token
 	// (POST /api/v1/auth/login)
 	PostAuthLogin(w http.ResponseWriter, r *http.Request)
+	// Revoke a refresh token
+	// (POST /api/v1/auth/logout)
+	PostAuthLogout(w http.ResponseWriter, r *http.Request)
 	// The current authenticated user
 	// (GET /api/v1/auth/me)
 	GetAuthMe(w http.ResponseWriter, r *http.Request)
+	// Rotate a refresh token into a new access + refresh token
+	// (POST /api/v1/auth/refresh)
+	PostAuthRefresh(w http.ResponseWriter, r *http.Request)
 	// The AI-narrated Daily Brief over the current network
 	// (GET /api/v1/brief)
 	GetBrief(w http.ResponseWriter, r *http.Request)
@@ -248,9 +266,21 @@ func (_ Unimplemented) PostAuthLogin(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Revoke a refresh token
+// (POST /api/v1/auth/logout)
+func (_ Unimplemented) PostAuthLogout(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // The current authenticated user
 // (GET /api/v1/auth/me)
 func (_ Unimplemented) GetAuthMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Rotate a refresh token into a new access + refresh token
+// (POST /api/v1/auth/refresh)
+func (_ Unimplemented) PostAuthRefresh(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -301,11 +331,39 @@ func (siw *ServerInterfaceWrapper) PostAuthLogin(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// PostAuthLogout operation middleware
+func (siw *ServerInterfaceWrapper) PostAuthLogout(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAuthLogout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetAuthMe operation middleware
 func (siw *ServerInterfaceWrapper) GetAuthMe(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAuthMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAuthRefresh operation middleware
+func (siw *ServerInterfaceWrapper) PostAuthRefresh(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAuthRefresh(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -488,7 +546,13 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/auth/login", wrapper.PostAuthLogin)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/logout", wrapper.PostAuthLogout)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/auth/me", wrapper.GetAuthMe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/refresh", wrapper.PostAuthRefresh)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/brief", wrapper.GetBrief)
@@ -546,6 +610,22 @@ func (response PostAuthLogin401JSONResponse) VisitPostAuthLoginResponse(w http.R
 	return err
 }
 
+type PostAuthLogoutRequestObject struct {
+	Body *PostAuthLogoutJSONRequestBody
+}
+
+type PostAuthLogoutResponseObject interface {
+	VisitPostAuthLogoutResponse(w http.ResponseWriter) error
+}
+
+type PostAuthLogout204Response struct {
+}
+
+func (response PostAuthLogout204Response) VisitPostAuthLogoutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
 type GetAuthMeRequestObject struct {
 }
 
@@ -570,6 +650,42 @@ func (response GetAuthMe200JSONResponse) VisitGetAuthMeResponse(w http.ResponseW
 type GetAuthMe401JSONResponse struct{ UnauthorizedJSONResponse }
 
 func (response GetAuthMe401JSONResponse) VisitGetAuthMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAuthRefreshRequestObject struct {
+	Body *PostAuthRefreshJSONRequestBody
+}
+
+type PostAuthRefreshResponseObject interface {
+	VisitPostAuthRefreshResponse(w http.ResponseWriter) error
+}
+
+type PostAuthRefresh200JSONResponse AuthSession
+
+func (response PostAuthRefresh200JSONResponse) VisitPostAuthRefreshResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAuthRefresh401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAuthRefresh401JSONResponse) VisitPostAuthRefreshResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -712,9 +828,15 @@ type StrictServerInterface interface {
 	// Exchange email and password for an access token
 	// (POST /api/v1/auth/login)
 	PostAuthLogin(ctx context.Context, request PostAuthLoginRequestObject) (PostAuthLoginResponseObject, error)
+	// Revoke a refresh token
+	// (POST /api/v1/auth/logout)
+	PostAuthLogout(ctx context.Context, request PostAuthLogoutRequestObject) (PostAuthLogoutResponseObject, error)
 	// The current authenticated user
 	// (GET /api/v1/auth/me)
 	GetAuthMe(ctx context.Context, request GetAuthMeRequestObject) (GetAuthMeResponseObject, error)
+	// Rotate a refresh token into a new access + refresh token
+	// (POST /api/v1/auth/refresh)
+	PostAuthRefresh(ctx context.Context, request PostAuthRefreshRequestObject) (PostAuthRefreshResponseObject, error)
 	// The AI-narrated Daily Brief over the current network
 	// (GET /api/v1/brief)
 	GetBrief(ctx context.Context, request GetBriefRequestObject) (GetBriefResponseObject, error)
@@ -789,6 +911,37 @@ func (sh *strictHandler) PostAuthLogin(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// PostAuthLogout operation middleware
+func (sh *strictHandler) PostAuthLogout(w http.ResponseWriter, r *http.Request) {
+	var request PostAuthLogoutRequestObject
+
+	var body PostAuthLogoutJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAuthLogout(ctx, request.(PostAuthLogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAuthLogout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAuthLogoutResponseObject); ok {
+		if err := validResponse.VisitPostAuthLogoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetAuthMe operation middleware
 func (sh *strictHandler) GetAuthMe(w http.ResponseWriter, r *http.Request) {
 	var request GetAuthMeRequestObject
@@ -806,6 +959,37 @@ func (sh *strictHandler) GetAuthMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAuthMeResponseObject); ok {
 		if err := validResponse.VisitGetAuthMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAuthRefresh operation middleware
+func (sh *strictHandler) PostAuthRefresh(w http.ResponseWriter, r *http.Request) {
+	var request PostAuthRefreshRequestObject
+
+	var body PostAuthRefreshJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAuthRefresh(ctx, request.(PostAuthRefreshRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAuthRefresh")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAuthRefreshResponseObject); ok {
+		if err := validResponse.VisitPostAuthRefreshResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -914,30 +1098,31 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"tJjfc9M+EsD/FY3uHmAmTQrcveStQIEMcNMh8MQxZWNv7CW2ZKR10sD0f/+OJNuxY+cHTPvWyNL++Oxq",
-	"V9vfMtJ5oRUqtnL6Wxq0hVYW/Y+ZYjQKsmtjtHELkVaMit2fUBQZRcCk1eSH1cqt2SjFHNxf/za4lFP5",
-	"r8lO+iR8tZMg7f7+fiRjtJGhwgmR00adsGjWaASGjSP5RUHJqTb0C+PHN+Oq5BQVV1KFwZ8lGYyFNmIJ",
-	"lGEs3ZlKjNPiDszRWgrqC6MLNEyBIesV+mXeFiin0rIhlTivSovmlJFO9Be3z6msLZHTr5XYSsi3US1d",
-	"L35gxE56c7Jn0RIiyoi3txQP2nVgWUGOgx+MzvwHVGXuTMM7jEqmNcrRTlcOCpKOqbWAPccolpWuSvKQ",
-	"cy8NOWb7nsXA3pKlNjmwnIaFUd/kBBUaYIxvgXsHLpjywVOHeDHmXn3zx7GIetNnjLk7WskCY2Drfuc6",
-	"xmxQSWG0HcI/RK/yOhyphdZ2HsTpbeohxbsiAwVc5XbPrlPJlCLEGanhzLG4RkO8PcXsTaVkzsCl9SfL",
-	"JEHrAxg527r8e4q6nPeYNVZ0vWnZPsSsqYl7vOrl43EK24bk1r72RS8wtp1kJcUvnu8SlRSju2J/c4Ux",
-	"ORRgG5j/cYRYb9SZ+Vrf9mBEdXQU/G0MOMbqA1k+WOeqX2ddzgb+qZxpyT5m2LyBt9diZhdgLVrr2krh",
-	"ShFp1/hShIxTYSlRkI3lqKmpidaO1AY4SuVIRoZcf8oGyulIvvNC+jx2kcQ7yIvMm7ySpwryEf7vC+qr",
-	"iUpjqua8K6u6XGStmqrKfBEyNcaM4baIzt5PBqO6GtV0ysJVvZA1ywx4EEtKSYrmluztApmxfUkXWmcI",
-	"yu1a4XbwGmSwOFiZcU26tGc6YNH8SUZ+RDYU3WhSPNQwSkXcJlGgxQ24a+NzyqWKLhWfbrvO79rLSuwA",
-	"slET3Zbf7SC2A9T4OpQ6H3RC6hP+LHHo6mIOdIA2WLvRJj6jxHoZrRNDZrTx/v1zYg1ZiWfFf8/GSmA4",
-	"P2Tf/5A32qyCmbZvIthbvTzLxlVB52edu9inSmBQXQnu2+62k1rqfvH7dD3/LK5uZmKpjeAUxVtKclBK",
-	"XNcPR/FKR6uCeCxeacUGIr5YkrE8Ddt1PSC4jmeWEKEVoGL/8fO2wLlXJqKMULEAg6J574ml0bnglKxY",
-	"UobiyfccVrvv35+OxWstlGaRgoovMCZuHY50jOP/+xZF7OvnQdOdgy6yaMJYIC/Hz8aXDqouUIErnPLF",
-	"+HL8wmcopz4kEyhosn42cdPOJHM3xEdchyvSNIpZLKfyRlt2b3x/kWQIDVp+qePtg41InUt6300ANiX6",
-	"hda8+Pzy8sF0t4eq40MaxsLWG0fyP5fPDolubJ10Bko/zZV5DmYrp/L6LkpBJSh8/fB5VVcQn7CgBEQR",
-	"WivqEYwhsf5ClJzKb05aJ47hyZXgQAzfog/hx/D6eUSQ1QjZo/g5RQEdkn6efACMTnLVK4Y0HKO2qIe7",
-	"Q8zC9PeIyIKCA7xeA2VbUW0Zyf8GvcdBdf+R0id1NbtQrso6Pi35Qrsqxy2UKvSDFr9AqwOw+/AdpOhe",
-	"zG922x6RZeeNfgBpy+CHIOpUCciyllxBynPs82u/5NsQ813LPZSHdVd+RHp7/X+AX7VDvL+ZVV3QoIof",
-	"BuRrZDQ5KbJMUc1up2mDuMq2tcId0hpd4Blmml/HQL6rtjwiyGooGgA4R7OmCAXZavza9tJpjcoV/MLo",
-	"Bbb8tFvLmDs3w7veNXs5/br/3plDjhfaUEJKPPHbYrHAlKoXy/zmSkz8eygBxg1sn7oHuMnkVE7k/bf7",
-	"fwIAAP//",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

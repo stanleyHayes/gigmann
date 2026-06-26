@@ -35,7 +35,8 @@ const (
 	writeTimeout    = 15 * time.Second
 	demoSeed        = 42
 	briefTopN       = 5
-	accessTokenTTL  = 12 * time.Hour
+	accessTokenTTL  = 15 * time.Minute
+	refreshTokenTTL = 7 * 24 * time.Hour
 )
 
 // Run loads configuration, wires dependencies, and serves HTTP until interrupted.
@@ -120,7 +121,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		return nil, nil, err
 	}
 	tokens := token.New([]byte(cfg.JWTSecret), accessTokenTTL)
-	authSvc := app.NewAuthService(memory.NewUserRepo(accounts...), hasher, tokens)
+	authSvc := app.NewAuthService(memory.NewUserRepo(accounts...), hasher, tokens, memory.NewRefreshStore(), refreshTokenTTL)
 
 	return httpapi.NewRouter(httpapi.Deps{
 		Facilities: app.NewFacilityService(facRepo),

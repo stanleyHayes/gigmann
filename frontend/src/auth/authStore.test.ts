@@ -1,15 +1,24 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { getToken, setToken, subscribeToken } from './authStore'
+import { clearSession, getRefreshToken, getToken, setSession, setToken, subscribeToken } from './authStore'
 
-afterEach(() => setToken(null))
+afterEach(() => clearSession())
 
 describe('authStore', () => {
-  it('stores and clears the token', () => {
+  it('stores and clears the access token', () => {
     setToken('abc')
     expect(getToken()).toBe('abc')
     setToken(null)
     expect(getToken()).toBeNull()
+  })
+
+  it('stores and clears a full session', () => {
+    setSession('access', 'refresh')
+    expect(getToken()).toBe('access')
+    expect(getRefreshToken()).toBe('refresh')
+    clearSession()
+    expect(getToken()).toBeNull()
+    expect(getRefreshToken()).toBeNull()
   })
 
   it('notifies and unsubscribes listeners', () => {

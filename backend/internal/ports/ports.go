@@ -5,6 +5,7 @@ package ports
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/brief"
@@ -13,7 +14,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/intel"
 )
 
-//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService
+//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore
 
 // ErrAccountNotFound is returned by UserRepository when no account matches.
 var ErrAccountNotFound = errors.New("ports: account not found")
@@ -56,4 +57,15 @@ type PasswordHasher interface {
 type TokenService interface {
 	Issue(p auth.Principal) (string, error)
 	Verify(token string) (auth.Principal, error)
+}
+
+// ErrInvalidRefreshToken is returned for a missing, expired, or already-used refresh token.
+var ErrInvalidRefreshToken = errors.New("ports: invalid or expired refresh token")
+
+// RefreshTokenStore issues, rotates (single-use), and revokes refresh tokens.
+// Implementations persist only a hash of the raw token.
+type RefreshTokenStore interface {
+	Issue(ctx context.Context, p auth.Principal, ttl time.Duration) (string, error)
+	Consume(ctx context.Context, raw string) (auth.Principal, error)
+	Revoke(ctx context.Context, raw string) error
 }

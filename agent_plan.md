@@ -62,7 +62,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 |---|---|---|---|---|
 | **E0** | Foundations & Engineering Operations | 9 | 41 | ◐ In progress — GEC-1/2/5/9 done; 3/4/6/7/8 in progress |
 | **E1** | Domain Model, Data Layer & Synthetic Network | 8 | 47 | ◐ In progress — GEC-10/11/14/15/16 done |
-| **E2** | Authentication & Authorization | 7 | 39 | ◐ In progress — GEC-18/19/21/24 done; cockpit gated |
+| **E2** | Authentication & Authorization | 7 | 39 | ◐ In progress — GEC-18/19/20/21/22/24 done; only GEC-17/23 left |
 | **E3** | Core Domain APIs (REST + OpenAPI) | 9 | 52 | ◐ In progress — GEC-26 done |
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
 | **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-42 done; 41/43 mock-first |
@@ -443,7 +443,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + security review.
 - Dependencies: GEC-18.
 
-#### ☐ GEC-20 — Refresh tokens with rotation · 5 SP · Phase: Development
+#### ☑ GEC-20 — Refresh tokens with rotation · 5 SP · Phase: Development
+> **Done 2026-06-26:** login now issues a short-lived access token (15 min) plus a single-use refresh token (7 days). A `ports.RefreshTokenStore` (in-memory, SHA-256-hashed, single-use) backs `POST /auth/refresh` (rotates: new pair, old token invalidated — reuse → 401) and `POST /auth/logout` (revokes). The SPA stores both tokens and an openapi-fetch middleware transparently rotates + replays a request once on 401, dropping to login only if refresh fails. Live-verified (rotate, single-use reuse→401, logout→204, post-logout refresh→401).
 - User story: As a user, I want to stay signed in safely, so that I'm not logged out constantly but a stolen token is contained.
 - Business value: Security + UX balance.
 - Acceptance criteria:
@@ -465,8 +466,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + security review.
 - Dependencies: GEC-19.
 
-#### ◐ GEC-22 — Auth endpoints (login/refresh/logout/me) · 3 SP · Phase: Development
-> **Partial 2026-06-25:** `POST /api/v1/auth/login` (email+password → signed token + user) and protected `GET /api/v1/auth/me` are live, backed by `app.AuthService` + a seeded in-memory user store (demo: `ceo@gigmann.health` / `DEMO_PASSWORD`, default `ahenfie-demo`). Live-verified. _Remaining: refresh/logout (with GEC-20)._
+#### ☑ GEC-22 — Auth endpoints (login/refresh/logout/me) · 3 SP · Phase: Development
+> **Partial 2026-06-25:** `POST /api/v1/auth/login` (email+password → signed token + user) and protected `GET /api/v1/auth/me` are live, backed by `app.AuthService` + a seeded in-memory user store (demo: `ceo@gigmann.health` / `DEMO_PASSWORD`, default `ahenfie-demo`). Live-verified. **Completed 2026-06-26:** `POST /auth/refresh` + `POST /auth/logout` added (GEC-20); all four auth endpoints are live.
 - User story: As a user, I want login/refresh/logout/me endpoints, so that I can use the cockpit.
 - Business value: Usable auth surface.
 - Acceptance criteria:
@@ -1529,3 +1530,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-25 | **GEC-59 done — Executive KPIs screen (completes the Metrics→KPIs slice).** `/kpis` renders the deterministic KPIs from `/api/v1/metrics` as cards with unit-aware values, meaning-coloured WoW deltas, and 14-day MUI X Charts v9 LineCharts (reduced-motion aware, theme-driven; API verified pre-code). Gate green: 30 tests @ 98.9%, build + SW pass. End-to-end vertical slice (deterministic engine → API → typed client → charts) complete. | Claude |
 | 2026-06-25 | **GEC-18/19/22 — auth foundation (non-breaking).** argon2id password hashing + HS256 JWTs (golang-jwt v5) behind `ports.PasswordHasher`/`TokenService`; `app.AuthService.Login`; `POST /auth/login` + protected `GET /auth/me` with Bearer-token middleware that sets a `core/auth.Principal` (with facility-scoping rules) in context. Seeded in-memory users; `JWT_SECRET` config (dev default, required in prod). Business endpoints stay open until the SPA login (GEC-24) lands. Live-verified login→/me; backend lint 0, gate 94.4%. | Claude |
 | 2026-06-25 | **GEC-21/24 — the cockpit is locked.** A `requireAuth` strict middleware gates every business endpoint (401 without a valid token; `/healthz` + `/auth/login` public), verified live. The SPA now gates behind an `AuthProvider`: a login screen, persisted token, `Authorization` header on every request via an openapi-fetch middleware, 401→auto-logout, and a sign-out control in the shell. Backend lint 0 / gate 94.3%; frontend 28 tests, lint clean, build ok. Demo login: ceo@gigmann.health / ahenfie-demo. | Claude |
+| 2026-06-26 | **GEC-20/22 — refresh-token rotation.** Access tokens shortened to 15 min; login now also issues a single-use, SHA-256-hashed refresh token (7 days) via a `RefreshTokenStore`. `POST /auth/refresh` rotates (old invalidated, reuse→401), `POST /auth/logout` revokes. The SPA transparently rotates + replays on 401 (one in-flight refresh, raw-fetch to avoid recursion), logging out only if refresh fails. Live-verified end to end. Backend lint 0 / gate 94.3%; frontend lint clean, build ok. | Claude |

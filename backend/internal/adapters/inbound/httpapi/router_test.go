@@ -64,7 +64,7 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 		Facilities: app.NewFacilityService(repo),
 		Metrics:    metricsSvc,
 		Briefs:     briefs,
-		Auth:       app.NewAuthService(users, hasher, tokens),
+		Auth:       app.NewAuthService(users, hasher, tokens, memory.NewRefreshStore(), time.Hour),
 		Tokens:     tokens,
 	})
 }
@@ -197,11 +197,13 @@ func TestAuthLoginSuccessAndMe(t *testing.T) {
 	rec := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234"}`)
 	require.Equal(t, http.StatusOK, rec.Code)
 	var session struct {
-		Token string         `json:"token"`
-		User  map[string]any `json:"user"`
+		Token        string         `json:"token"`
+		RefreshToken string         `json:"refresh_token"`
+		User         map[string]any `json:"user"`
 	}
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&session))
 	require.NotEmpty(t, session.Token)
+	require.NotEmpty(t, session.RefreshToken)
 	assert.Equal(t, "executive", session.User["role"])
 
 	meRec := httptest.NewRecorder()
@@ -243,4 +245,57 @@ func TestProtectedEndpointRequiresAuth(t *testing.T) {
 		rec := serve(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, target)
 		require.Equal(t, http.StatusUnauthorized, rec.Code, target)
 	}
+}
+
+func loginForRefresh(t *testing.T, h http.Handler) string {
+	t.Helper()
+	rec := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234"}`)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var s struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&s))
+	require.NotEmpty(t, s.RefreshToken)
+	return s.RefreshToken
+}
+
+func TestAuthRefreshRotates(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+	refreshToken := loginForRefresh(t, h)
+
+	rec := postJSON(t, h, "/api/v1/auth/refresh", `{"refresh_token":"`+refreshToken+`"}`)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var rotated struct {
+		Token        string `json:"token"`
+		RefreshToken string `json:"refresh_token"`
+	}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&rotated))
+	require.NotEmpty(t, rotated.Token)
+	require.NotEmpty(t, rotated.RefreshToken)
+	assert.NotEqual(t, refreshToken, rotated.RefreshToken, "refresh token must rotate")
+
+	// the old refresh token is single-use: reusing it fails
+	reuse := postJSON(t, h, "/api/v1/auth/refresh", `{"refresh_token":"`+refreshToken+`"}`)
+	require.Equal(t, http.StatusUnauthorized, reuse.Code)
+}
+
+func TestAuthRefreshRejectsBadToken(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+	rec := postJSON(t, h, "/api/v1/auth/refresh", `{"refresh_token":"never-issued"}`)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestAuthLogoutRevokes(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+	refreshToken := loginForRefresh(t, h)
+
+	rec := postJSON(t, h, "/api/v1/auth/logout", `{"refresh_token":"`+refreshToken+`"}`)
+	require.Equal(t, http.StatusNoContent, rec.Code)
+
+	// after logout the refresh token can no longer be rotated
+	after := postJSON(t, h, "/api/v1/auth/refresh", `{"refresh_token":"`+refreshToken+`"}`)
+	require.Equal(t, http.StatusUnauthorized, after.Code)
 }
