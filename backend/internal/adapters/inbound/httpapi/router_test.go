@@ -496,3 +496,19 @@ func TestMFAEnrollAndStepUp(t *testing.T) {
 	withCode := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234","code":"`+code2+`"}`)
 	require.Equal(t, http.StatusOK, withCode.Code)
 }
+
+func TestMetricsEndpoint(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+
+	// make a request so a counter increments
+	hz := httptest.NewRecorder()
+	h.ServeHTTP(hz, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+	body := rec.Body.String()
+	assert.Contains(t, body, "http_requests_total")
+	assert.Contains(t, body, "http_request_duration_seconds")
+}

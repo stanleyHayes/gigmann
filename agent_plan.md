@@ -71,7 +71,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | **E8** | Realtime, Notifications & Alerts | 5 | 26 | ☐ Not started |
 | **E9** | Security Hardening & Compliance | 11 | 63 | ◐ In progress — CORS/rate-limit/audit done |
 | **E10** | SEO & Web Performance | 7 | 31 | ☐ Not started |
-| **E11** | Observability & Reliability | 7 | 37 | ◐ In progress — request logging + /readyz |
+| **E11** | Observability & Reliability | 7 | 37 | ◐ In progress — logging, /readyz, /metrics |
 | **E12** | Quality, Testing & CI Gates | 8 | 44 | ☐ Not started |
 | **E13** | Deployment, Infra & Release | 7 | 38 | ☐ Not started |
 | **E14** | Documentation, Governance & Handover | 6 | 24 | ☐ Not started |
@@ -1228,7 +1228,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-7.
 
-#### ☐ GEC-91 — Metrics & dashboards · 5 SP · Phase: Development
+#### ◐ GEC-91 — Metrics & dashboards · 5 SP · Phase: Development
+> **Started 2026-06-26:** a Prometheus `/metrics` endpoint exposes RED-ish HTTP metrics — `http_requests_total` (by method+status) and `http_request_duration_seconds` (histogram by method), via a per-router registry + middleware (client_golang). Verified live + tested. _Remaining: AI cost/token + cache-hit-rate metrics, and Grafana dashboards._
 - User story: As an operator, I want Prometheus metrics + Grafana dashboards, so that I see system health at a glance.
 - Business value: Operability.
 - Acceptance criteria:
@@ -1574,3 +1575,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **GEC-23 done — MFA frontend.** Settings screen enrols TOTP (secret + confirm); login auto-prompts for the code on `mfa_required`. Completes optional MFA end to end. 56 tests @ 87.9%, lint/build green. | Claude |
 | 2026-06-26 | **GEC-66 (started) — motion polish.** Framer Motion route-content fade/slide on navigation + staggered Daily Brief items, both reduced-motion aware. 56 tests, lint/build green. | Claude |
 | 2026-06-26 | **GEC-66 done — circular-reveal theme toggle.** Light/dark toggle animates a clip-path circle from the button via the View Transitions API (feature-detected fallback; reduced-motion aware). Cockpit motion polish complete. 56 tests, lint/build green. | Claude |
+| 2026-06-26 | **GEC-91 (started) — Prometheus /metrics.** RED HTTP metrics (request count by method/status + duration histogram) at `/metrics` via client_golang + a per-router registry. Verified live. Gate 91.8%, lint 0. | Claude |

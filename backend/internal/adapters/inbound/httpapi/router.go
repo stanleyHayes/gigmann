@@ -78,13 +78,16 @@ func NewRouter(d Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
+	metrics, metricsReg := newMetrics()
 	r.Use(requestLogger(logger))
+	r.Use(metrics.middleware())
 	r.Use(securityHeaders())
 	r.Use(corsMiddleware(d.CORSOrigins))
 	r.Use(rateLimit(newRateLimiter(authRateLimit, authRateWindow), authRateLimitedPaths))
 	r.Use(middleware.Timeout(requestTimeout))
 	r.Use(authMiddleware(d.Tokens))
 	r.Get("/readyz", writeReady)
+	r.Handle("/metrics", metricsHandler(metricsReg))
 
 	srv := &Server{facilities: d.Facilities, facilityDetail: d.FacilityDetail, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask}
 	return HandlerFromMux(NewStrictHandler(srv, []StrictMiddlewareFunc{requireAuth()}), r)
