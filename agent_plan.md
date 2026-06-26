@@ -1196,7 +1196,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-86.
 
-#### ☐ GEC-88 — Accessibility (WCAG 2.2 AA) · 5 SP · Phase: QA
+#### ◐ GEC-88 — Accessibility (WCAG 2.2 AA) · 5 SP · Phase: QA
+> **Started 2026-06-26:** automated **axe** (jest-axe) checks assert zero violations on the Daily Brief, status chips, and the login screen — confirming the deliberate a11y work (aria-labels, semantic landmarks, AA-contrast status colours, single-h1, reduced-motion). _Remaining: axe across all screens, a manual screen-reader pass on the hero path, and Lighthouse-a11y in CI._
 - User story: As any user, I want an accessible cockpit, so that it's usable and compliant (and SEO-friendly).
 - Business value: Inclusion + SEO + risk.
 - Acceptance criteria:
@@ -1578,3 +1579,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **GEC-66 done — circular-reveal theme toggle.** Light/dark toggle animates a clip-path circle from the button via the View Transitions API (feature-detected fallback; reduced-motion aware). Cockpit motion polish complete. 56 tests, lint/build green. | Claude |
 | 2026-06-26 | **GEC-91 (started) — Prometheus /metrics.** RED HTTP metrics (request count by method/status + duration histogram) at `/metrics` via client_golang + a per-router registry. Verified live. Gate 91.8%, lint 0. | Claude |
 | 2026-06-26 | **GEC-79 (started) — supply-chain scanning in CI.** Added govulncheck + npm audit + gitleaks jobs; pinned backend Go to the patched 1.25.x (clears the reachable crypto/tls advisories). npm audit: 0 vulns. | Claude |
+| 2026-06-26 | **GEC-88 (started) — automated a11y checks.** jest-axe asserts zero violations on the brief, status chips, and login screen. 59 tests, lint/build green. | Claude |
