@@ -29,7 +29,12 @@ import (
 const (
 	requestTimeout = 45 * time.Second // the Ask endpoint calls the LLM synchronously (~20s)
 	bearerPrefix   = "Bearer "
+	authRateLimit  = 10
+	authRateWindow = time.Minute
 )
+
+// authRateLimitedPaths are the brute-force-sensitive auth endpoints.
+var authRateLimitedPaths = []string{"/api/v1/auth/login", "/api/v1/auth/refresh"}
 
 // Deps are the application use cases the HTTP layer delegates to.
 type Deps struct {
@@ -71,6 +76,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Use(requestLogger(logger))
 	r.Use(securityHeaders())
 	r.Use(corsMiddleware(d.CORSOrigins))
+	r.Use(rateLimit(newRateLimiter(authRateLimit, authRateWindow), authRateLimitedPaths))
 	r.Use(middleware.Timeout(requestTimeout))
 	r.Use(authMiddleware(d.Tokens))
 	r.Get("/readyz", writeReady)

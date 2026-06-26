@@ -1049,7 +1049,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + security review.
 - Dependencies: GEC-25..33.
 
-#### ☐ GEC-74 — Rate limiting & brute-force protection · 3 SP · Phase: Development
+#### ☑ GEC-74 — Rate limiting & brute-force protection · 3 SP · Phase: Development
+> **Done 2026-06-26:** an in-memory fixed-window per-IP `rateLimit` middleware throttles the brute-force surface — `/api/v1/auth/login` and `/api/v1/auth/refresh` — to 10 requests/minute per client IP (honours `X-Forwarded-For` behind the proxy), returning 429 over the limit; other paths are unthrottled. Verified live (10×401 then 429). _Note: per-process; a clustered deploy would back it with Redis._
 - User story: As the system, I want rate limiting and lockout, so that abuse and credential-stuffing are contained.
 - Business value: Protects auth + AI cost.
 - Acceptance criteria:
@@ -1554,3 +1555,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **GEC-44 done (live) — grounded NL Ask API.** `POST /api/v1/ask` answers questions over the deterministic network context via a new `Answerer` port (Claude `emit_answer` tool + grounding prompt; local fallback) and `AskService`. Live-verified: real Claude answer used only supplied figures (Kasoa 20% denial, Tafo −41% submission, Asokwa stockout). HTTP timeouts → 45s. Gate 92.3%, lint 0. | Claude |
 | 2026-06-26 | **GEC-60 (core) — Ask screen; cockpit screens complete.** `/ask` posts NL questions to `/api/v1/ask` and renders the grounded answer + citation chips, with suggested-prompt chips and animated-dot loading. Every nav slot (Today/Network/KPIs/Ask/My Day/Approvals) is now a working screen. Lazily code-split. 44 tests @ 90.8%, lint clean, build ok. | Claude |
 | 2026-06-26 | **GEC-7/75/76 — HTTP middleware hardening.** Structured per-request `slog` logging, security headers (nosniff/DENY/no-referrer/COOP), an allow-list CORS middleware (preflight 204), and a real `/readyz` readiness probe — all wired in `NewRouter`, config-driven (`CORS_ALLOWED_ORIGINS`), verified live. Unblocks a cross-origin SPA→API deploy. Gate 92.7%, lint 0. | Claude |
+| 2026-06-26 | **GEC-74 done — auth rate limiting.** Per-IP fixed-window limiter (10/min) on `/auth/login` + `/auth/refresh` → 429 over the limit (X-Forwarded-For aware); other paths free. Verified live. Gate 92.7%, lint 0. | Claude |

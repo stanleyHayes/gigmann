@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -55,4 +56,40 @@ func TestSecurityHeaders(t *testing.T) {
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/x", nil))
 	assert.Equal(t, "nosniff", rec.Header().Get("X-Content-Type-Options"))
 	assert.Equal(t, "DENY", rec.Header().Get("X-Frame-Options"))
+}
+
+func TestRateLimitBlocksAfterLimit(t *testing.T) {
+	rl := newRateLimiter(2, time.Minute)
+	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	h := rateLimit(rl, []string{"/api/v1/auth/login"})(ok)
+
+	for i, want := range []int{http.StatusOK, http.StatusOK, http.StatusTooManyRequests} {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+		req.RemoteAddr = "1.2.3.4:5555"
+		h.ServeHTTP(rec, req)
+		assert.Equal(t, want, rec.Code, "request %d", i)
+	}
+
+	// a different IP is unaffected
+	other := httptest.NewRecorder()
+	oreq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+	oreq.RemoteAddr = "9.9.9.9:1"
+	h.ServeHTTP(other, oreq)
+	assert.Equal(t, http.StatusOK, other.Code)
+
+	// a non-limited path is never throttled, even from the blocked IP
+	free := httptest.NewRecorder()
+	freq := httptest.NewRequest(http.MethodGet, "/api/v1/brief", nil)
+	freq.RemoteAddr = "1.2.3.4:5555"
+	h.ServeHTTP(free, freq)
+	assert.Equal(t, http.StatusOK, free.Code)
+}
+
+func TestClientIP(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r.RemoteAddr = "1.2.3.4:55"
+	assert.Equal(t, "1.2.3.4", clientIP(r))
+	r.Header.Set("X-Forwarded-For", "8.8.8.8, 1.1.1.1")
+	assert.Equal(t, "8.8.8.8", clientIP(r))
 }

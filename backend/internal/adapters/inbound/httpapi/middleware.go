@@ -2,7 +2,10 @@ package httpapi
 
 import (
 	"log/slog"
+	"net"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -79,4 +82,77 @@ func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 func writeReady(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"status":"ready"}`))
+}
+
+// rateLimiter is a simple in-memory fixed-window per-key request limiter. It is
+// per-process (fine for the demo); a clustered deploy would back this with Redis.
+type rateLimiter struct {
+	mu     sync.Mutex
+	limit  int
+	window time.Duration
+	now    func() time.Time
+	counts map[string]*windowCount
+}
+
+type windowCount struct {
+	count   int
+	resetAt time.Time
+}
+
+func newRateLimiter(limit int, window time.Duration) *rateLimiter {
+	return &rateLimiter{limit: limit, window: window, now: time.Now, counts: map[string]*windowCount{}}
+}
+
+func (l *rateLimiter) allow(key string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	now := l.now()
+	wc := l.counts[key]
+	if wc == nil || now.After(wc.resetAt) {
+		l.counts[key] = &windowCount{count: 1, resetAt: now.Add(l.window)}
+		return true
+	}
+	if wc.count >= l.limit {
+		return false
+	}
+	wc.count++
+	return true
+}
+
+// clientIP extracts the caller IP, honouring X-Forwarded-For behind a proxy.
+func clientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		first, _, _ := strings.Cut(xff, ",")
+		return strings.TrimSpace(first)
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+func pathLimited(path string, prefixes []string) bool {
+	for _, p := range prefixes {
+		if strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// rateLimit throttles per-IP requests to the given path prefixes (brute-force
+// protection for auth); other paths pass freely.
+func rateLimit(l *rateLimiter, prefixes []string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if pathLimited(r.URL.Path, prefixes) && !l.allow(clientIP(r)) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusTooManyRequests)
+				_, _ = w.Write([]byte(`{"error":"rate_limited"}`))
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
