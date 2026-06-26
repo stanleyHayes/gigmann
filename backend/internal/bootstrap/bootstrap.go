@@ -45,6 +45,7 @@ const (
 // repos bundles the persistence ports selected at wiring time.
 type repos struct {
 	facilities ports.FacilityRepository
+	metrics    ports.MetricsRepository
 	users      ports.UserRepository
 	refresh    ports.RefreshTokenStore
 	approvals  ports.ApprovalRepository
@@ -142,7 +143,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		logger.Info("brief cache warmed")
 	}()
 	askSvc := app.NewAskService(engine, answerer, input, 0)
-	metricsSvc := app.NewMetricsService(net.Metrics)
+	metricsSvc := app.NewMetricsService(r.metrics)
 	detailSvc := app.NewFacilityDetailService(net.Facilities, net.Inventory, net.Staff, net.Alerts)
 
 	tokens := token.New([]byte(cfg.JWTSecret), accessTokenTTL)
@@ -176,6 +177,7 @@ func selectRepos(
 		logger.Info("using in-memory repositories seeded from synthetic network", "facilities", len(net.Facilities))
 		return repos{
 			facilities: memory.NewFacilityRepo(net.Facilities...),
+			metrics:    memory.NewMetricsRepo(net.Metrics...),
 			users:      memory.NewUserRepo(accounts...),
 			refresh:    memory.NewRefreshStore(),
 			approvals:  memory.NewApprovalRepo(net.Approvals...),
@@ -191,7 +193,7 @@ func selectRepos(
 		return repos{}, nil, err
 	}
 
-	seeded, err := postgres.EnsureSeeded(ctx, pool, net.Facilities, net.Approvals, net.Tasks, accounts)
+	seeded, err := postgres.EnsureSeeded(ctx, pool, net.Facilities, net.Metrics, net.Approvals, net.Tasks, accounts)
 	if err != nil {
 		pool.Close()
 		return repos{}, nil, err
@@ -205,6 +207,7 @@ func selectRepos(
 	logger.Info("using postgres repositories")
 	return repos{
 		facilities: postgres.NewFacilityRepo(pool),
+		metrics:    postgres.NewMetricsRepo(pool),
 		users:      postgres.NewUserRepo(pool),
 		refresh:    postgres.NewRefreshRepo(pool),
 		approvals:  postgres.NewApprovalRepo(pool),

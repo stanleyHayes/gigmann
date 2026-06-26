@@ -11,12 +11,13 @@ import (
 	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/brief"
 	"github.com/xcreativs/gigmann/internal/core/facility"
+	"github.com/xcreativs/gigmann/internal/core/metric"
 	"github.com/xcreativs/gigmann/internal/core/task"
 	"github.com/xcreativs/gigmann/internal/core/user"
 	"github.com/xcreativs/gigmann/internal/intel"
 )
 
-//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore,ApprovalRepository,TaskRepository,Answerer,QuestionAnswerer,AuditLogger
+//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore,ApprovalRepository,TaskRepository,MetricsRepository,Answerer,QuestionAnswerer,AuditLogger
 
 // ErrAccountNotFound is returned by UserRepository when no account matches.
 var ErrAccountNotFound = errors.New("ports: account not found")
@@ -24,6 +25,13 @@ var ErrAccountNotFound = errors.New("ports: account not found")
 // FacilityRepository is a driven port for reading/writing facilities.
 type FacilityRepository interface {
 	List(ctx context.Context) ([]facility.Facility, error)
+}
+
+// MetricsRepository is a driven port for reading the facility metric series.
+// KPI figures are computed in Go (kpi.Compute) from this raw series — the store
+// is never a source of numbers.
+type MetricsRepository interface {
+	ListNetwork(ctx context.Context) ([]metric.FacilityMetric, error)
 }
 
 // Narrator turns a computed brief context into a narrated Daily Brief.

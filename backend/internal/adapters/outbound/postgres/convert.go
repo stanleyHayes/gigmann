@@ -69,6 +69,19 @@ func timeFromTS(t pgtype.Timestamptz) time.Time {
 	return t.Time.UTC()
 }
 
+// dateToPg wraps a time for a NOT NULL date column (date part only).
+func dateToPg(t time.Time) pgtype.Date {
+	return pgtype.Date{Time: normalizeTime(t), Valid: true}
+}
+
+// dateFromPg maps a date column back to a time (zero for NULL), in UTC.
+func dateFromPg(d pgtype.Date) time.Time {
+	if !d.Valid {
+		return time.Time{}
+	}
+	return d.Time.UTC()
+}
+
 // i16/i32 narrow small, domain-bounded ints for storage. Ranges are guaranteed
 // by domain invariants and table CHECK constraints (e.g. payer 0-100).
 func i16(n int) int16 { return int16(n) } //nolint:gosec // bounded by domain invariants + schema CHECKs

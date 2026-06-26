@@ -9,6 +9,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/postgres/sqlcgen"
 	"github.com/xcreativs/gigmann/internal/core/approval"
 	"github.com/xcreativs/gigmann/internal/core/facility"
+	"github.com/xcreativs/gigmann/internal/core/metric"
 	"github.com/xcreativs/gigmann/internal/core/task"
 	"github.com/xcreativs/gigmann/internal/ports"
 )
@@ -21,7 +22,8 @@ import (
 // (decided approvals, completed tasks).
 func EnsureSeeded(
 	ctx context.Context, pool *pgxpool.Pool,
-	facs []facility.Facility, apprs []approval.Approval, tasks []task.Task, accounts []ports.Account,
+	facs []facility.Facility, metrics []metric.FacilityMetric,
+	apprs []approval.Approval, tasks []task.Task, accounts []ports.Account,
 ) (bool, error) {
 	var n int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM facilities`).Scan(&n); err != nil {
@@ -30,7 +32,11 @@ func EnsureSeeded(
 	if n > 0 {
 		return false, nil
 	}
-	if err := Seed(ctx, pool, facs, apprs, tasks, accounts); err != nil {
+	if err := Seed(ctx, pool, facs, metrics, apprs, tasks, accounts); err != nil {
+		return false, err
+	}
+	// Populate the charting materialized view from the freshly-seeded data.
+	if err := NewMetricsRepo(pool).RefreshNetworkDaily(ctx); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -42,7 +48,8 @@ func EnsureSeeded(
 // rolls the whole thing back, leaving the database empty for the next attempt.
 func Seed(
 	ctx context.Context, pool *pgxpool.Pool,
-	facs []facility.Facility, apprs []approval.Approval, tasks []task.Task, accounts []ports.Account,
+	facs []facility.Facility, metrics []metric.FacilityMetric,
+	apprs []approval.Approval, tasks []task.Task, accounts []ports.Account,
 ) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -54,6 +61,11 @@ func Seed(
 	for _, f := range facs {
 		if err := q.CreateFacility(ctx, facilityParams(f)); err != nil {
 			return fmt.Errorf("postgres: seed facility %q: %w", f.ID, err)
+		}
+	}
+	for _, m := range metrics {
+		if err := q.InsertFacilityMetric(ctx, metricParams(m)); err != nil {
+			return fmt.Errorf("postgres: seed metric %s/%s: %w", m.FacilityID, m.Date.Format("2006-01-02"), err)
 		}
 	}
 	for _, a := range apprs {

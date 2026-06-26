@@ -18,6 +18,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/core/approval"
 	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/facility"
+	"github.com/xcreativs/gigmann/internal/core/metric"
 	"github.com/xcreativs/gigmann/internal/core/money"
 	"github.com/xcreativs/gigmann/internal/core/payer"
 	"github.com/xcreativs/gigmann/internal/core/severity"
@@ -307,13 +308,20 @@ func TestEnsureSeededIdempotencyIntegration(t *testing.T) {
 	ceo, err := user.New(user.User{ID: "u-sammy", Name: "Sammy Adjei", Role: user.RoleExecutive})
 	require.NoError(t, err)
 
+	met, err := metric.New(metric.FacilityMetric{
+		FacilityID: "kasoa", Date: t0, Revenue: money.FromCedis(5000, 0), PatientsSeen: 80, Admissions: 6,
+		OccupancyRate: 0.6, AvgWaitMinutes: 25, NHISClaimsSubmitted: 40, NHISClaimsPaid: 33, NHISClaimsDenied: 7,
+	})
+	require.NoError(t, err)
+
 	facs := []facility.Facility{fac}
+	metrics := []metric.FacilityMetric{met}
 	apprs := []approval.Approval{appr}
 	tasks := []task.Task{tsk}
 	accounts := []ports.Account{{User: ceo, Email: "ceo@gigmann.health", PasswordHash: "h"}}
 
 	// First run seeds an empty database.
-	seeded, err := postgres.EnsureSeeded(ctx, testPool, facs, apprs, tasks, accounts)
+	seeded, err := postgres.EnsureSeeded(ctx, testPool, facs, metrics, apprs, tasks, accounts)
 	require.NoError(t, err)
 	assert.True(t, seeded, "first run must seed")
 
@@ -326,7 +334,7 @@ func TestEnsureSeededIdempotencyIntegration(t *testing.T) {
 	require.NoError(t, apprRepo.Save(ctx, decided))
 
 	// A subsequent run (restart) must NOT re-seed, preserving the mutation.
-	seeded2, err := postgres.EnsureSeeded(ctx, testPool, facs, apprs, tasks, accounts)
+	seeded2, err := postgres.EnsureSeeded(ctx, testPool, facs, metrics, apprs, tasks, accounts)
 	require.NoError(t, err)
 	assert.False(t, seeded2, "restart must not re-seed a populated database")
 
@@ -337,4 +345,53 @@ func TestEnsureSeededIdempotencyIntegration(t *testing.T) {
 	all, err := postgres.NewFacilityRepo(testPool).List(ctx)
 	require.NoError(t, err)
 	assert.Len(t, all, 1, "no duplicate facilities from a second EnsureSeeded")
+}
+
+func TestMetricsRepoIntegration(t *testing.T) {
+	ctx := context.Background()
+	truncateAll(ctx, t)
+	seedFacility(ctx, t, "kasoa")
+	seedFacility(ctx, t, "nima")
+
+	repo := postgres.NewMetricsRepo(testPool)
+	d1 := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	d2 := time.Date(2026, 6, 2, 0, 0, 0, 0, time.UTC)
+	mk := func(fid string, d time.Time, rev int64, patients int) metric.FacilityMetric {
+		m, err := metric.New(metric.FacilityMetric{
+			FacilityID: fid, Date: d, Revenue: money.FromCedis(rev, 0), PatientsSeen: patients, Admissions: 3,
+			OccupancyRate: 0.5, AvgWaitMinutes: 20, NHISClaimsSubmitted: 30, NHISClaimsPaid: 25, NHISClaimsDenied: 5,
+			NHISOutstanding: money.FromCedis(rev/2, 0), UnbilledAmount: money.FromCedis(rev/10, 0),
+		})
+		require.NoError(t, err)
+		return m
+	}
+	require.NoError(t, repo.Insert(ctx, mk("kasoa", d1, 5000, 80)))
+	require.NoError(t, repo.Insert(ctx, mk("kasoa", d2, 6000, 90)))
+	require.NoError(t, repo.Insert(ctx, mk("nima", d1, 4000, 70)))
+
+	// ListNetwork returns the full series ordered by (facility_id, date); money exact.
+	all, err := repo.ListNetwork(ctx)
+	require.NoError(t, err)
+	require.Len(t, all, 3)
+	assert.Equal(t, "kasoa", all[0].FacilityID)
+	assert.True(t, all[0].Date.Equal(d1), "metric date round-trips")
+	assert.Equal(t, int64(500000), all[0].Revenue.Pesewas())
+
+	// Trailing-window query (the WoW access pattern) returns only one facility from d2.
+	win, err := repo.ListFacilitySince(ctx, "kasoa", d2)
+	require.NoError(t, err)
+	require.Len(t, win, 1)
+	assert.Equal(t, int64(600000), win[0].Revenue.Pesewas())
+
+	// Materialized view: refresh, then read the daily network rollup.
+	require.NoError(t, repo.RefreshNetworkDaily(ctx))
+	daily, err := repo.NetworkDaily(ctx)
+	require.NoError(t, err)
+	require.Len(t, daily, 2) // two distinct days
+	// d1 rollup = kasoa(5000) + nima(4000) = 9000 cedis = 900000 pesewas.
+	assert.True(t, daily[0].Date.Equal(d1))
+	assert.Equal(t, int64(900000), daily[0].Revenue.Pesewas())
+	assert.Equal(t, 150, daily[0].PatientsSeen) // 80 + 70
+	// d2 rollup = kasoa(6000) only.
+	assert.Equal(t, int64(600000), daily[1].Revenue.Pesewas())
 }

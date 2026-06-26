@@ -65,7 +65,7 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 	require.NoError(t, err)
 	users := memory.NewUserRepo(ports.Account{User: u, Email: testEmail, PasswordHash: hash})
 	tokens := token.New([]byte("test-secret"), time.Hour)
-	metricsSvc := app.NewMetricsService(seed.Generate(7, time.Date(2026, 6, 24, 0, 0, 0, 0, time.UTC), 14).Metrics)
+	metricsSvc := app.NewMetricsService(memory.NewMetricsRepo(seed.Generate(7, time.Date(2026, 6, 24, 0, 0, 0, 0, time.UTC), 14).Metrics...))
 	auditLog := audit.New(slog.New(slog.DiscardHandler))
 	approvalSvc := app.NewApprovalService(memory.NewApprovalRepo(approval.Approval{
 		ID: "ap-test", Type: approval.TypeCapital, FacilityID: "kasoa", Title: "Test approval",

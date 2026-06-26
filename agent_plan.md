@@ -346,14 +346,15 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-10.
 
-#### ☐ GEC-12 — Time-series metrics on native Postgres · 5 SP · Phase: Development
+#### ☑ GEC-12 — Time-series metrics on native Postgres · 5 SP · Phase: Development
+> **Done 2026-06-26:** `facility_metrics` is now repository-backed — `ports.MetricsRepository` + a Postgres adapter (`ListNetwork`, trailing-window `ListFacilitySince`, upsert `Insert`) and an in-memory adapter; `MetricsService` loads the raw series and computes KPIs in Go (`kpi.Compute`) — **Postgres is never a source of figures** (see [ADR-0005](docs/adr/0005-metrics-storage-and-aggregates.md)). Metrics are persisted in the atomic first-run seed; the KPI endpoint is Postgres-backed when `DATABASE_URL` is set. Added the `network_daily_metrics` **materialized view** (raw daily charting rollup, `WITH NO DATA` + unique index for CONCURRENTLY) with `RefreshNetworkDaily` (populated at first-run seed; cron scheduling is GEC-71). Runtime-verified against native Postgres 18: 168 rows persist, Postgres-backed KPIs == in-memory KPIs, MV total == raw series, and the trailing-window query is an **Index Scan Backward (0.006 ms exec)**. Partitioning documented as the scale-up path (ADR-0005).
 - User story: As an engineer, I want fast week-over-week metric queries on plain Postgres, so that trends work on Render (no TimescaleDB).
 - Business value: Powers KPI trends and the signal engine while staying within Render's managed Postgres.
 - Acceptance criteria:
-  - [ ] `facility_metrics` indexed on `(facility_id, date)` for efficient WoW / trailing-window queries.
-  - [ ] Materialized view(s) for common aggregates, refreshed by the cron worker (GEC-71).
-  - [ ] Declarative range partitioning by time documented as the scale-up path (enabled only if volume warrants).
-  - [ ] Query timings documented on the seeded network.
+  - [x] `facility_metrics` indexed on `(facility_id, date)` for efficient WoW / trailing-window queries.
+  - [x] Materialized view(s) for common aggregates (refresh capability shipped; cron schedule wired in GEC-71).
+  - [x] Declarative range partitioning by time documented as the scale-up path (ADR-0005; enabled only if volume warrants).
+  - [x] Query timings documented on the seeded network (ADR-0005: Index Scan Backward, 0.006 ms).
 - Technical notes: daily/weekly granularity per spec §7; volume is small (12 facilities) so indexes suffice initially.
 - Definition of done: Global DoD.
 - Dependencies: GEC-11.
@@ -1585,3 +1586,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **Docs — ADR-0002/0003/0004 recorded.** In-memory store + deferred Postgres (with the port-based swap path), HS256 + single-use rotating refresh tokens, and the deterministic-engine/grounded-cached-narration decision are now captured as accepted ADRs. | Claude |
 | 2026-06-26 | **GEC-14 completed — full Postgres persistence vertical.** User/refresh/approval/task adapters, embedded+locked migration runner, atomic first-run seed, DATABASE_URL wiring, integration tests; 10-finding adversarial review hardened. build/vet/lint(0)/unit-gate(91.8%) green. _Integration run is CI-only this session (local Docker could not pull images)._ Documented follow-ups: (a) map credentials email-unique violation to a typed 409 if an email-change/signup flow is ever added; (b) optionally re-read the user (or add a token epoch) on refresh so role/facility changes invalidate outstanding refresh tokens before TTL — a cross-cutting auth-design item shared with the in-memory store, not specific to this vertical. | Claude |
 | 2026-06-26 | **GEC-14 persistence runtime-verified (native Postgres 18).** Docker couldn't pull images, so instead of relying on CI alone the migration runner + real demo seed were exercised through all adapters against a native PG18 instance — all checks passed (FK integrity, money exactness, single-use tokens, seed idempotency). | Claude |
+| 2026-06-26 | **GEC-12 done — metrics on native Postgres.** facility_metrics repository-backed (Postgres + in-memory), KPI endpoint DB-backed with figures still computed in Go (kpi.Compute), network_daily_metrics materialized view + refresh, ADR-0005 (partitioning + measured query plan). Runtime-verified on native PG18 (KPI parity, MV==series, 0.006 ms index scan); integration tests added. build/vet/lint(0)/gate(91.5%) green. | Claude |
