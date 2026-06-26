@@ -13,10 +13,11 @@ type Props = {
   brief?: Brief
   isLoading: boolean
   isError: boolean
+  onAction?: (action: string, facilityId: string) => void
 }
 
 /** DailyBrief is the hero surface: the morning brief, worst item first. */
-export function DailyBrief({ brief, isLoading, isError }: Props) {
+export function DailyBrief({ brief, isLoading, isError, onAction }: Props) {
   if (isLoading) {
     return (
       <Box data-testid="brief-skeleton">
@@ -56,6 +57,7 @@ export function DailyBrief({ brief, isLoading, isError }: Props) {
                     size="small"
                     variant="outlined"
                     aria-label={`${action} for ${item.facility_id}`}
+                    onClick={onAction ? () => onAction(action, item.facility_id) : undefined}
                   >
                     {action}
                   </Button>

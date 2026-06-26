@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { Brief } from '../api/useBrief'
 import { DailyBrief } from './DailyBrief'
@@ -39,5 +39,14 @@ describe('DailyBrief', () => {
     expect(screen.getByText('Claims recorded but not submitted')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Why\?/ })).toBeInTheDocument()
     expect(screen.getByText('Stock running low')).toBeInTheDocument()
+  })
+})
+
+describe('DailyBrief actions', () => {
+  it('invokes onAction when a suggested action is clicked', () => {
+    const onAction = vi.fn()
+    render(<DailyBrief brief={brief} isLoading={false} isError={false} onAction={onAction} />)
+    fireEvent.click(screen.getByRole('button', { name: /Why\? for tafo-maternity/i }))
+    expect(onAction).toHaveBeenCalledWith('Why?', 'tafo-maternity')
   })
 })

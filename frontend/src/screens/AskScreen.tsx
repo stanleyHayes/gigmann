@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useLocation } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
@@ -20,7 +21,9 @@ const SUGGESTIONS = [
 /** AskScreen answers natural-language questions, grounded in today's figures. */
 export function AskScreen() {
   const ask = useAsk()
-  const [question, setQuestion] = useState('')
+  const location = useLocation()
+  const prefill = (location.state as { question?: string } | null)?.question ?? ''
+  const [question, setQuestion] = useState(prefill)
 
   const submit = (q: string) => {
     const trimmed = q.trim()
