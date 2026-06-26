@@ -65,7 +65,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | **E2** | Authentication & Authorization | 7 | 39 | ◐ In progress — GEC-18/19/20/21/22/24 done; only GEC-17/23 left |
 | **E3** | Core Domain APIs (REST + OpenAPI) | 9 | 52 | ◐ In progress — GEC-26/30/31 done |
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
-| **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-42 done; 41/43 mock-first |
+| **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-41/42/43/46 done (live) |
 | **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ◐ In progress — GEC-49/50 done |
 | **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — GEC-55/56/57/59/61/62 done |
 | **E8** | Realtime, Notifications & Alerts | 5 | 26 | ☐ Not started |
@@ -675,7 +675,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 ## E5 — Intelligence Service (Claude)
 *Goal: spec §6 — Claude **narrates** computed signals, **never invents figures**. Daily Brief pipeline, grounded NL query, generated actions, caching, graceful fallback.*
 
-#### ◐ GEC-41 — Anthropic adapter & prompt architecture · 5 SP · Phase: Development
+#### ☑ GEC-41 — Anthropic adapter & prompt architecture · 5 SP · Phase: Development
+> **Live-verified 2026-06-26:** the Anthropic narrator (Go SDK, strict `emit_brief` tool, grounding system prompt) was confirmed against the real API with `claude-sonnet-4-6`. A build-tagged integration test asserts the grounding guardrail — Claude narrated only the supplied figures (GHS 42,000 unbilled / 6 days, 19% denial) and invented no facility. (Mock-first until now.)
 > **In progress (mock-first):** `adapters/outbound/anthropic.Narrator` implements `ports.Narrator` via the Go SDK — Claude Sonnet, a stable chief-of-staff system prompt with a strict 'use only supplied figures' guardrail, structured output via a strict `emit_brief` tool. Pure parse path unit-tested; live call needs `ANTHROPIC_API_KEY` (excluded from unit gate). Remaining: caching/fallback/cost (GEC-46/47/48).
 - User story: As the system, I want a Claude client adapter with a stable system prompt, so that intelligence is consistent and swappable.
 - Business value: Real AI on the magic touchpoints (spec decisions-locked).
@@ -698,7 +699,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-40, GEC-26, GEC-29, GEC-31.
 
-#### ◐ GEC-43 — Structured brief generation · 8 SP · Phase: Development
+#### ☑ GEC-43 — Structured brief generation · 8 SP · Phase: Development
+> **Live-verified 2026-06-26:** end-to-end structured generation works — `GET /api/v1/brief` returns a real Claude-narrated brief (worst-first items + prose) grounded in the deterministic signal figures (e.g. Kasoa 305/1,561 denials = 20%, Tafo submission −41%, Asokwa 5-day stockout).
 > **In progress:** `app.BriefService` runs engine → pulse → context → narrator → `brief.New` validation (grounding guardrail). Strict-tool JSON parsed to a validated domain Brief; tested with a gomock Narrator over the synthetic network. Remaining: retry/repair on invalid model output, live end-to-end.
 - User story: As the system, I want Claude to return structured brief JSON, so that the UI renders items with inline actions.
 - Business value: The hero output.
@@ -731,7 +733,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-44.
 
-#### ☐ GEC-46 — Caching & morning pre-warm · 5 SP · Phase: Development
+#### ☑ GEC-46 — Caching & morning pre-warm · 5 SP · Phase: Development
+> **Done 2026-06-26:** `app.CachedBrief` wraps the generator with a TTL cache (10 min) — the first/cold request generates synchronously, later requests serve the cache instantly (**29 ms** vs ~15 s) and refresh in the background when stale (serve-stale-on-error). Bootstrap pre-warms the cache at startup; request/write timeouts raised to 30 s so a cold LLM generation fits. This fixed the 15 s HTTP timeout that the synchronous live brief was hitting.
 - User story: As Sammy, I want the brief instant on open, so that it feels fast (a hero quality).
 - Business value: "Fast" is a top-4 brief quality (spec §2 mandate).
 - Acceptance criteria:
@@ -797,7 +800,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-50, GEC-45, GEC-31.
 
-#### ☐ GEC-52 — Brief-quality acceptance harness · 8 SP · Phase: QA
+#### ◐ GEC-52 — Brief-quality acceptance harness · 8 SP · Phase: QA
+> **Started 2026-06-26:** a live, build-tagged integration test verifies the core grounding guardrail (no invented facilities; supplied figures only). _Remaining: the full multi-scenario harness (numeric-accuracy checks, prompt-injection resistance, regression fixtures)._
 - User story: As the team, I want an automated check that the brief meets its four qualities, so that we protect the hero.
 - Business value: Brief quality is the project's top acceptance criterion (spec mandate).
 - Acceptance criteria:
@@ -1541,3 +1545,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **GEC-86 (code-split) — SPA bundle split.** React Router v7 lazy routes + Vite 8 Rolldown `codeSplitting.groups` split the 1.1 MB bundle into a 57 kB entry + vendor chunks (react/mui/mui-charts), with mui-charts (435 kB) loaded on-demand only on `/kpis`. 500 kB warning cleared; nav shows a progress bar during lazy loads. APIs verified pre-code (research workflow). 36 tests (routes now async `findBy`), lint clean, build ok. | Claude |
 | 2026-06-26 | **GEC-30 done — Tasks / "My Day" API.** `GET /tasks` + `POST /tasks/{id}/status` (todo/in_progress/done) via a new `TaskRepository`/`TaskService`; the seed network now generates 4 tasks. Live-verified. Gate 92.1%, lint 0. | Claude |
 | 2026-06-26 | **GEC-61 done — My Day screen (completes the My Day vertical).** `/my-day` renders tasks from `/api/v1/tasks`; a checkbox completes a task (POST status), active-first sorting, done sinks with strikethrough. Lazily code-split. 40 tests @ 90.5%, lint clean, build ok. | Claude |
+| 2026-06-26 | **GEC-41/43/46 — live Claude brief, verified and cached.** Confirmed the Anthropic narrator against the real API (`claude-sonnet-4-6`): a build-tagged integration test proves the grounding guardrail (supplied figures only, no invented facility). Added `app.CachedBrief` (TTL cache + startup pre-warm + background refresh) so `/api/v1/brief` serves the real Claude brief in ~29 ms instead of timing out at 15 s; timeouts raised to 30 s. Backend gate 92.3%, lint 0. Key stored in gitignored `backend/.env`. | Claude |

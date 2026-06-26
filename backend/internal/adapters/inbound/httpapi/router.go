@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	requestTimeout = 15 * time.Second
+	requestTimeout = 30 * time.Second // an uncached LLM brief can take ~15s
 	bearerPrefix   = "Bearer "
 )
 

@@ -32,9 +32,10 @@ import (
 const (
 	shutdownTimeout = 10 * time.Second
 	readTimeout     = 10 * time.Second
-	writeTimeout    = 15 * time.Second
+	writeTimeout    = 30 * time.Second // headroom for a cold LLM brief generation
 	demoSeed        = 42
 	briefTopN       = 5
+	briefCacheTTL   = 10 * time.Minute
 	accessTokenTTL  = 15 * time.Minute
 	refreshTokenTTL = 7 * 24 * time.Hour
 )
@@ -112,7 +113,14 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		AsOf: time.Now().UTC(), Facilities: net.Facilities, Metrics: net.Metrics,
 		Inventory: net.Inventory, Staff: net.Staff,
 	}
-	briefs := app.NewStaticBrief(briefSvc, input)
+	briefs := app.NewCachedBrief(app.NewStaticBrief(briefSvc, input), briefCacheTTL)
+	go func() { //nolint:contextcheck // startup cache warm runs detached from the request
+		if _, err := briefs.Generate(context.Background()); err != nil {
+			logger.Warn("brief cache warm failed", "err", err)
+			return
+		}
+		logger.Info("brief cache warmed")
+	}()
 	metricsSvc := app.NewMetricsService(net.Metrics)
 
 	hasher := passwordhash.New()
