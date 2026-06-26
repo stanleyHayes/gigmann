@@ -69,9 +69,9 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ◐ In progress — GEC-49/50 done |
 | **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — all 6 screens live (GEC-55/56/57/59/60/61/62) |
 | **E8** | Realtime, Notifications & Alerts | 5 | 26 | ☐ Not started |
-| **E9** | Security Hardening & Compliance | 11 | 63 | ☐ Not started |
+| **E9** | Security Hardening & Compliance | 11 | 63 | ◐ In progress — CORS done, headers partial |
 | **E10** | SEO & Web Performance | 7 | 31 | ☐ Not started |
-| **E11** | Observability & Reliability | 7 | 37 | ☐ Not started |
+| **E11** | Observability & Reliability | 7 | 37 | ◐ In progress — request logging + /readyz |
 | **E12** | Quality, Testing & CI Gates | 8 | 44 | ☐ Not started |
 | **E13** | Deployment, Infra & Release | 7 | 38 | ☐ Not started |
 | **E14** | Documentation, Governance & Handover | 6 | 24 | ☐ Not started |
@@ -282,7 +282,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-1.
 
-#### ◐ GEC-7 — Structured logging & error model · 3 SP · Phase: Development
+#### ☑ GEC-7 — Structured logging & error model · 3 SP · Phase: Development
+> **Done 2026-06-26:** a `requestLogger` middleware emits one structured `slog` line per request (method, path, status, duration_ms, request_id — never PII), alongside the existing typed `Error` response model and RequestID/Recoverer middleware.
 > **In progress:** `slog` JSON logging wired in the composition root. Remaining: central typed error → RFC 9457 problem responses + no-PII-in-logs test.
 - User story: As an operator, I want consistent structured logs and a typed error model, so that issues are traceable.
 - Business value: Foundation for observability and debugging; avoids PII leaks.
@@ -1057,7 +1058,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-22, GEC-48.
 
-#### ☐ GEC-75 — Security headers & CSP · 3 SP · Phase: Development
+#### ◐ GEC-75 — Security headers & CSP · 3 SP · Phase: Development
+> **Partial 2026-06-26:** a `securityHeaders` middleware sets `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and `Cross-Origin-Opener-Policy: same-origin` on every response (verified live). _Remaining: a full Content-Security-Policy (served with the SPA shell) and HSTS at the edge._
 - User story: As the system, I want strict security headers, so that the browser enforces our security posture.
 - Business value: Defence-in-depth.
 - Acceptance criteria:
@@ -1067,7 +1069,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-55.
 
-#### ☐ GEC-76 — CORS & CSRF protection · 2 SP · Phase: Development
+#### ☑ GEC-76 — CORS & CSRF protection · 2 SP · Phase: Development
+> **Done 2026-06-26:** an allow-list `corsMiddleware` (origins from `CORS_ALLOWED_ORIGINS`) sets the CORS headers only for configured origins and answers preflight `OPTIONS` with 204 (verified live). CSRF is not applicable — the API authenticates via `Authorization: Bearer` tokens, not cookies, so there is no ambient credential to forge.
 - User story: As the system, I want correct CORS and CSRF defences, so that cross-origin abuse is blocked.
 - Business value: Prevents session-riding attacks.
 - Acceptance criteria:
@@ -1550,3 +1553,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **GEC-41/43/46 — live Claude brief, verified and cached.** Confirmed the Anthropic narrator against the real API (`claude-sonnet-4-6`): a build-tagged integration test proves the grounding guardrail (supplied figures only, no invented facility). Added `app.CachedBrief` (TTL cache + startup pre-warm + background refresh) so `/api/v1/brief` serves the real Claude brief in ~29 ms instead of timing out at 15 s; timeouts raised to 30 s. Backend gate 92.3%, lint 0. Key stored in gitignored `backend/.env`. | Claude |
 | 2026-06-26 | **GEC-44 done (live) — grounded NL Ask API.** `POST /api/v1/ask` answers questions over the deterministic network context via a new `Answerer` port (Claude `emit_answer` tool + grounding prompt; local fallback) and `AskService`. Live-verified: real Claude answer used only supplied figures (Kasoa 20% denial, Tafo −41% submission, Asokwa stockout). HTTP timeouts → 45s. Gate 92.3%, lint 0. | Claude |
 | 2026-06-26 | **GEC-60 (core) — Ask screen; cockpit screens complete.** `/ask` posts NL questions to `/api/v1/ask` and renders the grounded answer + citation chips, with suggested-prompt chips and animated-dot loading. Every nav slot (Today/Network/KPIs/Ask/My Day/Approvals) is now a working screen. Lazily code-split. 44 tests @ 90.8%, lint clean, build ok. | Claude |
+| 2026-06-26 | **GEC-7/75/76 — HTTP middleware hardening.** Structured per-request `slog` logging, security headers (nosniff/DENY/no-referrer/COOP), an allow-list CORS middleware (preflight 204), and a real `/readyz` readiness probe — all wired in `NewRouter`, config-driven (`CORS_ALLOWED_ORIGINS`), verified live. Unblocks a cross-origin SPA→API deploy. Gate 92.7%, lint 0. | Claude |

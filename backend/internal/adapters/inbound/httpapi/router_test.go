@@ -75,14 +75,15 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 		signal.Input{AsOf: net.Metrics[0].Date, Facilities: net.Facilities, Metrics: net.Metrics, Inventory: net.Inventory, Staff: net.Staff}, 0)
 
 	return httpapi.NewRouter(httpapi.Deps{
-		Facilities: app.NewFacilityService(repo),
-		Metrics:    metricsSvc,
-		Briefs:     briefs,
-		Auth:       app.NewAuthService(users, hasher, tokens, memory.NewRefreshStore(), time.Hour),
-		Approvals:  approvalSvc,
-		Tasks:      taskSvc,
-		Ask:        askSvc,
-		Tokens:     tokens,
+		Facilities:  app.NewFacilityService(repo),
+		Metrics:     metricsSvc,
+		Briefs:      briefs,
+		Auth:        app.NewAuthService(users, hasher, tokens, memory.NewRefreshStore(), time.Hour),
+		Approvals:   approvalSvc,
+		Tasks:       taskSvc,
+		Ask:         askSvc,
+		Tokens:      tokens,
+		CORSOrigins: []string{"http://localhost:5173"},
 	})
 }
 
@@ -410,4 +411,10 @@ func TestAskRequiresAuth(t *testing.T) {
 	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
 	rec := postJSON(t, h, "/api/v1/ask", `{"question":"x"}`)
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestReadyz(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	rec := serve(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl), http.MethodGet, "/readyz")
+	require.Equal(t, http.StatusOK, rec.Code)
 }

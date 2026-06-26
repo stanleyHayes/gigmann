@@ -143,14 +143,16 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 	taskSvc := app.NewTaskService(memory.NewTaskRepo(net.Tasks...))
 
 	return httpapi.NewRouter(httpapi.Deps{
-		Facilities: app.NewFacilityService(facRepo),
-		Metrics:    metricsSvc,
-		Briefs:     briefs,
-		Auth:       authSvc,
-		Approvals:  approvalSvc,
-		Tasks:      taskSvc,
-		Ask:        askSvc,
-		Tokens:     tokens,
+		Facilities:  app.NewFacilityService(facRepo),
+		Metrics:     metricsSvc,
+		Briefs:      briefs,
+		Auth:        authSvc,
+		Approvals:   approvalSvc,
+		Tasks:       taskSvc,
+		Ask:         askSvc,
+		Tokens:      tokens,
+		Logger:      logger,
+		CORSOrigins: cfg.CORSAllowedOrigins,
 	}), cleanup, nil
 }
 

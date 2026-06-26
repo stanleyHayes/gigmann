@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Application environments.
@@ -21,14 +22,15 @@ const devJWTSecret = "dev-insecure-change-me" //nolint:gosec // non-secret devel
 
 // Config holds validated runtime configuration.
 type Config struct {
-	AppEnv          string
-	HTTPPort        int
-	LogLevel        string
-	DatabaseURL     string
-	RedisURL        string
-	AnthropicAPIKey string
-	AnthropicModel  string
-	JWTSecret       string
+	AppEnv             string
+	HTTPPort           int
+	LogLevel           string
+	DatabaseURL        string
+	RedisURL           string
+	AnthropicAPIKey    string
+	AnthropicModel     string
+	JWTSecret          string
+	CORSAllowedOrigins []string
 }
 
 // Load reads configuration from the environment and validates it.
@@ -49,6 +51,7 @@ func Load() (Config, error) {
 	cfg.HTTPPort = port
 
 	cfg.JWTSecret = os.Getenv("JWT_SECRET")
+	cfg.CORSAllowedOrigins = splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173"))
 	if cfg.AppEnv == EnvDevelopment && cfg.JWTSecret == "" {
 		cfg.JWTSecret = devJWTSecret
 	}
@@ -86,6 +89,17 @@ func (c Config) validate() error {
 		}
 	}
 	return nil
+}
+
+func splitCSV(v string) []string {
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 func getEnv(key, fallback string) string {

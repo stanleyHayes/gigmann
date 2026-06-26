@@ -6,6 +6,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -32,14 +33,16 @@ const (
 
 // Deps are the application use cases the HTTP layer delegates to.
 type Deps struct {
-	Facilities *app.FacilityService
-	Metrics    *app.MetricsService
-	Briefs     ports.BriefGenerator
-	Auth       *app.AuthService
-	Approvals  *app.ApprovalService
-	Tasks      *app.TaskService
-	Ask        ports.QuestionAnswerer
-	Tokens     ports.TokenService
+	Facilities  *app.FacilityService
+	Metrics     *app.MetricsService
+	Briefs      ports.BriefGenerator
+	Auth        *app.AuthService
+	Approvals   *app.ApprovalService
+	Tasks       *app.TaskService
+	Ask         ports.QuestionAnswerer
+	Tokens      ports.TokenService
+	Logger      *slog.Logger
+	CORSOrigins []string
 }
 
 // Server implements the generated StrictServerInterface, delegating to use cases.
@@ -58,11 +61,19 @@ var _ StrictServerInterface = (*Server)(nil)
 
 // NewRouter builds the HTTP handler from the generated OpenAPI contract.
 func NewRouter(d Deps) http.Handler {
+	logger := d.Logger
+	if logger == nil {
+		logger = slog.New(slog.DiscardHandler)
+	}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
+	r.Use(requestLogger(logger))
+	r.Use(securityHeaders())
+	r.Use(corsMiddleware(d.CORSOrigins))
 	r.Use(middleware.Timeout(requestTimeout))
 	r.Use(authMiddleware(d.Tokens))
+	r.Get("/readyz", writeReady)
 
 	srv := &Server{facilities: d.Facilities, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask}
 	return HandlerFromMux(NewStrictHandler(srv, []StrictMiddlewareFunc{requireAuth()}), r)
