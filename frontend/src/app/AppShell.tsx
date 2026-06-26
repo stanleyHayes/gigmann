@@ -23,7 +23,8 @@ import TaskAltOutlined from '@mui/icons-material/TaskAltOutlined'
 import TodayOutlined from '@mui/icons-material/TodayOutlined'
 import { NavLink, Outlet, useLocation, useNavigation } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
-import type { ReactNode } from 'react'
+import { flushSync } from 'react-dom'
+import type { MouseEvent, ReactNode } from 'react'
 
 import { useAuth } from '../auth/authContext'
 import { useColorMode } from './colorMode'
@@ -49,6 +50,27 @@ export function AppShell() {
   const location = useLocation()
   const reduceMotion = useReducedMotion()
 
+  // Theme toggle with a circular clip-path reveal (View Transitions API), with a
+  // graceful fallback where it is unsupported or reduced motion is requested.
+  const toggleTheme = (e: MouseEvent) => {
+    const doc = document as Document & {
+      startViewTransition?: (cb: () => void) => { ready: Promise<void> }
+    }
+    if (reduceMotion || typeof doc.startViewTransition !== 'function') {
+      toggle()
+      return
+    }
+    const { clientX: x, clientY: y } = e
+    const transition = doc.startViewTransition(() => flushSync(toggle))
+    void transition.ready.then(() => {
+      const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+        { duration: 400, easing: 'ease-out', pseudoElement: '::view-transition-new(root)' },
+      )
+    })
+  }
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       {navigation.state === 'loading' ? (
@@ -69,7 +91,7 @@ export function AppShell() {
           ) : null}
           <IconButton
             color="inherit"
-            onClick={toggle}
+            onClick={toggleTheme}
             aria-label={mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
           >
             {mode === 'light' ? <DarkModeOutlined /> : <LightModeOutlined />}

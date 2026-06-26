@@ -34,6 +34,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
                   scrollBehavior: 'auto !important',
                 },
               },
+              '::view-transition-old(root), ::view-transition-new(root)': {
+                animation: 'none',
+                mixBlendMode: 'normal',
+              },
             }}
           />
           {children}
