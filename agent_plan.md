@@ -67,7 +67,7 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
 | **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-42 done; 41/43 mock-first |
 | **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ◐ In progress — GEC-49/50 done |
-| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — GEC-55/56/57/59 done |
+| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — GEC-55/56/57/59/62 done |
 | **E8** | Realtime, Notifications & Alerts | 5 | 26 | ☐ Not started |
 | **E9** | Security Hardening & Compliance | 11 | 63 | ☐ Not started |
 | **E10** | SEO & Web Performance | 7 | 31 | ☐ Not started |
@@ -906,7 +906,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-30.
 
-#### ☐ GEC-62 — Approvals screen · 3 SP · Phase: Development
+#### ☑ GEC-62 — Approvals screen · 3 SP · Phase: Development
+> **Done 2026-06-26:** `/approvals` lists the executive's queue (title, type/amount/facility chips, requester, context, status) from `GET /api/v1/approvals` via a typed `useApprovals` hook. Approve/Decline open a **confirmation dialog** (with an optional note) and the decision only fires on explicit confirm — the visible enforcement of 'no side-effect without explicit user confirmation'. Decided approvals show their status + note and hide the controls. Skeleton/error/empty states; `useDecideApproval` invalidates the list on success. Gate green: tsc/eslint clean, 36 tests @ 91.4%. Completes the approvals vertical (GEC-31 + GEC-62).
 - User story: As Sammy, I want a decision queue I act on from my phone, so that governance is one place.
 - Business value: Spec §5.8.
 - Acceptance criteria:
@@ -1533,3 +1534,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-25 | **GEC-21/24 — the cockpit is locked.** A `requireAuth` strict middleware gates every business endpoint (401 without a valid token; `/healthz` + `/auth/login` public), verified live. The SPA now gates behind an `AuthProvider`: a login screen, persisted token, `Authorization` header on every request via an openapi-fetch middleware, 401→auto-logout, and a sign-out control in the shell. Backend lint 0 / gate 94.3%; frontend 28 tests, lint clean, build ok. Demo login: ceo@gigmann.health / ahenfie-demo. | Claude |
 | 2026-06-26 | **GEC-20/22 — refresh-token rotation.** Access tokens shortened to 15 min; login now also issues a single-use, SHA-256-hashed refresh token (7 days) via a `RefreshTokenStore`. `POST /auth/refresh` rotates (old invalidated, reuse→401), `POST /auth/logout` revokes. The SPA transparently rotates + replays on 401 (one in-flight refresh, raw-fetch to avoid recursion), logging out only if refresh fails. Live-verified end to end. Backend lint 0 / gate 94.3%; frontend lint clean, build ok. | Claude |
 | 2026-06-26 | **GEC-31 done — Approvals & decision-routing API.** `GET /approvals` + `POST /approvals/{id}/decision` (executive-only via `ApprovalService`, 403/404/409 mapped). In-memory `ApprovalRepository` seeded from the network; decisions are explicit human-in-the-loop side-effects. Live-verified. Gate 93.4%, lint 0. | Claude |
+| 2026-06-26 | **GEC-62 done — Approvals screen (completes the approvals vertical).** `/approvals` renders the queue from `/api/v1/approvals`; Approve/Decline open a confirmation dialog (+ optional note) so a decision is never a one-click side-effect; settled approvals show status + note. Gate green: 36 tests @ 91.4%, build ok. | Claude |

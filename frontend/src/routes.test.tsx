@@ -10,6 +10,11 @@ vi.mock('./api/useFacilities', () => ({
   useFacilities: () => ({ data: [], isLoading: false, isError: false }),
 }))
 
+vi.mock('./api/useApprovals', () => ({
+  useApprovals: () => ({ data: [], isLoading: false, isError: false }),
+  useDecideApproval: () => ({ mutate: () => {}, isPending: false }),
+}))
+
 import { AppProviders } from './app/providers'
 import { AuthProvider } from './auth/AuthProvider'
 import { routes } from './app/routes'
