@@ -3,6 +3,7 @@ import Box from '@mui/material/Box'
 import Container from '@mui/material/Container'
 import Drawer from '@mui/material/Drawer'
 import IconButton from '@mui/material/IconButton'
+import LinearProgress from '@mui/material/LinearProgress'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemButton from '@mui/material/ListItemButton'
@@ -19,7 +20,7 @@ import LightModeOutlined from '@mui/icons-material/LightModeOutlined'
 import LogoutOutlined from '@mui/icons-material/LogoutOutlined'
 import TaskAltOutlined from '@mui/icons-material/TaskAltOutlined'
 import TodayOutlined from '@mui/icons-material/TodayOutlined'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
 import { useAuth } from '../auth/authContext'
@@ -42,9 +43,16 @@ const DRAWER_WIDTH = 248
 export function AppShell() {
   const { mode, toggle } = useColorMode()
   const { user, logout } = useAuth()
+  const navigation = useNavigation()
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      {navigation.state === 'loading' ? (
+        <LinearProgress
+          aria-label="Loading"
+          sx={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: (t) => t.zIndex.drawer + 2 }}
+        />
+      ) : null}
       <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
         <Toolbar>
           <Typography variant="h6" component="span" sx={{ flexGrow: 1, fontFamily: '"Fraunces Variable", serif' }}>

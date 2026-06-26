@@ -1158,7 +1158,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-83.
 
-#### ☐ GEC-86 — Core Web Vitals & performance budgets · 5 SP · Phase: Polish
+#### ◐ GEC-86 — Core Web Vitals & performance budgets · 5 SP · Phase: Polish
+> **Code-splitting done 2026-06-26:** the single ~1.1 MB bundle is now split — React Router v7 `lazy` routes put each screen in its own on-demand chunk, and Vite 8/Rolldown `codeSplitting.groups` carve out vendor chunks (react 272 kB, mui 154 kB, **mui-charts 435 kB loaded only on `/kpis`**). The entry chunk is **57 kB**, so the login/first paint no longer parses the chart library; the 500 kB chunk warning is gone. Self-hosted fonts (GEC-55) already cover the font strategy. _Remaining: image optimisation, route prefetch, and Lighthouse-CI budgets in CI._
 - User story: As a user, I want fast loads and interactions, so that the product feels premium.
 - Business value: CWV affects SEO + the "fast" hero quality.
 - Acceptance criteria:
@@ -1535,3 +1536,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **GEC-20/22 — refresh-token rotation.** Access tokens shortened to 15 min; login now also issues a single-use, SHA-256-hashed refresh token (7 days) via a `RefreshTokenStore`. `POST /auth/refresh` rotates (old invalidated, reuse→401), `POST /auth/logout` revokes. The SPA transparently rotates + replays on 401 (one in-flight refresh, raw-fetch to avoid recursion), logging out only if refresh fails. Live-verified end to end. Backend lint 0 / gate 94.3%; frontend lint clean, build ok. | Claude |
 | 2026-06-26 | **GEC-31 done — Approvals & decision-routing API.** `GET /approvals` + `POST /approvals/{id}/decision` (executive-only via `ApprovalService`, 403/404/409 mapped). In-memory `ApprovalRepository` seeded from the network; decisions are explicit human-in-the-loop side-effects. Live-verified. Gate 93.4%, lint 0. | Claude |
 | 2026-06-26 | **GEC-62 done — Approvals screen (completes the approvals vertical).** `/approvals` renders the queue from `/api/v1/approvals`; Approve/Decline open a confirmation dialog (+ optional note) so a decision is never a one-click side-effect; settled approvals show status + note. Gate green: 36 tests @ 91.4%, build ok. | Claude |
+| 2026-06-26 | **GEC-86 (code-split) — SPA bundle split.** React Router v7 lazy routes + Vite 8 Rolldown `codeSplitting.groups` split the 1.1 MB bundle into a 57 kB entry + vendor chunks (react/mui/mui-charts), with mui-charts (435 kB) loaded on-demand only on `/kpis`. 500 kB warning cleared; nav shows a progress bar during lazy loads. APIs verified pre-code (research workflow). 36 tests (routes now async `findBy`), lint clean, build ok. | Claude |

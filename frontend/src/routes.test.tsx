@@ -16,8 +16,8 @@ vi.mock('./api/useApprovals', () => ({
 }))
 
 import { AppProviders } from './app/providers'
-import { AuthProvider } from './auth/AuthProvider'
 import { routes } from './app/routes'
+import { AuthProvider } from './auth/AuthProvider'
 
 function renderAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] })
@@ -31,24 +31,24 @@ function renderAt(path: string) {
 }
 
 describe('routing', () => {
-  it('renders the brief on the index route', () => {
+  it('renders the brief on the index route', async () => {
     renderAt('/')
-    expect(screen.getByRole('heading', { name: /The Brief/i })).toBeInTheDocument()
-    expect(screen.getByTestId('brief-skeleton')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /The Brief/i })).toBeInTheDocument()
+    expect(await screen.findByTestId('brief-skeleton')).toBeInTheDocument()
   })
 
-  it('renders the network placeholder', () => {
+  it('renders the network screen', async () => {
     renderAt('/network')
-    expect(screen.getByRole('heading', { name: /^Network$/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /^Network$/i })).toBeInTheDocument()
   })
 
-  it('renders the approvals placeholder', () => {
+  it('renders the approvals screen', async () => {
     renderAt('/approvals')
-    expect(screen.getByRole('heading', { name: /Approvals/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /Approvals/i })).toBeInTheDocument()
   })
 
-  it('renders a not-found placeholder for unknown paths', () => {
+  it('renders a not-found placeholder for unknown paths', async () => {
     renderAt('/does-not-exist')
-    expect(screen.getByRole('heading', { name: /Not found/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /Not found/i })).toBeInTheDocument()
   })
 })

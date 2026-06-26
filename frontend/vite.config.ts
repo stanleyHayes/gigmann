@@ -52,6 +52,23 @@ export default defineConfig({
       '/healthz': 'http://localhost:8080',
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        // Dynamic route imports auto-split; these groups carve the heavy vendor
+        // libs out of the entry chunk (charts before the general MUI group).
+        codeSplitting: {
+          groups: [
+            { name: 'mui-charts', test: /node_modules[\\/]@mui[\\/]x-charts/ },
+            { name: 'mui-charts', test: /node_modules[\\/](d3-|@mui[\\/]x-internals)/ },
+            { name: 'mui', test: /node_modules[\\/]@mui[\\/](material|system|base|styled-engine|private-theming|utils)/ },
+            { name: 'mui', test: /node_modules[\\/]@emotion[\\/]/ },
+            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom)[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,

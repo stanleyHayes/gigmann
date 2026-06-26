@@ -1,23 +1,21 @@
 import type { RouteObject } from 'react-router-dom'
 
-import { ApprovalsScreen } from '../screens/ApprovalsScreen'
-import { HomeScreen } from '../screens/HomeScreen'
-import { KpisScreen } from '../screens/KpisScreen'
-import { NetworkScreen } from '../screens/NetworkScreen'
 import { Placeholder } from '../screens/Placeholder'
 import { AppShell } from './AppShell'
 
+// The AppShell layout stays eager; each real screen is a lazily-loaded chunk
+// (dynamic import auto-splits in Vite). Charts/MUI-X load only when visited.
 export const routes: RouteObject[] = [
   {
     path: '/',
     Component: AppShell,
     children: [
-      { index: true, Component: HomeScreen },
-      { path: 'network', Component: NetworkScreen },
-      { path: 'kpis', Component: KpisScreen },
+      { index: true, lazy: { Component: async () => (await import('../screens/HomeScreen')).HomeScreen } },
+      { path: 'network', lazy: { Component: async () => (await import('../screens/NetworkScreen')).NetworkScreen } },
+      { path: 'kpis', lazy: { Component: async () => (await import('../screens/KpisScreen')).KpisScreen } },
       { path: 'ask', element: <Placeholder title="Ask" note="Natural-language query and generated docs — planned in GEC-60." /> },
       { path: 'my-day', element: <Placeholder title="My Day" note="Planned in GEC-61." /> },
-      { path: 'approvals', Component: ApprovalsScreen },
+      { path: 'approvals', lazy: { Component: async () => (await import('../screens/ApprovalsScreen')).ApprovalsScreen } },
       { path: '*', element: <Placeholder title="Not found" note="That page does not exist." /> },
     ],
   },
