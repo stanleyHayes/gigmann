@@ -8,6 +8,10 @@ import { DailyBrief } from './components/DailyBrief'
 import { StatusChip } from './components/StatusChip'
 import { LoginScreen } from './screens/LoginScreen'
 import { AskScreen } from './screens/AskScreen'
+import { NetworkScreen } from './screens/NetworkScreen'
+import { KpisScreen } from './screens/KpisScreen'
+import { MyDayScreen } from './screens/MyDayScreen'
+import { ApprovalsScreen } from './screens/ApprovalsScreen'
 
 // LoginScreen reads the auth context; provide a stable stub.
 vi.mock('./auth/authContext', () => ({
@@ -32,6 +36,20 @@ const brief: Brief = {
 
 vi.mock('./api/useAsk', () => ({
   useAsk: () => ({ mutate: () => {}, isPending: false, isError: false, data: undefined }),
+}))
+vi.mock('./api/useFacilities', () => ({
+  useFacilities: () => ({ data: [], isLoading: false, isError: false }),
+}))
+vi.mock('./api/useMetrics', () => ({
+  useMetrics: () => ({ data: { as_of: '2026-06-09', kpis: [] }, isLoading: false, isError: false }),
+}))
+vi.mock('./api/useTasks', () => ({
+  useTasks: () => ({ data: [], isLoading: false, isError: false }),
+  useUpdateTaskStatus: () => ({ mutate: () => {}, isPending: false }),
+}))
+vi.mock('./api/useApprovals', () => ({
+  useApprovals: () => ({ data: [], isLoading: false, isError: false }),
+  useDecideApproval: () => ({ mutate: () => {}, isPending: false }),
 }))
 
 describe('accessibility (axe)', () => {
@@ -58,6 +76,26 @@ describe('accessibility (axe)', () => {
         <AskScreen />
       </MemoryRouter>,
     )
+    expect((await axe(container)).violations).toEqual([])
+  })
+
+  it('the network screen has no violations', async () => {
+    const { container } = render(<MemoryRouter><NetworkScreen /></MemoryRouter>)
+    expect((await axe(container)).violations).toEqual([])
+  })
+
+  it('the KPIs screen has no violations', async () => {
+    const { container } = render(<MemoryRouter><KpisScreen /></MemoryRouter>)
+    expect((await axe(container)).violations).toEqual([])
+  })
+
+  it('the My Day screen has no violations', async () => {
+    const { container } = render(<MemoryRouter><MyDayScreen /></MemoryRouter>)
+    expect((await axe(container)).violations).toEqual([])
+  })
+
+  it('the approvals screen has no violations', async () => {
+    const { container } = render(<MemoryRouter><ApprovalsScreen /></MemoryRouter>)
     expect((await axe(container)).violations).toEqual([])
   })
 

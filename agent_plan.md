@@ -1246,7 +1246,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-86.
 
-#### ◐ GEC-88 — Accessibility (WCAG 2.2 AA) · 5 SP · Phase: QA
+#### ☑ GEC-88 — Accessibility (WCAG 2.2 AA) · 5 SP · Phase: QA
+> **Done 2026-06-27:** Automated **axe** sweep (jest-axe) now asserts zero violations across the Daily Brief, status chips, login, Ask, **Network, KPIs, My Day, and Approvals** screens; **Lighthouse-a11y is a hard CI gate** (a11y ≥ 0.9, GEC-86); deliberate a11y throughout (aria-labels, semantic landmarks, AA-contrast status colours with text labels, single-h1, reduced-motion). _Only a manual screen-reader pass on the hero path remains (a human step)._
 > **Progressed 2026-06-27:** automated **axe** sweep now covers the Daily Brief, status chips, login, **and the Ask screen** (zero violations); **Lighthouse-a11y is a hard CI gate** (a11y ≥ 0.9, GEC-86). _Remaining: axe across the remaining data screens + a manual screen-reader pass on the hero path._
 > **Started 2026-06-26:** automated **axe** (jest-axe) checks assert zero violations on the Daily Brief, status chips, and the login screen — confirming the deliberate a11y work (aria-labels, semantic landmarks, AA-contrast status colours, single-h1, reduced-motion). _Remaining: axe across all screens, a manual screen-reader pass on the hero path, and Lighthouse-a11y in CI._
 - User story: As any user, I want an accessible cockpit, so that it's usable and compliant (and SEO-friendly).
@@ -1695,3 +1696,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-91 — AI cost/usage metrics.** ai_requests/ai_tokens(input/output)/ai_request_duration on /metrics, recorded by the Anthropic adapter. | Claude |
 | 2026-06-27 | **GEC-92 — error tracking complete.** Frontend Sentry added (lazy, VITE_SENTRY_DSN-gated → no bundle bloat without a DSN) alongside the backend sentry-go. | Claude |
 | 2026-06-27 | **GEC-104 — mutation testing demonstrated.** gremlins runs over core/money (arithmetic mutants killed; display-formatting boundary mutants noted). Nightly/manual. | Claude |
+| 2026-06-27 | **GEC-88 — accessibility.** axe sweep extended to the Network/KPIs/My-Day/Approvals screens (zero violations) on top of the hero surfaces + Lighthouse-a11y gate. | Claude |
