@@ -823,6 +823,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-50, GEC-45, GEC-31.
 
 #### ◐ GEC-52 — Brief-quality acceptance harness · 8 SP · Phase: QA
+> **Started 2026-06-27:** Brief-quality acceptance harness (`brief_quality_test.go`) runs the full brief pipeline (signal engine + deterministic narrator) over multiple synthetic networks and asserts the core contract: items are **worst-first** (severity rank non-increasing), **every item references a real facility** (no invented entities/figures — the grounding promise), headlines/prose non-empty, and the **planted Tafo critical story leads** for the Appendix-C demo seed. _Per-scenario golden files could expand it further._
 > **Started 2026-06-26:** a live, build-tagged integration test verifies the core grounding guardrail (no invented facilities; supplied figures only). _Remaining: the full multi-scenario harness (numeric-accuracy checks, prompt-injection resistance, regression fixtures)._
 - User story: As the team, I want an automated check that the brief meets its four qualities, so that we protect the hero.
 - Business value: Brief quality is the project's top acceptance criterion (spec mandate).
@@ -1675,3 +1676,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-92 — error tracking (Sentry, backend).** Gated sentry-go init (no-op without SENTRY_DSN) + panic-reporting middleware; flush on shutdown. Frontend SDK deferred to DSN availability. | Claude |
 | 2026-06-27 | **GEC-45 — generated actions & documents.** POST /drafts returns grounded AI-drafted messages/summaries (read-only, never auto-sent); reuses the answerer; per-principal rate-limited; tested. | Claude |
 | 2026-06-27 | **GEC-53/101/111 + delegation/marketing.** Playwright demo e2e + config + E2E CI workflow; UAT/beta checklist; marked delegation (GEC-32/64, served by tasks/alerts) and marketing (GEC-118, design-blocked) honestly. | Claude |
+| 2026-06-27 | **GEC-52 — brief-quality harness.** Multi-seed acceptance test: worst-first ordering, facility-grounding (no invented entities), planted-critical-story-leads. | Claude |
