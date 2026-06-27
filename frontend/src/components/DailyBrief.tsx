@@ -77,6 +77,10 @@ export function DailyBrief({ brief, isLoading, isError, onAction }: Props) {
         </Paper>
         </motion.div>
       ))}
+      <Typography variant="caption" color="text.secondary" data-testid="brief-source">
+        {brief.model.toLowerCase().includes('claude') ? 'Narrated by Claude' : 'Deterministic summary — AI narration unavailable'}
+        {brief.generated_at ? ` · ${new Date(brief.generated_at).toLocaleString('en-GB')}` : ''}
+      </Typography>
     </Stack>
   )
 }

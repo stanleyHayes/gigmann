@@ -761,7 +761,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + latency budget met.
 - Dependencies: GEC-43, GEC-44.
 
-#### ☐ GEC-47 — Graceful AI fallback · 3 SP · Phase: Development
+#### ☑ GEC-47 — Graceful AI fallback · 3 SP · Phase: Development
+> **Done 2026-06-27:** Graceful AI fallback is structural — the brief is cached + serves the **deterministic local narrator** when Claude is unavailable (same figures, templated prose; ADR-0004). The Daily Brief now also shows a **source indicator** (`Narrated by Claude` vs `Deterministic summary — AI narration unavailable`) + freshness, so a degraded state is visible. Tested.
 - User story: As Sammy, I want the cockpit to never show a broken screen, so that a mid-demo API outage doesn't kill it.
 - Business value: Spec §6.6 fallback; protects the demo.
 - Acceptance criteria:
@@ -809,7 +810,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-49, GEC-5.
 
-#### ☐ GEC-51 — Inline brief actions · 5 SP · Phase: Development
+#### ◐ GEC-51 — Inline brief actions · 5 SP · Phase: Development
+> **Status 2026-06-27:** Inline brief actions render as buttons on each item (`suggested_actions`), accessibility-labelled; clicking routes to **Ask** pre-filled (`'Why?' digs deeper`). _Remaining: a dedicated 'turn into a task' action that creates a task inline rather than routing to Ask._
 - User story: As Sammy, I want each brief item to act (explain, message manager, approve, open facility), so that I can act without leaving the brief.
 - Business value: Spec §2.4/§5.1 "actionable inline".
 - Acceptance criteria:
@@ -1221,7 +1223,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + budgets green.
 - Dependencies: GEC-55.
 
-#### ☐ GEC-87 — Image, font & asset optimization · 3 SP · Phase: Polish
+#### ◐ GEC-87 — Image, font & asset optimization · 3 SP · Phase: Polish
+> **Status 2026-06-27:** Fonts are self-hosted **woff2 variable** fonts (no external fetch), JS is **code-split** (react/mui/mui-charts chunks) and **PWA-precached**, and icons are small SVG/PNG. _An AVIF/WebP image pipeline is deferred until the marketing site (GEC-118) introduces raster imagery — the cockpit is data-driven with no content images._
 - User story: As a user, I want optimised assets, so that pages are light and fast.
 - Business value: CWV + cost.
 - Acceptance criteria:
@@ -1458,7 +1461,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-105, GEC-3, GEC-4.
 
-#### ☐ GEC-109 — Zero-downtime releases & rollback · 3 SP · Phase: Staging
+#### ☑ GEC-109 — Zero-downtime releases & rollback · 3 SP · Phase: Staging
+> **Done 2026-06-27:** Render performs **rolling, zero-downtime** deploys by default; migrations are **advisory-locked + forward-only**, so a new instance booting beside the old one migrates safely. Rollback = redeploy the previous image (one click / `render deploys rollback`), documented in [docs/runbooks.md](docs/runbooks.md). `/readyz` gates traffic until the DB is reachable.
 - User story: As an operator, I want rolling deploys and fast rollback, so that releases don't break the demo/prod.
 - Business value: Reliability.
 - Acceptance criteria:
@@ -1657,3 +1661,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-65 — personalisation & settings UI.** A 'What you watch' preferences card (checkboxes, load+save via /me/preferences) added to Settings alongside MFA. Frontend lint/tests/build green. | Claude |
 | 2026-06-27 | **GEC-71 — scheduled jobs (cron worker).** cmd/worker (migrate + refresh-views) wired into the image + Render cron; refreshes the GEC-12 materialized view. Runtime-verified on native PG18. | Claude |
 | 2026-06-27 | **GEC-99/102/104 — test harnesses.** OpenAPI contract test (spec valid + route coverage), k6 brief load script + thresholds + make target, and a gremlins mutation config + target over the domain core. | Claude |
+| 2026-06-27 | **GEC-47/109 done; GEC-51/87 progressed.** Brief AI-source indicator (graceful fallback visible); zero-downtime/rollback documented (Render rolling + advisory-locked migrations); inline-action + asset-optimization notes. | Claude |

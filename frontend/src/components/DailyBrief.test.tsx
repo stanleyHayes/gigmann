@@ -38,6 +38,11 @@ describe('DailyBrief', () => {
     expect(screen.getByText('Tafo needs you first')).toBeInTheDocument()
     expect(screen.getByText('Claims recorded but not submitted')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Why\?/ })).toBeInTheDocument()
+  })
+
+  it('indicates the brief source (graceful AI fallback)', () => {
+    render(<DailyBrief brief={brief} isLoading={false} isError={false} />)
+    expect(screen.getByTestId('brief-source')).toHaveTextContent(/deterministic summary/i)
     expect(screen.getByText('Stock running low')).toBeInTheDocument()
   })
 })
