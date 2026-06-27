@@ -2,6 +2,8 @@ package httpapi //nolint:testpackage // white-box: exercises the unexported midd
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -51,11 +53,34 @@ func TestCORSRejectsUnknownOrigin(t *testing.T) {
 }
 
 func TestSecurityHeaders(t *testing.T) {
-	h := securityHeaders()(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	h := securityHeaders(true)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/x", nil))
 	assert.Equal(t, "nosniff", rec.Header().Get("X-Content-Type-Options"))
 	assert.Equal(t, "DENY", rec.Header().Get("X-Frame-Options"))
+	assert.Equal(t, "max-age=63072000; includeSubDomains", rec.Header().Get("Strict-Transport-Security"))
+	assert.Contains(t, rec.Header().Get("Content-Security-Policy"), "default-src 'none'")
+	assert.Equal(t, "same-origin", rec.Header().Get("Cross-Origin-Resource-Policy"))
+}
+
+func TestSecurityHeadersNoHSTSWhenDisabled(t *testing.T) {
+	h := securityHeaders(false)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/x", nil))
+	assert.Empty(t, rec.Header().Get("Strict-Transport-Security"))
+}
+
+func TestReadyHandler(t *testing.T) {
+	// No check supplied → ready.
+	rec := httptest.NewRecorder()
+	readyHandler(nil)(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), "ready")
+
+	// Failing dependency check → 503.
+	rec2 := httptest.NewRecorder()
+	readyHandler(func(context.Context) error { return errors.New("db down") })(rec2, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	assert.Equal(t, http.StatusServiceUnavailable, rec2.Code)
 }
 
 func TestRateLimitBlocksAfterLimit(t *testing.T) {

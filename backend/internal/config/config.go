@@ -33,6 +33,14 @@ type Config struct {
 	VoyageModel        string
 	JWTSecret          string
 	CORSAllowedOrigins []string
+	Flags              Flags
+}
+
+// Flags are runtime feature toggles (12-factor: set via FEATURE_* env vars).
+// They default ON so the full product runs unless a feature is explicitly disabled.
+type Flags struct {
+	AINarration    bool // use Claude for the brief/Ask when a key is set (else local narrator)
+	FacilitySearch bool // embed facilities + serve NL facility search
 }
 
 // Load reads configuration from the environment and validates it.
@@ -56,6 +64,10 @@ func Load() (Config, error) {
 
 	cfg.JWTSecret = os.Getenv("JWT_SECRET")
 	cfg.CORSAllowedOrigins = splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173"))
+	cfg.Flags = Flags{
+		AINarration:    getBool("FEATURE_AI_NARRATION", true),
+		FacilitySearch: getBool("FEATURE_FACILITY_SEARCH", true),
+	}
 	if cfg.AppEnv == EnvDevelopment && cfg.JWTSecret == "" {
 		cfg.JWTSecret = devJWTSecret
 	}
@@ -107,4 +119,17 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// getBool parses a boolean feature flag; unset/blank/unparseable falls back.
+func getBool(key string, fallback bool) bool {
+	v, ok := os.LookupEnv(key)
+	if !ok || v == "" {
+		return fallback
+	}
+	b, err := strconv.ParseBool(strings.TrimSpace(v))
+	if err != nil {
+		return fallback
+	}
+	return b
 }

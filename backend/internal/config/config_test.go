@@ -83,3 +83,30 @@ func TestLoadProductionValid(t *testing.T) {
 		t.Error("expected production")
 	}
 }
+
+func TestFlagsDefaultOn(t *testing.T) {
+	t.Setenv("JWT_SECRET", "x")
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if !cfg.Flags.AINarration || !cfg.Flags.FacilitySearch {
+		t.Errorf("flags should default on, got %+v", cfg.Flags)
+	}
+}
+
+func TestFlagsDisable(t *testing.T) {
+	t.Setenv("JWT_SECRET", "x")
+	t.Setenv("FEATURE_AI_NARRATION", "false")
+	t.Setenv("FEATURE_FACILITY_SEARCH", "0")
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if cfg.Flags.AINarration {
+		t.Error("FEATURE_AI_NARRATION=false should disable AINarration")
+	}
+	if cfg.Flags.FacilitySearch {
+		t.Error("FEATURE_FACILITY_SEARCH=0 should disable FacilitySearch")
+	}
+}

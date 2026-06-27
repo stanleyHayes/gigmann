@@ -53,6 +53,7 @@ type repos struct {
 	refresh    ports.RefreshTokenStore
 	approvals  ports.ApprovalRepository
 	tasks      ports.TaskRepository
+	ready      func(context.Context) error
 }
 
 // Run loads configuration, wires dependencies, and serves HTTP until interrupted.
@@ -122,7 +123,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		narrator ports.Narrator
 		answerer ports.Answerer
 	)
-	if cfg.AnthropicAPIKey != "" {
+	if cfg.AnthropicAPIKey != "" && cfg.Flags.AINarration {
 		n := anthropic.NewNarrator(cfg.AnthropicAPIKey, cfg.AnthropicModel)
 		narrator, answerer = n, n
 		logger.Info("using Claude narrator", "model", cfg.AnthropicModel)
@@ -143,7 +144,9 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 	}
 	// Best-effort first-run embedding of facilities: NL search degrades to empty
 	// if this fails, but it never blocks startup.
-	if embedded, eerr := app.SeedFacilityEmbeddings(ctx, embedder, r.embeddings, net.Facilities); eerr != nil {
+	if !cfg.Flags.FacilitySearch {
+		logger.Info("FEATURE_FACILITY_SEARCH disabled — NL facility search returns no matches")
+	} else if embedded, eerr := app.SeedFacilityEmbeddings(ctx, embedder, r.embeddings, net.Facilities); eerr != nil {
 		logger.Warn("facility embedding seed failed; NL facility search disabled until retried", "err", eerr)
 	} else if embedded {
 		logger.Info("seeded facility embeddings", "facilities", len(net.Facilities))
@@ -188,6 +191,8 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		Tokens:         tokens,
 		Logger:         logger,
 		CORSOrigins:    cfg.CORSAllowedOrigins,
+		HSTS:           cfg.IsProduction(),
+		Ready:          r.ready,
 	}), cleanup, nil
 }
 
@@ -207,6 +212,7 @@ func selectRepos(
 			refresh:    memory.NewRefreshStore(),
 			approvals:  memory.NewApprovalRepo(net.Approvals...),
 			tasks:      memory.NewTaskRepo(net.Tasks...),
+			ready:      nil,
 		}, func() {}, nil
 	}
 
@@ -238,6 +244,7 @@ func selectRepos(
 		refresh:    postgres.NewRefreshRepo(pool),
 		approvals:  postgres.NewApprovalRepo(pool),
 		tasks:      postgres.NewTaskRepo(pool),
+		ready:      pool.Ping,
 	}, pool.Close, nil
 }
 

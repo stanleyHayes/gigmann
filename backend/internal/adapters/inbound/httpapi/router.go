@@ -55,6 +55,8 @@ type Deps struct {
 	Tokens         ports.TokenService
 	Logger         *slog.Logger
 	CORSOrigins    []string
+	HSTS           bool
+	Ready          func(context.Context) error
 }
 
 // Server implements the generated StrictServerInterface, delegating to use cases.
@@ -86,12 +88,12 @@ func NewRouter(d Deps) http.Handler {
 	metrics, metricsReg := newMetrics()
 	r.Use(requestLogger(logger))
 	r.Use(metrics.middleware())
-	r.Use(securityHeaders())
+	r.Use(securityHeaders(d.HSTS))
 	r.Use(corsMiddleware(d.CORSOrigins))
 	r.Use(rateLimit(newRateLimiter(authRateLimit, authRateWindow), authRateLimitedPaths))
 	r.Use(middleware.Timeout(requestTimeout))
 	r.Use(authMiddleware(d.Tokens))
-	r.Get("/readyz", writeReady)
+	r.Get("/readyz", readyHandler(d.Ready))
 	r.Handle("/metrics", metricsHandler(metricsReg))
 
 	srv := &Server{facilities: d.Facilities, facilityDetail: d.FacilityDetail, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask, search: d.Search, preferences: d.Preferences}

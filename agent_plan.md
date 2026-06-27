@@ -1077,7 +1077,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-22, GEC-48.
 
-#### ◐ GEC-75 — Security headers & CSP · 3 SP · Phase: Development
+#### ☑ GEC-75 — Security headers & CSP · 3 SP · Phase: Development
+> **Done 2026-06-27:** API responses send HSTS (prod), a strict `Content-Security-Policy` (`default-src 'none'`), COOP + CORP, X-Frame-Options DENY, nosniff, no-referrer; the SPA gets a CSP + security headers via the Render static-site `headers` block (`infra/render.yaml`). CORS now allows PATCH.
 > **Partial 2026-06-26:** a `securityHeaders` middleware sets `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and `Cross-Origin-Opener-Policy: same-origin` on every response (verified live). _Remaining: a full Content-Security-Policy (served with the SPA shell) and HSTS at the edge._
 - User story: As the system, I want strict security headers, so that the browser enforces our security posture.
 - Business value: Defence-in-depth.
@@ -1264,7 +1265,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-7.
 
-#### ☐ GEC-93 — Health checks & probes · 2 SP · Phase: Development
+#### ☑ GEC-93 — Health checks & probes · 2 SP · Phase: Development
+> **Done 2026-06-27:** `/healthz` liveness + `/readyz` readiness (pings Postgres when `DATABASE_URL` is set → 503 if the DB is unreachable, ready otherwise); tested.
 - User story: As the platform, I want liveness/readiness endpoints, so that deploys and restarts are safe.
 - Business value: Zero-downtime deploys.
 - Acceptance criteria:
@@ -1436,7 +1438,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-108.
 
-#### ☐ GEC-110 — Feature flags · 3 SP · Phase: Development
+#### ☑ GEC-110 — Feature flags · 3 SP · Phase: Development
+> **Done 2026-06-27:** `config.Flags` parsed from `FEATURE_AI_NARRATION` / `FEATURE_FACILITY_SEARCH` (default on); wired so disabling AINarration forces the local narrator and disabling FacilitySearch skips embedding/search; tested.
 - User story: As the team, I want feature flags, so that we can ship dark and control rollout (beta phase).
 - Business value: Eng-Ops §9 beta; safe experimentation.
 - Acceptance criteria:
@@ -1614,3 +1617,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **Security — refresh re-validates the live account (review finding resolved).** `AuthService.Refresh` now re-reads the account via `FindByID` and rebuilds the principal from current data, so a role/facility change — or a deleted account — takes effect on the next refresh (within the 15-min access TTL) instead of persisting for the 7-day refresh-token lifetime. Closes the stale-snapshot finding from the GEC-14 review. New tests prove a demoted exec→manager is re-scoped and a deleted account is rejected. app coverage, lint(0), gate 88.7%. | Claude |
 | 2026-06-27 | **GEC-33 (started) — personalisation API.** GET/PATCH /me/preferences with app-boundary sanitisation, persisted per-user; tests + lint(0); gate 88.6%. Remaining: brief/feed prioritisation + settings UI. | Claude |
 | 2026-06-27 | **Backlog reconciliation + docs.** Marked 12 stories done that existing code/CI already satisfied (audited against the codebase), and wrote 7 docs (architecture, threat-model, Ghana-DPA, runbooks, onboarding, user-guide, acceptance-handover) closing GEC-72/81/96/113/114/115/117. | Claude |
+| 2026-06-27 | **GEC-75/93/110 — security headers, readiness, feature flags.** HSTS+strict-CSP+CORP on API (+SPA CSP via Render headers, CORS PATCH); /readyz pings Postgres; FEATURE_* flags gate AI narration + facility search. Tests + lint(0), gate 88.7%. | Claude |

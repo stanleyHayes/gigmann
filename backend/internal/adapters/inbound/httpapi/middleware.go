@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"log/slog"
 	"net"
 	"net/http"
@@ -33,18 +34,26 @@ func requestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 }
 
 var securityHeaderValues = map[string]string{
-	"X-Content-Type-Options":     "nosniff",
-	"X-Frame-Options":            "DENY",
-	"Referrer-Policy":            "no-referrer",
-	"Cross-Origin-Opener-Policy": "same-origin",
+	"X-Content-Type-Options":       "nosniff",
+	"X-Frame-Options":              "DENY",
+	"Referrer-Policy":              "no-referrer",
+	"Cross-Origin-Opener-Policy":   "same-origin",
+	"Cross-Origin-Resource-Policy": "same-origin",
+	// The API serves JSON only, so it never legitimately loads any resource.
+	"Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
 }
 
 // securityHeaders sets conservative response security headers on every response.
-func securityHeaders() func(http.Handler) http.Handler {
+func securityHeaders(hsts bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			for k, v := range securityHeaderValues {
 				w.Header().Set(k, v)
+			}
+			// HSTS only over TLS (production); on plain-HTTP localhost it would pin
+			// the dev host to HTTPS for two years.
+			if hsts {
+				w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 			}
 			next.ServeHTTP(w, r)
 		})
@@ -64,7 +73,7 @@ func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 				h := w.Header()
 				h.Set("Access-Control-Allow-Origin", origin)
 				h.Add("Vary", "Origin")
-				h.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+				h.Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
 				h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 				h.Set("Access-Control-Allow-Credentials", "true")
 				h.Set("Access-Control-Max-Age", corsMaxAge)
@@ -82,6 +91,22 @@ func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 func writeReady(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"status":"ready"}`))
+}
+
+// readyHandler reports readiness; when a dependency check is supplied (e.g. a DB
+// ping) and it fails, it returns 503 so the orchestrator holds traffic.
+func readyHandler(check func(context.Context) error) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if check != nil {
+			if err := check(r.Context()); err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_, _ = w.Write([]byte(`{"status":"unavailable"}`))
+				return
+			}
+		}
+		writeReady(w, r)
+	}
 }
 
 // rateLimiter is a simple in-memory fixed-window per-key request limiter. It is
