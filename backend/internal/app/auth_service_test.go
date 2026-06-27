@@ -73,18 +73,61 @@ func TestRefreshSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	tokens := mocks.NewMockTokenService(ctrl)
 	refresh := mocks.NewMockRefreshTokenStore(ctrl)
+	users := mocks.NewMockUserRepository(ctrl)
 
-	p := auth.Principal{UserID: "u1", Name: "Sammy", Role: user.RoleExecutive}
-	refresh.EXPECT().Consume(gomock.Any(), "old-refresh").Return(p, nil)
-	tokens.EXPECT().Issue(p).Return("new-access", nil)
-	refresh.EXPECT().Issue(gomock.Any(), p, gomock.Any()).Return("new-refresh", nil)
+	// The rotated token carries a stale snapshot; the live account is re-read.
+	stale := auth.Principal{UserID: "u1", Name: "stale", Role: user.RoleExecutive}
+	fresh := auth.Principal{UserID: "u1", Name: "Sammy Adjei", Role: user.RoleExecutive}
+	refresh.EXPECT().Consume(gomock.Any(), "old-refresh").Return(stale, nil)
+	users.EXPECT().FindByID(gomock.Any(), "u1").Return(execAccount(t), nil)
+	tokens.EXPECT().Issue(fresh).Return("new-access", nil)
+	refresh.EXPECT().Issue(gomock.Any(), fresh, gomock.Any()).Return("new-refresh", nil)
 
-	svc := app.NewAuthService(mocks.NewMockUserRepository(ctrl), mocks.NewMockPasswordHasher(ctrl), tokens, refresh, time.Hour, auditMock(ctrl))
+	svc := app.NewAuthService(users, mocks.NewMockPasswordHasher(ctrl), tokens, refresh, time.Hour, auditMock(ctrl))
 	access, ref, got, err := svc.Refresh(context.Background(), "old-refresh")
 	require.NoError(t, err)
 	assert.Equal(t, "new-access", access)
 	assert.Equal(t, "new-refresh", ref)
-	assert.Equal(t, "u1", got.UserID)
+	assert.Equal(t, "Sammy Adjei", got.Name) // reflects the live account, not the rotated snapshot
+}
+
+func TestRefreshReflectsPrivilegeChange(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	tokens := mocks.NewMockTokenService(ctrl)
+	refresh := mocks.NewMockRefreshTokenStore(ctrl)
+	users := mocks.NewMockUserRepository(ctrl)
+
+	// Token minted while the user was an executive...
+	refresh.EXPECT().Consume(gomock.Any(), gomock.Any()).
+		Return(auth.Principal{UserID: "u2", Role: user.RoleExecutive}, nil)
+	// ...but the account is now a facility manager scoped to kasoa.
+	mgr, err := user.New(user.User{ID: "u2", Name: "Ama", Role: user.RoleFacilityManager, FacilityID: "kasoa"})
+	require.NoError(t, err)
+	users.EXPECT().FindByID(gomock.Any(), "u2").Return(ports.Account{User: mgr}, nil)
+
+	var issued auth.Principal
+	tokens.EXPECT().Issue(gomock.Any()).
+		DoAndReturn(func(pr auth.Principal) (string, error) { issued = pr; return "a", nil })
+	refresh.EXPECT().Issue(gomock.Any(), gomock.Any(), gomock.Any()).Return("r", nil)
+
+	svc := app.NewAuthService(users, mocks.NewMockPasswordHasher(ctrl), tokens, refresh, time.Hour, auditMock(ctrl))
+	_, _, got, err := svc.Refresh(context.Background(), "tok")
+	require.NoError(t, err)
+	assert.Equal(t, user.RoleFacilityManager, got.Role)
+	assert.Equal(t, "kasoa", got.FacilityID)
+	assert.Equal(t, user.RoleFacilityManager, issued.Role) // the new access token carries the downgraded role
+}
+
+func TestRefreshAccountGone(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	refresh := mocks.NewMockRefreshTokenStore(ctrl)
+	users := mocks.NewMockUserRepository(ctrl)
+	refresh.EXPECT().Consume(gomock.Any(), gomock.Any()).Return(auth.Principal{UserID: "u1"}, nil)
+	users.EXPECT().FindByID(gomock.Any(), "u1").Return(ports.Account{}, ports.ErrAccountNotFound)
+
+	svc := app.NewAuthService(users, mocks.NewMockPasswordHasher(ctrl), mocks.NewMockTokenService(ctrl), refresh, time.Hour, auditMock(ctrl))
+	_, _, _, err := svc.Refresh(context.Background(), "tok")
+	assert.ErrorIs(t, err, app.ErrInvalidCredentials)
 }
 
 func TestRefreshInvalid(t *testing.T) {

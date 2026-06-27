@@ -61,23 +61,37 @@ func (s *AuthService) Login(ctx context.Context, email, password, code string) (
 		s.audit.Record(ctx, ports.AuditEvent{Actor: acct.User.ID, Action: "auth.login", Outcome: "mfa_required"})
 		return "", "", auth.Principal{}, ErrMFARequired
 	}
-	p := auth.Principal{
-		UserID:     acct.User.ID,
-		Name:       acct.User.Name,
-		Role:       acct.User.Role,
-		FacilityID: acct.User.FacilityID,
-	}
+	p := principalOf(acct)
 	s.audit.Record(ctx, ports.AuditEvent{Actor: p.UserID, Action: "auth.login", Outcome: "success"})
 	return s.issue(ctx, p)
 }
 
 // Refresh rotates a valid refresh token into a fresh access + refresh token pair.
+// It re-reads the live account so a role/facility change — or a deleted account —
+// takes effect on the next refresh (within the access-token TTL) rather than
+// persisting for the whole refresh-token lifetime. The principal is rebuilt from
+// current account data, never trusted from the rotated token's snapshot.
 func (s *AuthService) Refresh(ctx context.Context, rawRefresh string) (string, string, auth.Principal, error) {
 	p, err := s.refresh.Consume(ctx, rawRefresh)
 	if err != nil {
 		return "", "", auth.Principal{}, ErrInvalidCredentials
 	}
-	return s.issue(ctx, p)
+	acct, err := s.users.FindByID(ctx, p.UserID)
+	if err != nil {
+		s.audit.Record(ctx, ports.AuditEvent{Actor: p.UserID, Action: "auth.refresh", Outcome: "failure"})
+		return "", "", auth.Principal{}, ErrInvalidCredentials
+	}
+	return s.issue(ctx, principalOf(acct))
+}
+
+// principalOf builds an auth principal from the live account.
+func principalOf(acct ports.Account) auth.Principal {
+	return auth.Principal{
+		UserID:     acct.User.ID,
+		Name:       acct.User.Name,
+		Role:       acct.User.Role,
+		FacilityID: acct.User.FacilityID,
+	}
 }
 
 // Logout revokes a refresh token so it can no longer be rotated.
