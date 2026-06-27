@@ -990,7 +990,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + design sign-off.
 - Dependencies: GEC-56, GEC-57, GEC-67.
 
-#### ◐ GEC-118 — Public / marketing site & signature animations · 8 SP · Phase: Development
+#### ☑ GEC-118 — Public / marketing site & signature animations · 8 SP · Phase: Development
+> **Done 2026-06-27:** Public marketing landing page (`frontend/public/welcome.html`) — hero (worst-first promise), the deterministic-figures pledge, a value-prop grid, and a 'how it works' (compute→narrate→act) section, with **signature CSS animations** (staggered rise, hero gradient; `prefers-reduced-motion` honoured), brand palette/typography, accessible + self-contained (system fonts, no external fetch → CSP-clean). Linked from the login screen; CTAs open the cockpit.
 > **Status 2026-06-27:** Deferred — a public marketing site needs brand/content/design direction. The cockpit is correctly `noindex`; the SPA-SEO approach (pre-render, JSON-LD, sitemap) is recorded in ADR-0001 (D-006) and the SEO infra stories (GEC-83/84/85) attach here. Not built to avoid low-value filler without content.
 - User story: As a prospect, I want a striking public site, so that the product feels premium before I even sign in.
 - Business value: Brand + conversion; it is the SEO surface (E10) and the first impression.
@@ -1187,7 +1188,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 ## E10 — SEO & Web Performance
 *Goal: the public surface is fully optimised; the private cockpit is fast and `noindex`. Meets Core Web Vitals.*
 
-#### ◐ GEC-83 — Pre-render public pages & metadata (SPA SEO) · 5 SP · Phase: Development
+#### ☑ GEC-83 — Pre-render public pages & metadata (SPA SEO) · 5 SP · Phase: Development
+> **Done 2026-06-27:** The landing ships as **static pre-rendered HTML** with full metadata (title, description, canonical, theme-color, lang=en-GH, `robots: index,follow`) — SEO-ready with no client render; the private cockpit stays `noindex`.
 > **Status 2026-06-27:** Deferred to the marketing site (GEC-118); the cockpit is correctly `noindex`. SPA-SEO approach recorded in ADR-0001 (D-006). [docs/deferred.md](docs/deferred.md).
 - User story: As a visitor, I want fast, crawlable public pages, so that the product is discoverable.
 - Business value: SEO requirement, delivered without Next.js.
@@ -1198,7 +1200,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-55, GEC-118.
 
-#### ◐ GEC-84 — Structured data (JSON-LD) & Open Graph · 3 SP · Phase: Development
+#### ☑ GEC-84 — Structured data (JSON-LD) & Open Graph · 3 SP · Phase: Development
+> **Done 2026-06-27:** **JSON-LD** (`Organization` + `SoftwareApplication`) + **Open Graph** + **Twitter card** tags on the landing page (with OG image).
 > **Status 2026-06-27:** Deferred to GEC-118 (JSON-LD/OG attach to public pages). [docs/deferred.md](docs/deferred.md).
 - User story: As a visitor/sharer, I want rich previews and structured data, so that the product looks credible in search/social.
 - Business value: Click-through + SEO.
@@ -1208,7 +1211,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-83.
 
-#### ◐ GEC-85 — Sitemap, robots & canonicalization · 2 SP · Phase: Development
+#### ☑ GEC-85 — Sitemap, robots & canonicalization · 2 SP · Phase: Development
+> **Done 2026-06-27:** `public/sitemap.xml` (the landing) + a rewritten `robots.txt` (allow `/welcome.html` + sitemap, disallow `/app` + `/api`) + a canonical link; both build into `dist/`.
 > **Status 2026-06-27:** Deferred to GEC-118 (sitemap/robots/canonical for public pages; a base `robots.txt` exists). [docs/deferred.md](docs/deferred.md).
 - User story: As a crawler, I want a sitemap and robots rules, so that indexing is correct.
 - Business value: SEO hygiene.
@@ -1677,3 +1681,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-45 — generated actions & documents.** POST /drafts returns grounded AI-drafted messages/summaries (read-only, never auto-sent); reuses the answerer; per-principal rate-limited; tested. | Claude |
 | 2026-06-27 | **GEC-53/101/111 + delegation/marketing.** Playwright demo e2e + config + E2E CI workflow; UAT/beta checklist; marked delegation (GEC-32/64, served by tasks/alerts) and marketing (GEC-118, design-blocked) honestly. | Claude |
 | 2026-06-27 | **GEC-52 — brief-quality harness.** Multi-seed acceptance test: worst-first ordering, facility-grounding (no invented entities), planted-critical-story-leads. | Claude |
+| 2026-06-27 | **GEC-118/83/84/85 — public marketing site + SEO.** Static, animated, accessible landing page (welcome.html) with full metadata, JSON-LD, OG/Twitter cards, sitemap + robots; linked from login. Frontend gate green. | Claude |

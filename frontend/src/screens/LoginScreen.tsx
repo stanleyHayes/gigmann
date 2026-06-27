@@ -4,6 +4,7 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
+import MuiLink from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
@@ -35,6 +36,9 @@ export function LoginScreen() {
               <Typography variant="body2" color="text.secondary">
                 Gigmann Executive Cockpit
               </Typography>
+              <MuiLink href="/welcome.html" variant="caption" sx={{ alignSelf: 'flex-start' }}>
+                Learn more about Ahenfie →
+              </MuiLink>
             </Stack>
             <TextField
               label="Email"

@@ -1,3 +1,8 @@
-# Internal executive cockpit — not for public indexing.
+# The public marketing page is indexable; the cockpit app is private (noindex meta).
 User-agent: *
-Disallow: /
+Allow: /welcome.html
+Allow: /sitemap.xml
+Disallow: /app
+Disallow: /api
+
+Sitemap: https://gigmann-frontend.onrender.com/sitemap.xml
