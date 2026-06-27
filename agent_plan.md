@@ -1244,7 +1244,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-54.
 
-#### ☐ GEC-89 — i18n-readiness (en-GH) · 3 SP · Phase: Development
+#### ☑ GEC-89 — i18n-readiness (en-GH) · 3 SP · Phase: Development
+> **Done 2026-06-27:** A dependency-free **en-GH** i18n layer: `src/i18n/locale.ts` (Intl-based number/cedis/date/dateTime formatters) + `src/i18n/messages.ts` (a typed message catalog + `t()` lookup). Wired into the nav labels and the brief source indicator, proving strings + locale formatting are centralised — a second locale is a new catalog, not a component hunt. Tested. (react-i18next/Lingui can wrap this when a real second locale is needed.)
 - User story: As the business, I want the UI i18n-ready with Ghanaian English/locale, so that cedis/dates/number formats are correct.
 - Business value: Realism + future locales.
 - Acceptance criteria:
@@ -1662,3 +1663,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-71 — scheduled jobs (cron worker).** cmd/worker (migrate + refresh-views) wired into the image + Render cron; refreshes the GEC-12 materialized view. Runtime-verified on native PG18. | Claude |
 | 2026-06-27 | **GEC-99/102/104 — test harnesses.** OpenAPI contract test (spec valid + route coverage), k6 brief load script + thresholds + make target, and a gremlins mutation config + target over the domain core. | Claude |
 | 2026-06-27 | **GEC-47/109 done; GEC-51/87 progressed.** Brief AI-source indicator (graceful fallback visible); zero-downtime/rollback documented (Render rolling + advisory-locked migrations); inline-action + asset-optimization notes. | Claude |
+| 2026-06-27 | **GEC-89 — i18n-readiness (en-GH).** Centralised message catalog + `t()` + Intl formatters (number/cedis/date), wired into nav + brief; tested. | Claude |

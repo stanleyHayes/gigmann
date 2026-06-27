@@ -29,16 +29,17 @@ import type { MouseEvent, ReactNode } from 'react'
 import { FacilitySearch } from '../components/FacilitySearch'
 import { useAuth } from '../auth/authContext'
 import { useColorMode } from './colorMode'
+import { t } from '../i18n/messages'
 
 type NavItem = { to: string; label: string; icon: ReactNode; end?: boolean }
 
 const NAV: NavItem[] = [
-  { to: '/', label: 'Today', icon: <TodayOutlined />, end: true },
-  { to: '/network', label: 'Network', icon: <HubOutlined /> },
-  { to: '/kpis', label: 'KPIs', icon: <InsightsOutlined /> },
-  { to: '/ask', label: 'Ask', icon: <ForumOutlined /> },
-  { to: '/my-day', label: 'My Day', icon: <ChecklistOutlined /> },
-  { to: '/approvals', label: 'Approvals', icon: <TaskAltOutlined /> },
+  { to: '/', label: t('nav.today'), icon: <TodayOutlined />, end: true },
+  { to: '/network', label: t('nav.network'), icon: <HubOutlined /> },
+  { to: '/kpis', label: t('nav.kpis'), icon: <InsightsOutlined /> },
+  { to: '/ask', label: t('nav.ask'), icon: <ForumOutlined /> },
+  { to: '/my-day', label: t('nav.myDay'), icon: <ChecklistOutlined /> },
+  { to: '/approvals', label: t('nav.approvals'), icon: <TaskAltOutlined /> },
 ]
 
 const DRAWER_WIDTH = 248

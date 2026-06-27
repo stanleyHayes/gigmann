@@ -10,6 +10,8 @@ import { motion, useReducedMotion } from 'framer-motion'
 
 import type { Brief } from '../api/useBrief'
 import { StatusChip, type FacilityStatus } from './StatusChip'
+import { fmt } from '../i18n/locale'
+import { t } from '../i18n/messages'
 
 type Props = {
   brief?: Brief
@@ -78,8 +80,8 @@ export function DailyBrief({ brief, isLoading, isError, onAction }: Props) {
         </motion.div>
       ))}
       <Typography variant="caption" color="text.secondary" data-testid="brief-source">
-        {brief.model.toLowerCase().includes('claude') ? 'Narrated by Claude' : 'Deterministic summary — AI narration unavailable'}
-        {brief.generated_at ? ` · ${new Date(brief.generated_at).toLocaleString('en-GB')}` : ''}
+        {brief.model.toLowerCase().includes('claude') ? t('brief.source.claude') : t('brief.source.local')}
+        {brief.generated_at ? ` · ${fmt.dateTime(brief.generated_at)}` : ''}
       </Typography>
     </Stack>
   )
