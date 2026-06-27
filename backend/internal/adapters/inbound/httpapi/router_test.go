@@ -584,3 +584,20 @@ func TestGetMePreferencesRequiresAuth(t *testing.T) {
 		http.MethodGet, "/api/v1/me/preferences")
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
+
+func TestOpenAPIDocsArePublic(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	router := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+
+	specRec := httptest.NewRecorder()
+	router.ServeHTTP(specRec, httptest.NewRequest(http.MethodGet, "/openapi.json", nil))
+	require.Equal(t, http.StatusOK, specRec.Code)
+	assert.Contains(t, specRec.Header().Get("Content-Type"), "application/json")
+	assert.Contains(t, specRec.Body.String(), "/api/v1/brief")
+
+	docsRec := httptest.NewRecorder()
+	router.ServeHTTP(docsRec, httptest.NewRequest(http.MethodGet, "/docs", nil))
+	require.Equal(t, http.StatusOK, docsRec.Code)
+	assert.Contains(t, docsRec.Body.String(), "redoc")
+	assert.Contains(t, docsRec.Header().Get("Content-Security-Policy"), "cdn.redoc.ly")
+}

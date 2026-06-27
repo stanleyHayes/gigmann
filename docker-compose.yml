@@ -28,6 +28,23 @@ services:
     volumes:
       - redisdata:/data
 
+  # The API auto-applies migrations + first-run-seeds on boot (no separate seed
+  # step). Frontend runs via `npm run dev` (proxying /api → :8080) in dev.
+  api:
+    build: ./backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: development
+      HTTP_PORT: "8080"
+      JWT_SECRET: dev-insecure-change-me
+      DATABASE_URL: postgres://gigmann:gigmann@postgres:5432/gigmann?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+    ports:
+      - "8080:8080"
+
 volumes:
   pgdata:
   redisdata:

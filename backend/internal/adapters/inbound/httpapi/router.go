@@ -5,6 +5,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -101,6 +102,8 @@ func NewRouter(d Deps) http.Handler {
 	r.Use(rateLimitPrincipal(newRateLimiter(askRateLimit, askRateWindow), askRateLimitedPaths))
 	r.Get("/readyz", readyHandler(d.Ready))
 	r.Handle("/metrics", metricsHandler(metricsReg))
+	r.Get("/openapi.json", openAPIHandler(logger))
+	r.Get("/docs", redocHandler())
 
 	srv := &Server{facilities: d.Facilities, facilityDetail: d.FacilityDetail, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask, search: d.Search, preferences: d.Preferences}
 	return HandlerFromMux(NewStrictHandler(srv, []StrictMiddlewareFunc{requireAuth()}), r)
@@ -109,6 +112,41 @@ func NewRouter(d Deps) http.Handler {
 type ctxKey int
 
 const principalKey ctxKey = iota
+
+// openAPIHandler serves the embedded OpenAPI spec as JSON (browsable API docs;
+// importable into Postman/Insomnia/Swagger). Public, read-only.
+func openAPIHandler(logger *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		spec, err := GetSwagger()
+		if err != nil {
+			logger.Error("load openapi spec", "err", err)
+			http.Error(w, `{"error":"internal_error"}`, http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(spec); err != nil {
+			logger.Error("encode openapi spec", "err", err)
+		}
+	}
+}
+
+// redocPage renders the spec with Redoc (loaded from CDN). It overrides the strict
+// default CSP for this route only.
+const redocPage = `<!DOCTYPE html><html><head><title>Gigmann API · Ahenfie</title>` +
+	`<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>` +
+	`<style>body{margin:0}</style></head><body><redoc spec-url="/openapi.json"></redoc>` +
+	`<script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script></body></html>`
+
+func redocHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Security-Policy",
+			"default-src 'self'; script-src 'self' https://cdn.redoc.ly 'unsafe-inline'; "+
+				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; "+
+				"img-src 'self' data: https:; worker-src 'self' blob:; connect-src 'self'")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte(redocPage))
+	}
+}
 
 func withPrincipal(ctx context.Context, p auth.Principal) context.Context {
 	return context.WithValue(ctx, principalKey, p)

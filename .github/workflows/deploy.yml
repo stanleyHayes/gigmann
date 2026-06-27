@@ -1,0 +1,25 @@
+name: Deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+jobs:
+  deploy:
+    name: Trigger Render deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Render deploy hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL secret not set — skipping CD."
+            echo "Set it (Render service → Settings → Deploy Hook) to enable automatic deploys."
+            exit 0
+          fi
+          # Render builds the image; the new instance applies migrations on boot
+          # (advisory-locked runner, safe under rolling deploys), then serves.
+          curl -fsSL -X POST "$RENDER_DEPLOY_HOOK_URL"
