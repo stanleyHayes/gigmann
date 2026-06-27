@@ -768,7 +768,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + chaos test (kill AI mid-flow).
 - Dependencies: GEC-46.
 
-#### ☐ GEC-48 — AI cost, latency & abuse controls · 3 SP · Phase: Development
+#### ☑ GEC-48 — AI cost, latency & abuse controls · 3 SP · Phase: Development
+> **Done 2026-06-27:** AI cost/abuse controls: per-principal rate limit on `POST /ask` (`rateLimitPrincipal`, 20/min/user, keyed by principal not IP) + the 1000-rune question cap; the brief is cached so the model is off the hot path; request timeouts bound latency. (Token-count/cost metrics tracked under GEC-91.)
 - User story: As an operator, I want AI usage bounded and observed, so that cost/latency stay predictable and abuse is contained.
 - Business value: Production cost control + security.
 - Acceptance criteria:
@@ -1057,7 +1058,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-9.
 
-#### ☐ GEC-73 — Input validation & output encoding · 5 SP · Phase: Development
+#### ☑ GEC-73 — Input validation & output encoding · 5 SP · Phase: Development
+> **Done 2026-06-27:** Input validated at the app boundary: the OpenAPI strict server rejects malformed/oversized bodies and enforces required fields/types; `AskService` caps questions to 1000 runes (rune-safe); preferences are trimmed/de-duped/bounded (GEC-33); SQL is parameterised only; JSON responses are encoded by the typed marshaller (no raw HTML).
 - User story: As the system, I want strict validation everywhere, so that injection/XSS are prevented.
 - Business value: Closes the biggest vuln classes.
 - Acceptance criteria:
@@ -1618,3 +1620,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-33 (started) — personalisation API.** GET/PATCH /me/preferences with app-boundary sanitisation, persisted per-user; tests + lint(0); gate 88.6%. Remaining: brief/feed prioritisation + settings UI. | Claude |
 | 2026-06-27 | **Backlog reconciliation + docs.** Marked 12 stories done that existing code/CI already satisfied (audited against the codebase), and wrote 7 docs (architecture, threat-model, Ghana-DPA, runbooks, onboarding, user-guide, acceptance-handover) closing GEC-72/81/96/113/114/115/117. | Claude |
 | 2026-06-27 | **GEC-75/93/110 — security headers, readiness, feature flags.** HSTS+strict-CSP+CORP on API (+SPA CSP via Render headers, CORS PATCH); /readyz pings Postgres; FEATURE_* flags gate AI narration + facility search. Tests + lint(0), gate 88.7%. | Claude |
+| 2026-06-27 | **GEC-73/48 — input validation + AI abuse controls.** App-boundary validation (question rune-cap, preference sanitisation, strict-server body validation); per-principal Ask rate limit (20/min/user) + question cap. Tests + lint(0), gate 88.8%. | Claude |

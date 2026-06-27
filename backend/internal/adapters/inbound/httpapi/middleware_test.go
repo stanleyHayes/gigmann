@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/xcreativs/gigmann/internal/core/auth"
 )
 
 func TestRequestLoggerLogs(t *testing.T) {
@@ -117,4 +120,35 @@ func TestClientIP(t *testing.T) {
 	assert.Equal(t, "1.2.3.4", clientIP(r))
 	r.Header.Set("X-Forwarded-For", "8.8.8.8, 1.1.1.1")
 	assert.Equal(t, "8.8.8.8", clientIP(r))
+}
+
+func TestRateLimitPrincipal(t *testing.T) {
+	rl := newRateLimiter(2, time.Minute)
+	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	h := rateLimitPrincipal(rl, []string{"/api/v1/ask"})(ok)
+
+	do := func(userID string) int {
+		ctx := withPrincipal(context.Background(), auth.Principal{UserID: userID})
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/ask", nil).WithContext(ctx)
+		req.RemoteAddr = "9.9.9.9:1" // same IP for all → proves keying is per-principal
+		h.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	assert.Equal(t, http.StatusOK, do("u1"))
+	assert.Equal(t, http.StatusOK, do("u1"))
+	assert.Equal(t, http.StatusTooManyRequests, do("u1"), "3rd call from u1 exceeds limit 2")
+	assert.Equal(t, http.StatusOK, do("u2"), "a different principal is unaffected")
+}
+
+func TestRateLimitPrincipalIgnoresOtherPaths(t *testing.T) {
+	rl := newRateLimiter(1, time.Minute)
+	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	h := rateLimitPrincipal(rl, []string{"/api/v1/ask"})(ok)
+	for range 3 {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/brief", nil)
+		h.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code) // unlimited path
+	}
 }

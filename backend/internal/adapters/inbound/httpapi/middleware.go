@@ -124,8 +124,31 @@ type windowCount struct {
 	resetAt time.Time
 }
 
-func newRateLimiter(limit int, window time.Duration) *rateLimiter {
+func newRateLimiter(limit int, window time.Duration) *rateLimiter { //nolint:unparam // window is a deliberate per-limiter knob (auth vs ask)
 	return &rateLimiter{limit: limit, window: window, now: time.Now, counts: map[string]*windowCount{}}
+}
+
+// rateLimitPrincipal limits the given paths per authenticated principal (falling
+// back to client IP for unauthenticated calls). It must run AFTER authMiddleware
+// so the principal is in context. Used to bound AI cost/abuse on the Ask endpoint.
+func rateLimitPrincipal(l *rateLimiter, prefixes []string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if pathLimited(r.URL.Path, prefixes) {
+				key := "ip:" + clientIP(r)
+				if p, ok := principalFrom(r.Context()); ok && p.UserID != "" {
+					key = "user:" + p.UserID
+				}
+				if !l.allow(key) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusTooManyRequests)
+					_, _ = w.Write([]byte(`{"error":"rate_limited"}`))
+					return
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func (l *rateLimiter) allow(key string) bool {

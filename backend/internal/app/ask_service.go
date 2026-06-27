@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/xcreativs/gigmann/internal/core/signal"
 	"github.com/xcreativs/gigmann/internal/intel"
@@ -19,6 +20,9 @@ type AskService struct {
 	topN     int
 }
 
+// maxQuestionLen bounds a question (runes) — input validation + AI-cost control.
+const maxQuestionLen = 1000
+
 var _ ports.QuestionAnswerer = (*AskService)(nil)
 
 // NewAskService wires the Ask use case. topN bounds the context items (0 = all).
@@ -28,8 +32,12 @@ func NewAskService(engine *signal.Engine, answerer ports.Answerer, input signal.
 
 // Answer computes the current context and has the answerer respond, grounded.
 func (s *AskService) Answer(ctx context.Context, question string) (intel.Answer, error) {
-	if strings.TrimSpace(question) == "" {
+	question = strings.TrimSpace(question)
+	if question == "" {
 		return intel.Answer{Text: "Please ask a question about the network."}, nil
+	}
+	if utf8.RuneCountInString(question) > maxQuestionLen {
+		question = string([]rune(question)[:maxQuestionLen])
 	}
 	signals := s.engine.Run(s.input)
 	pulse := signal.NetworkPulse(s.input.Facilities, signals)

@@ -35,10 +35,15 @@ const (
 	bearerPrefix   = "Bearer "
 	authRateLimit  = 10
 	authRateWindow = time.Minute
+	askRateLimit   = 20
+	askRateWindow  = time.Minute
 )
 
 // authRateLimitedPaths are the brute-force-sensitive auth endpoints.
 var authRateLimitedPaths = []string{"/api/v1/auth/login", "/api/v1/auth/refresh"}
+
+// askRateLimitedPaths bound AI cost/abuse per principal (GEC-48).
+var askRateLimitedPaths = []string{"/api/v1/ask"}
 
 // Deps are the application use cases the HTTP layer delegates to.
 type Deps struct {
@@ -93,6 +98,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Use(rateLimit(newRateLimiter(authRateLimit, authRateWindow), authRateLimitedPaths))
 	r.Use(middleware.Timeout(requestTimeout))
 	r.Use(authMiddleware(d.Tokens))
+	r.Use(rateLimitPrincipal(newRateLimiter(askRateLimit, askRateWindow), askRateLimitedPaths))
 	r.Get("/readyz", readyHandler(d.Ready))
 	r.Handle("/metrics", metricsHandler(metricsReg))
 
