@@ -9,6 +9,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -266,7 +267,34 @@ func (s *Server) GetMetrics(ctx context.Context, _ GetMetricsRequestObject) (Get
 	if err != nil {
 		return GetMetrics500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
 	}
+	// Personalisation: surface the user's watched metrics first (GEC-33). Figures
+	// are unchanged — only the order reflects what this executive cares about.
+	if p, ok := principalFrom(ctx); ok && s.preferences != nil {
+		if prefs, perr := s.preferences.Get(ctx, p.UserID); perr == nil && len(prefs.WatchedMetrics) > 0 {
+			n.KPIs = prioritizeKPIs(n.KPIs, prefs.WatchedMetrics)
+		}
+	}
 	return GetMetrics200JSONResponse(toAPINetworkMetrics(n)), nil
+}
+
+// prioritizeKPIs stable-sorts watched KPIs to the front, in the user's watch order.
+func prioritizeKPIs(kpis []kpi.KPI, watched []string) []kpi.KPI {
+	rank := make(map[string]int, len(watched))
+	for i, key := range watched {
+		rank[key] = i
+	}
+	sort.SliceStable(kpis, func(i, j int) bool {
+		ri, oki := rank[kpis[i].Key]
+		rj, okj := rank[kpis[j].Key]
+		if oki != okj {
+			return oki // a watched KPI precedes an unwatched one
+		}
+		if oki && okj {
+			return ri < rj // both watched: keep the user's order
+		}
+		return false // both unwatched: preserve the original order
+	})
+	return kpis
 }
 
 // SearchFacilities resolves a natural-language phrase to facilities via vector

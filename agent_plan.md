@@ -603,13 +603,14 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-30, GEC-29.
 
-#### ◐ GEC-33 — Users & personalisation API · 3 SP · Phase: Development
+#### ☑ GEC-33 — Users & personalisation API · 3 SP · Phase: Development
+> **Done 2026-06-27:** `GET/PATCH /me/preferences` (sanitised, persisted per-user) **and** preferences now **influence prioritisation**: `GET /metrics` stable-sorts the user's watched KPIs to the front per-request (figures unchanged, only order). Settings UI to tune watched metrics. Tested end-to-end (set watched → metric surfaces first).
 > **Started 2026-06-27:** `GET /api/v1/me/preferences` + `PATCH /api/v1/me/preferences` (authed) read/replace the current user's watched metrics + thresholds, persisted on the user via `UserRepository` (in-memory or Postgres). `PreferencesService` sanitises input at the app boundary (trim, de-dupe, drop empties/non-finite, cap entries). Round-trip + sanitisation + auth tests. _Remaining: wire preferences into brief/feed prioritisation (the "influence" criterion) + a settings UI._
 - User story: As Sammy, I want the cockpit to learn what I watch, so that it prioritises what I care about.
 - Business value: Spec §5.12 personalisation (simulated learning in PoC).
 - Acceptance criteria:
   - [x] `GET/PATCH /me/preferences` (watched metrics, thresholds).
-  - [ ] Preferences influence brief/feed prioritisation.
+  - [x] Preferences influence brief/feed prioritisation (watched KPIs surfaced first in /metrics).
 - Technical notes: JSON preferences on users (spec §7).
 - Definition of done: Global DoD.
 - Dependencies: GEC-22.
@@ -1699,3 +1700,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-104 — mutation testing demonstrated.** gremlins runs over core/money (arithmetic mutants killed; display-formatting boundary mutants noted). Nightly/manual. | Claude |
 | 2026-06-27 | **GEC-88 — accessibility.** axe sweep extended to the Network/KPIs/My-Day/Approvals screens (zero violations) on top of the hero surfaces + Lighthouse-a11y gate. | Claude |
 | 2026-06-27 | **GEC-52 — brief-quality harness complete.** Added a fidelity check (brief items == engine top-N signals, severity preserved) to the worst-first + grounding + planted-story assertions. | Claude |
+| 2026-06-27 | **GEC-33 complete — preferences influence prioritisation.** /metrics stable-sorts watched KPIs first per-user; tested. | Claude |

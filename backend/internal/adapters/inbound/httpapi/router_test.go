@@ -666,3 +666,24 @@ func TestCreateTask(t *testing.T) {
 	assert.Equal(t, "todo", string(created.Status))
 	assert.NotEmpty(t, created.Id)
 }
+
+func TestMetricsPrioritizedByPreferences(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	router := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+
+	base := authedRequest(t, router, http.MethodGet, "/api/v1/metrics", "")
+	require.Equal(t, http.StatusOK, base.Code)
+	var def httpapi.NetworkMetrics
+	require.NoError(t, json.Unmarshal(base.Body.Bytes(), &def))
+	require.NotEmpty(t, def.Kpis)
+	require.Equal(t, "revenue", def.Kpis[0].Key, "default order leads with revenue")
+
+	patch := authedRequest(t, router, http.MethodPatch, "/api/v1/me/preferences",
+		`{"watched_metrics":["denial_rate"],"thresholds":{}}`)
+	require.Equal(t, http.StatusOK, patch.Code)
+
+	after := authedRequest(t, router, http.MethodGet, "/api/v1/metrics", "")
+	var got httpapi.NetworkMetrics
+	require.NoError(t, json.Unmarshal(after.Body.Bytes(), &got))
+	assert.Equal(t, "denial_rate", got.Kpis[0].Key, "the watched metric is surfaced first")
+}
