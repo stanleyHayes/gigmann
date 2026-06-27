@@ -233,7 +233,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-1.
 
-#### ◐ GEC-3 — CI pipeline: lint + test + coverage gate · 5 SP · Phase: Development
+#### ☑ GEC-3 — CI pipeline: lint + test + coverage gate · 5 SP · Phase: Development
+> **Verified 2026-06-27:** CI green: ci.yml runs backend lint+test+coverage-gate (>80%), frontend, SonarQube, codegen-drift, integration, secret-scan, govulncheck.
 > **In progress:** `.github/workflows/ci.yml` written; coverage-gate logic verified locally (`make backend-cover-gate`). Remaining: run on GitHub + PR coverage reporting.
 - User story: As a team, I want every push linted and tested with a coverage gate, so that quality is automatic.
 - Business value: Owner requires >80% coverage on every push; prevents regressions.
@@ -270,7 +271,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-1.
 
-#### ◐ GEC-6 — Config, secrets & 12-factor setup · 3 SP · Phase: Development
+#### ☑ GEC-6 — Config, secrets & 12-factor setup · 3 SP · Phase: Development
+> **Verified 2026-06-27:** `config.go` typed fail-fast 12-factor config; secrets only via env/Render groups; `backend/.env.example` documents all vars; gitleaks in CI; no secret literals.
 > **In progress:** typed env config loader with fail-fast validation + `.env.example` done & tested. Remaining: gitleaks secret-scanning in CI.
 - User story: As an operator, I want config via env with validated startup, so that no secrets live in code.
 - Business value: Security baseline; mandated by both manuals.
@@ -408,7 +410,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-15.
 
-#### ☐ GEC-17 — Reference data & licences/staff roles · 3 SP · Phase: Development
+#### ☑ GEC-17 — Reference data & licences/staff roles · 3 SP · Phase: Development
+> **Verified 2026-06-27:** Ghanaian staff roles + licence numbers/expiry + attrition flags seeded (`genStaff`); `core/staff.LicenceExpiringWithin`; feeds staff signals; surfaced via facility detail.
 - User story: As the team, I want Ghanaian staff roles and licence-expiry data modelled, so that staff signals work.
 - Business value: Realism + drives staff-risk signals (spec §6.3).
 - Acceptance criteria:
@@ -533,7 +536,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-12, GEC-25.
 
-#### ☐ GEC-27 — Inventory API · 3 SP · Phase: Development
+#### ☑ GEC-27 — Inventory API · 3 SP · Phase: Development
+> **Verified 2026-06-27:** Inventory (stock_level/daily_burn/reorder_point/lead_time_days/unit_cost) modelled (`core/inventory`), seeded, exposed via `GET /facilities/{id}` detail; feeds the stock-out signal.
 - User story: As the cockpit, I want inventory data, so that stock-out projections and facility detail render.
 - Business value: Feeds stock-out signal (Asokwa story).
 - Acceptance criteria:
@@ -542,7 +546,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-14.
 
-#### ☐ GEC-28 — Staff API · 3 SP · Phase: Development
+#### ☑ GEC-28 — Staff API · 3 SP · Phase: Development
+> **Verified 2026-06-27:** Staff (role/licence/attrition) modelled, seeded, exposed via the facility-detail endpoint; drives the Tamale attrition story.
 - User story: As the cockpit, I want staff data, so that staff snapshots and licence-expiry warnings show.
 - Business value: Spec §5.3; feeds staff signals.
 - Acceptance criteria:
@@ -836,7 +841,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 ## E7 — Cockpit Frontend (React + Vite)
 *Goal: spec §5 + §9 — mobile-first, desktop-strong, "command instrument" design, the "alive" feel. PWA.*
 
-#### ☐ GEC-54 — Design system & "command instrument" language · 8 SP · Phase: Development
+#### ☑ GEC-54 — Design system & "command instrument" language · 8 SP · Phase: Development
+> **Verified 2026-06-27:** MUI v9 design system: light/dark theme, Fraunces/Outfit/JetBrains-Mono typography, AA status palette with text labels, skeleton + animated-dot loaders, reduced-motion-aware transitions.
 - User story: As a user, I want a premium, calm, fast UI, so that it feels like the seat of someone who runs an empire.
 - Business value: Spec §9.1 design mandate; carries the owner's design directives (§4.6).
 - Acceptance criteria:
@@ -861,7 +867,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-54.
 
-#### ◐ GEC-56 — Home / The Brief screen (hero) · 8 SP · Phase: Development
+#### ☑ GEC-56 — Home / The Brief screen (hero) · 8 SP · Phase: Development
+> **Verified 2026-06-27:** Home/Brief hero: narrated prose + worst-first items with severity dots + figures, inline actions, copy/download, skeleton/error states, fast paint via the pre-warmed cache; tested.
 > **Core delivered 2026-06-25:** the hero Brief screen now consumes the generated typed `/api/v1/brief` client via a TanStack Query `useBrief` hook. `DailyBrief` renders skeleton loaders while fetching, an error state, the narrated prose, then the prioritised items (status chip + headline + explanation + suggested-action buttons), worst-first. Wired into `App` with the light/dark toggle; Vite dev-proxies `/api` → backend (no CORS in dev). Typecheck/eslint clean, tests 100% stmts. _Remaining for full close: design-system depth (GEC-54), routing/shell (GEC-55), motion polish (GEC-66)._
 - User story: As Sammy, I want the brief at the top the moment I open the app, so that it briefs me before I ask.
 - Business value: The hero screen (spec §5.1/§9.2).
@@ -1040,7 +1047,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 ## E9 — Security Hardening & Compliance
 *Goal: take "real auth, fake data" (spec §8.4) to OWASP ASVS L2 and architect for Ghana DPA (Act 843). The "things we might not have thought of".*
 
-#### ☐ GEC-72 — Threat model & security requirements · 3 SP · Phase: Solution Design
+#### ☑ GEC-72 — Threat model & security requirements · 3 SP · Phase: Solution Design
+> **Verified 2026-06-27:** [docs/security/threat-model.md](docs/security/threat-model.md) — STRIDE over the auth/API/AI trust boundaries with controls + residual risks.
 - User story: As the team, I want a documented threat model, so that we design controls deliberately.
 - Business value: Proactive security; informs all later stories.
 - Acceptance criteria:
@@ -1101,7 +1109,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-7, GEC-31.
 
-#### ☐ GEC-78 — Encryption in transit & at rest · 3 SP · Phase: Development
+#### ☑ GEC-78 — Encryption in transit & at rest · 3 SP · Phase: Development
+> **Verified 2026-06-27:** Encryption in transit (TLS at Render) + at rest (Render-managed Postgres/Redis); secrets in env groups; pgx over TLS; stateless API (ADR-0001/0003).
 - User story: As the business, I want data encrypted in transit and at rest, so that data is protected.
 - Business value: Baseline + DPA readiness.
 - Acceptance criteria:
@@ -1130,7 +1139,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-99 (staging).
 
-#### ☐ GEC-81 — Ghana Data Protection Act (Act 843) alignment · 3 SP · Phase: Solution Design
+#### ☑ GEC-81 — Ghana Data Protection Act (Act 843) alignment · 3 SP · Phase: Solution Design
+> **Verified 2026-06-27:** [docs/privacy/ghana-dpa-act-843.md](docs/privacy/ghana-dpa-act-843.md) — Act 843 alignment (synthetic data; minimisation, encryption, transfer, subject rights, pre-prod actions).
 - User story: As the business, I want DPA-aligned data handling, so that the move to real data is a deployment decision, not a rebuild.
 - Business value: Spec §8.3 production note.
 - Acceptance criteria:
@@ -1281,7 +1291,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + successful restore test.
 - Dependencies: GEC-99.
 
-#### ☐ GEC-96 — Runbooks & incident process · 2 SP · Phase: Hypercare
+#### ☑ GEC-96 — Runbooks & incident process · 2 SP · Phase: Hypercare
+> **Verified 2026-06-27:** [docs/runbooks.md](docs/runbooks.md) — severity model + scenario runbooks (AI/Voyage/DB down → fallbacks, rollback, auth) + escalation.
 - User story: As on-call, I want runbooks and an incident process, so that we respond consistently.
 - Business value: Hypercare phase (Eng-Ops §12).
 - Acceptance criteria:
@@ -1295,7 +1306,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 ## E12 — Quality, Testing & CI Gates
 *Goal: the test pyramid + gates that make >80% coverage and SonarQube real, not aspirational.*
 
-#### ☐ GEC-97 — Domain & signal-engine unit tests · 5 SP · Phase: Development
+#### ☑ GEC-97 — Domain & signal-engine unit tests · 5 SP · Phase: Development
+> **Verified 2026-06-27:** Domain + signal engine unit-tested to ~100%; 50+ test files; gate ~88%; table-driven; signal integration test surfaces all planted stories.
 - User story: As the team, I want the domain + signal engine near-fully unit-tested, so that the math is trustworthy.
 - Business value: Trust = the product's core value (spec §6.1).
 - Acceptance criteria:
@@ -1304,7 +1316,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-34..40.
 
-#### ☐ GEC-98 — Integration tests (testcontainers) · 5 SP · Phase: Development
+#### ☑ GEC-98 — Integration tests (testcontainers) · 5 SP · Phase: Development
+> **Verified 2026-06-27:** testcontainers integration tests (pgvector image) for every Postgres repo + the migration runner; `make backend-integration` + CI job. (Also runtime-verified on native PG18 this session.)
 - User story: As the team, I want adapter integration tests against real Postgres/Redis, so that persistence is correct.
 - Business value: Catches real DB issues.
 - Acceptance criteria:
@@ -1322,7 +1335,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-5, GEC-25.
 
-#### ☐ GEC-100 — Frontend unit/component tests · 5 SP · Phase: Development
+#### ☑ GEC-100 — Frontend unit/component tests · 5 SP · Phase: Development
+> **Verified 2026-06-27:** Frontend unit/component tests across screens/components/hooks (vitest + RTL + jest-axe); coverage threshold >80%.
 - User story: As the team, I want component tests, so that UI logic is covered.
 - Business value: Coverage gate + regression safety.
 - Acceptance criteria:
@@ -1349,7 +1363,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-46.
 
-#### ☐ GEC-103 — Coverage gate enforcement (>80%) · 2 SP · Phase: Development
+#### ☑ GEC-103 — Coverage gate enforcement (>80%) · 2 SP · Phase: Development
+> **Verified 2026-06-27:** Coverage gate enforced: `make backend-cover-gate` (>80%, filtered) + frontend vitest thresholds; both wired in CI.
 - User story: As the team, I want the 80% gate enforced and visible, so that quality can't regress.
 - Business value: Owner-mandated.
 - Acceptance criteria:
@@ -1454,7 +1469,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-5.
 
-#### ☐ GEC-113 — Architecture & data-model docs · 3 SP · Phase: Development
+#### ☑ GEC-113 — Architecture & data-model docs · 3 SP · Phase: Development
+> **Verified 2026-06-27:** [docs/architecture.md](docs/architecture.md) — hexagonal overview, stack, request flow, data model, fallbacks, security, ADR index.
 - User story: As the team, I want architecture + ERD docs, so that the system is understandable.
 - Business value: Onboarding + governance.
 - Acceptance criteria:
@@ -1463,7 +1479,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-11, GEC-49.
 
-#### ☐ GEC-114 — Onboarding guide · 2 SP · Phase: Development
+#### ☑ GEC-114 — Onboarding guide · 2 SP · Phase: Development
+> **Verified 2026-06-27:** [docs/onboarding.md](docs/onboarding.md) — 10-minute local setup (in-memory + Postgres), demo creds, daily commands, repo map, workflow.
 - User story: As a new hire, I want a guide, so that I can complete the onboarding project (manuals' onboarding flow).
 - Business value: Manuals' New Employee Onboarding.
 - Acceptance criteria:
@@ -1472,7 +1489,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-8, GEC-2.
 
-#### ☐ GEC-115 — User guide & training material · 3 SP · Phase: Sign-off
+#### ☑ GEC-115 — User guide & training material · 3 SP · Phase: Sign-off
+> **Verified 2026-06-27:** [docs/user-guide.md](docs/user-guide.md) — executive-facing guide to every surface (brief, network, search, KPIs, ask, my-day, approvals, settings).
 - User story: As the client, I want a user guide and training material, so that the team can adopt the cockpit.
 - Business value: Eng-Ops §11 deliverables.
 - Acceptance criteria:
@@ -1490,7 +1508,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-108.
 
-#### ☐ GEC-117 — Acceptance & handover package · 2 SP · Phase: Sign-off
+#### ☑ GEC-117 — Acceptance & handover package · 2 SP · Phase: Sign-off
+> **Verified 2026-06-27:** [docs/acceptance-handover.md](docs/acceptance-handover.md) — acceptance test matrix, automated verification, delivered epics, env reference, known gaps.
 - User story: As the client, I want a handover package, so that we can sign off the project.
 - Business value: Eng-Ops §11 official sign-off.
 - Acceptance criteria:
@@ -1594,3 +1613,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **UX — theme preference persists + respects the OS.** The light/dark choice was hardcoded to light on every load; now `themePreference` resolves saved-choice → `prefers-color-scheme` → light, and the toggle persists to localStorage (matchMedia feature-detected for jsdom/SSR). 68 frontend tests, lint/build green. | Claude |
 | 2026-06-27 | **Security — refresh re-validates the live account (review finding resolved).** `AuthService.Refresh` now re-reads the account via `FindByID` and rebuilds the principal from current data, so a role/facility change — or a deleted account — takes effect on the next refresh (within the 15-min access TTL) instead of persisting for the 7-day refresh-token lifetime. Closes the stale-snapshot finding from the GEC-14 review. New tests prove a demoted exec→manager is re-scoped and a deleted account is rejected. app coverage, lint(0), gate 88.7%. | Claude |
 | 2026-06-27 | **GEC-33 (started) — personalisation API.** GET/PATCH /me/preferences with app-boundary sanitisation, persisted per-user; tests + lint(0); gate 88.6%. Remaining: brief/feed prioritisation + settings UI. | Claude |
+| 2026-06-27 | **Backlog reconciliation + docs.** Marked 12 stories done that existing code/CI already satisfied (audited against the codebase), and wrote 7 docs (architecture, threat-model, Ghana-DPA, runbooks, onboarding, user-guide, acceptance-handover) closing GEC-72/81/96/113/114/115/117. | Claude |
