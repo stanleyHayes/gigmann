@@ -13,6 +13,8 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 
+	"github.com/xcreativs/gigmann/internal/observability"
+
 	"github.com/xcreativs/gigmann/internal/core/brief"
 	"github.com/xcreativs/gigmann/internal/core/severity"
 	"github.com/xcreativs/gigmann/internal/intel"
@@ -78,6 +80,7 @@ func (n *Narrator) NarrateBrief(ctx context.Context, c intel.Context) (brief.Bri
 		Strict: anthropic.Bool(true),
 	}
 
+	start := time.Now()
 	resp, err := n.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:      n.model,
 		MaxTokens:  maxTokens,
@@ -89,6 +92,7 @@ func (n *Narrator) NarrateBrief(ctx context.Context, c intel.Context) (brief.Bri
 				"Today's computed network context (JSON):\n" + string(ctxJSON))),
 		},
 	})
+	recordUsage("brief", resp, err, start)
 	if err != nil {
 		return brief.Brief{}, fmt.Errorf("anthropic: messages: %w", err)
 	}
@@ -202,6 +206,7 @@ func (n *Narrator) Answer(ctx context.Context, question string, c intel.Context)
 		},
 		Strict: anthropic.Bool(true),
 	}
+	start := time.Now()
 	resp, err := n.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:      n.model,
 		MaxTokens:  maxTokens,
@@ -213,6 +218,7 @@ func (n *Narrator) Answer(ctx context.Context, question string, c intel.Context)
 				"Question: " + question + "\n\nNetwork context (JSON):\n" + string(ctxJSON))),
 		},
 	})
+	recordUsage("ask", resp, err, start)
 	if err != nil {
 		return intel.Answer{}, fmt.Errorf("anthropic: messages: %w", err)
 	}
@@ -222,4 +228,13 @@ func (n *Narrator) Answer(ctx context.Context, question string, c intel.Context)
 		}
 	}
 	return intel.Answer{}, fmt.Errorf("anthropic: response had no %s tool call", answerToolName)
+}
+
+// recordUsage reports an AI call's token usage + latency to the metrics registry.
+func recordUsage(op string, resp *anthropic.Message, err error, start time.Time) {
+	in, out := 0, 0
+	if resp != nil {
+		in, out = int(resp.Usage.InputTokens), int(resp.Usage.OutputTokens)
+	}
+	observability.RecordAICall(op, in, out, time.Since(start), err)
 }

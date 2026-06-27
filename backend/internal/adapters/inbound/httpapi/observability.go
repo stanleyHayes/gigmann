@@ -8,6 +8,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/xcreativs/gigmann/internal/observability"
 )
 
 // metrics holds the Prometheus collectors for the HTTP layer.
@@ -52,5 +54,6 @@ func (m *metrics) middleware() func(http.Handler) http.Handler {
 }
 
 func metricsHandler(reg *prometheus.Registry) http.Handler {
-	return promhttp.HandlerFor(reg, promhttp.HandlerOpts{})
+	// Gather the per-router HTTP metrics plus the global AI usage metrics.
+	return promhttp.HandlerFor(prometheus.Gatherers{reg, observability.AIRegistry()}, promhttp.HandlerOpts{})
 }

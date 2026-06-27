@@ -1283,7 +1283,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-7.
 
-#### ◐ GEC-91 — Metrics & dashboards · 5 SP · Phase: Development
+#### ☑ GEC-91 — Metrics & dashboards · 5 SP · Phase: Development
+> **Done 2026-06-27:** Prometheus `/metrics` now exposes **AI usage metrics** — `ai_requests_total{op,outcome}`, `ai_tokens_total{op,kind=input|output}`, `ai_request_duration_seconds{op}` — recorded by the Anthropic adapter on every brief/ask call (a dedicated registry gathered alongside the HTTP metrics), plus the existing http request/latency metrics + Grafana dashboard.
 > **Started 2026-06-27:** Prometheus /metrics exposes http_requests_total (route/method/status) + http_request_duration_seconds histograms; a Grafana dashboard (infra/observability/grafana-dashboard.json) charts request rate, 5xx error rate, and p95 latency by route. Remaining: AI token-count/cost metrics (needs the Anthropic/Voyage usage threaded through the outbound adapters via a metrics port).
 > **Started 2026-06-26:** a Prometheus `/metrics` endpoint exposes RED-ish HTTP metrics — `http_requests_total` (by method+status) and `http_request_duration_seconds` (histogram by method), via a per-router registry + middleware (client_golang). Verified live + tested. _Remaining: AI cost/token + cache-hit-rate metrics, and Grafana dashboards._
 - User story: As an operator, I want Prometheus metrics + Grafana dashboards, so that I see system health at a glance.
@@ -1689,3 +1690,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-60 done; GEC-88 progressed.** Ask copy-answer export + helper; a11y axe sweep extended to the Ask screen (Lighthouse-a11y already a CI gate). | Claude |
 | 2026-06-27 | **GEC-63 — Reports screen.** Generate + download a Markdown network report (brief + KPIs); nav + lazy route + tests. | Claude |
 | 2026-06-27 | **GEC-51 — inline brief actions complete.** POST /tasks (TaskService.Create, source-traced) + 'Turn into task' button on brief items → My Day, with toast. Backend+frontend tests; gates green. | Claude |
+| 2026-06-27 | **GEC-91 — AI cost/usage metrics.** ai_requests/ai_tokens(input/output)/ai_request_duration on /metrics, recorded by the Anthropic adapter. | Claude |
