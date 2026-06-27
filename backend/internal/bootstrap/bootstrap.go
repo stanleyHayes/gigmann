@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+
 	"github.com/xcreativs/gigmann/internal/adapters/inbound/httpapi"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/anthropic"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/audit"
@@ -28,6 +30,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/config"
 	signalengine "github.com/xcreativs/gigmann/internal/core/signal"
 	"github.com/xcreativs/gigmann/internal/core/user"
+	"github.com/xcreativs/gigmann/internal/observability"
 	"github.com/xcreativs/gigmann/internal/ports"
 	"github.com/xcreativs/gigmann/internal/seed"
 	"github.com/xcreativs/gigmann/migrations"
@@ -65,6 +68,12 @@ func Run() error {
 		return err
 	}
 
+	shutdownTracing, err := observability.SetupTracing(context.Background(), "gigmann-api", cfg.AppEnv)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = shutdownTracing(context.Background()) }()
+
 	handler, cleanup, err := newHandler(context.Background(), cfg, logger)
 	if err != nil {
 		return err
@@ -73,7 +82,7 @@ func Run() error {
 
 	srv := &http.Server{
 		Addr:         cfg.HTTPAddr(),
-		Handler:      handler,
+		Handler:      otelhttp.NewHandler(handler, "gigmann-api"),
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
 	}
