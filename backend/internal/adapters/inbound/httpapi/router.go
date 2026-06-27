@@ -402,6 +402,12 @@ func (s *Server) CreateTask(ctx context.Context, request CreateTaskRequestObject
 	if request.Body.Source != nil {
 		in.Source = task.Source(*request.Body.Source)
 	}
+	if request.Body.AssignedTo != nil {
+		in.AssignedTo = *request.Body.AssignedTo
+	}
+	if request.Body.DueDate != nil {
+		in.DueDate = request.Body.DueDate.Time
+	}
 	t, err := s.tasks.Create(ctx, in)
 	switch {
 	case errors.Is(err, task.ErrEmptyTitle), errors.Is(err, task.ErrInvalidPriority), errors.Is(err, task.ErrInvalidSource):

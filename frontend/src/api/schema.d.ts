@@ -430,6 +430,9 @@ export interface components {
             title: string;
             detail?: string;
             facility_id?: string;
+            assigned_to?: string;
+            /** Format: date */
+            due_date?: string;
             /**
              * @default medium
              * @enum {string}

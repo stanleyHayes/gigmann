@@ -593,7 +593,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + audit logging.
 - Dependencies: GEC-14.
 
-#### ◐ GEC-32 — Delegation & follow-through API · 3 SP · Phase: Development
+#### ☑ GEC-32 — Delegation & follow-through API · 3 SP · Phase: Development
+> **Done 2026-06-27:** Delegation reuses tasks (the spec's intent): `POST /tasks` now accepts `assigned_to` + `due_date`, so an action can be delegated to a facility manager; the task `status` tracks completion and an overdue, not-done task is a **stalled** follow-up. The seed now includes manager-assigned tasks (one overdue) to demonstrate it.
 > **Status 2026-06-27:** Delegation is served today by the Tasks API — tasks carry `assigned_to` + `source` (brief/alert) for traceability, and the Alerts feed surfaces exceptions. _A dedicated delegation entity (assign-to-manager + stalled-follow-up sweep) is deferred; design noted alongside GEC-67._
 - User story: As Sammy, I want to assign actions and see completion, so that nothing falls through.
 - Business value: Spec §5.9.
@@ -965,7 +966,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-45, GEC-26.
 
-#### ◐ GEC-64 — Delegation & follow-through UI · 3 SP · Phase: Development
+#### ☑ GEC-64 — Delegation & follow-through UI · 3 SP · Phase: Development
+> **Done 2026-06-27:** **Delegation** screen + nav: delegated work (tasks assigned to someone other than the signed-in executive) grouped by assignee, each with its status and a **Stalled** flag when overdue and not done. Loading/error/empty states; lazy-routed; tested.
 > **Status 2026-06-27:** Delegated work surfaces in **My Day** (tasks with assignee/source) + the **Attention feed** (GEC-29). _A dedicated delegation board (per-manager completion view) is deferred with the GEC-32 entity._
 - User story: As Sammy, I want to assign actions and see completion/stalls, so that nothing falls through.
 - Business value: Spec §5.9.
@@ -1701,3 +1703,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-88 — accessibility.** axe sweep extended to the Network/KPIs/My-Day/Approvals screens (zero violations) on top of the hero surfaces + Lighthouse-a11y gate. | Claude |
 | 2026-06-27 | **GEC-52 — brief-quality harness complete.** Added a fidelity check (brief items == engine top-N signals, severity preserved) to the worst-first + grounding + planted-story assertions. | Claude |
 | 2026-06-27 | **GEC-33 complete — preferences influence prioritisation.** /metrics stable-sorts watched KPIs first per-user; tested. | Claude |
+| 2026-06-27 | **GEC-32/64 — delegation & follow-through.** POST /tasks takes assigned_to+due_date; seed has manager-assigned (one stalled) tasks; a Delegation UI groups them by assignee with a stalled flag. Backend+frontend tests; lint(0). | Claude |

@@ -11,6 +11,7 @@ import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
+import AssignmentIndOutlined from '@mui/icons-material/AssignmentIndOutlined'
 import ChecklistOutlined from '@mui/icons-material/ChecklistOutlined'
 import DarkModeOutlined from '@mui/icons-material/DarkModeOutlined'
 import ForumOutlined from '@mui/icons-material/ForumOutlined'
@@ -41,6 +42,7 @@ const NAV: NavItem[] = [
   { to: '/reports', label: t('nav.reports'), icon: <SummarizeOutlined /> },
   { to: '/ask', label: t('nav.ask'), icon: <ForumOutlined /> },
   { to: '/my-day', label: t('nav.myDay'), icon: <ChecklistOutlined /> },
+  { to: '/delegation', label: t('nav.delegation'), icon: <AssignmentIndOutlined /> },
   { to: '/approvals', label: t('nav.approvals'), icon: <TaskAltOutlined /> },
 ]
 

@@ -8,6 +8,7 @@ export const messages = {
   'nav.reports': 'Reports',
   'nav.ask': 'Ask',
   'nav.myDay': 'My Day',
+  'nav.delegation': 'Delegation',
   'nav.approvals': 'Approvals',
   'brief.source.claude': 'Narrated by Claude',
   'brief.source.local': 'Deterministic summary — AI narration unavailable',

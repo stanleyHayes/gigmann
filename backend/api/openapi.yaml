@@ -640,6 +640,11 @@ components:
           type: string
         facility_id:
           type: string
+        assigned_to:
+          type: string
+        due_date:
+          type: string
+          format: date
         priority:
           type: string
           enum: [low, medium, high]

@@ -16,8 +16,10 @@ type NewTaskInput struct {
 	Title      string
 	Detail     string
 	FacilityID string
+	AssignedTo string
 	Priority   task.Priority
 	Source     task.Source
+	DueDate    time.Time
 }
 
 // TaskService is the "My Day" use case: list tasks and update their status.
@@ -61,7 +63,8 @@ func (s *TaskService) Create(ctx context.Context, in NewTaskInput) (task.Task, e
 	}
 	t, err := task.New(task.Task{
 		ID: id, Title: in.Title, Detail: in.Detail, FacilityID: in.FacilityID,
-		Priority: in.Priority, Status: task.StatusTodo, Source: in.Source, CreatedAt: time.Now().UTC(),
+		AssignedTo: in.AssignedTo, Priority: in.Priority, Status: task.StatusTodo,
+		Source: in.Source, DueDate: in.DueDate, CreatedAt: time.Now().UTC(),
 	})
 	if err != nil {
 		return task.Task{}, fmt.Errorf("app: new task: %w", err)
