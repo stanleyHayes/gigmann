@@ -81,12 +81,15 @@ func TestBriefFaithfullyReflectsTopSignals(t *testing.T) {
 	}
 	const topN = 5
 	signals := engine.Run(input)
-	allowed := make(map[string]severity.Severity)
+	// A facility may raise several signals; the brief picks one per facility. Build
+	// the set of top-N facilities and the set of valid (facility, severity) pairs.
+	topFacility := make(map[string]bool)
+	validPair := make(map[string]bool)
 	for i, sig := range signals {
-		if i >= topN {
-			break
+		validPair[sig.FacilityID+"|"+string(sig.Severity)] = true
+		if i < topN {
+			topFacility[sig.FacilityID] = true
 		}
-		allowed[sig.FacilityID] = sig.Severity
 	}
 
 	svc := app.NewBriefService(engine, localnarrator.New(), topN)
@@ -94,8 +97,8 @@ func TestBriefFaithfullyReflectsTopSignals(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, b.Items)
 	for _, it := range b.Items {
-		sev, ok := allowed[it.FacilityID]
-		require.Truef(t, ok, "brief item %q must correspond to a top-%d signal", it.FacilityID, topN)
-		assert.Equalf(t, sev, it.Severity, "brief preserves the signal severity for %q", it.FacilityID)
+		require.Truef(t, topFacility[it.FacilityID], "brief item %q must be among the top-%d signal facilities", it.FacilityID, topN)
+		assert.Truef(t, validPair[it.FacilityID+"|"+string(it.Severity)],
+			"brief item (%q, %s) must match a real signal — no invented severity", it.FacilityID, it.Severity)
 	}
 }
