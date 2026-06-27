@@ -26,6 +26,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { flushSync } from 'react-dom'
 import type { MouseEvent, ReactNode } from 'react'
 
+import { FacilitySearch } from '../components/FacilitySearch'
 import { useAuth } from '../auth/authContext'
 import { useColorMode } from './colorMode'
 
@@ -89,6 +90,7 @@ export function AppShell() {
               {user.name}
             </Typography>
           ) : null}
+          <FacilitySearch />
           <IconButton
             color="inherit"
             onClick={toggleTheme}
