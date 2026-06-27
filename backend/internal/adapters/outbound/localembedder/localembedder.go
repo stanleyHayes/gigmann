@@ -7,6 +7,7 @@ package localembedder
 
 import (
 	"context"
+	"encoding/binary"
 	"hash/fnv"
 	"math"
 	"strings"
@@ -62,7 +63,7 @@ func hashWith(tok string, seed uint32) uint32 {
 	h := fnv.New32a()
 	if seed != 0 {
 		var b [4]byte
-		b[0], b[1], b[2], b[3] = byte(seed), byte(seed>>8), byte(seed>>16), byte(seed>>24)
+		binary.LittleEndian.PutUint32(b[:], seed) // same low-to-high bytes; avoids gosec G115
 		_, _ = h.Write(b[:])
 	}
 	_, _ = h.Write([]byte(tok))
