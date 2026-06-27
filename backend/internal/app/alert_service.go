@@ -44,6 +44,7 @@ func (s *AlertService) Feed(ctx context.Context, cursor string, limit int) ([]al
 			open = append(open, a)
 		}
 	}
+	open = dedupAlerts(open)
 	sort.SliceStable(open, func(i, j int) bool {
 		if ri, rj := open[i].Severity.Rank(), open[j].Severity.Rank(); ri != rj {
 			return ri > rj
@@ -103,6 +104,25 @@ func (s *AlertService) UpdateStatus(ctx context.Context, id string, status alert
 		return alert.Alert{}, fmt.Errorf("app: save alert: %w", err)
 	}
 	return updated, nil
+}
+
+// dedupAlerts collapses open alerts sharing a (facility_id, type) to the most
+// recent one, so a recurring condition surfaces once in the feed.
+func dedupAlerts(alerts []alert.Alert) []alert.Alert {
+	latest := make(map[string]int) // facility|type -> index in out
+	out := make([]alert.Alert, 0, len(alerts))
+	for _, a := range alerts {
+		key := a.FacilityID + "|" + a.Type
+		if i, ok := latest[key]; ok {
+			if a.CreatedAt.After(out[i].CreatedAt) {
+				out[i] = a
+			}
+			continue
+		}
+		latest[key] = len(out)
+		out = append(out, a)
+	}
+	return out
 }
 
 func encodeAlertCursor(id string) string {

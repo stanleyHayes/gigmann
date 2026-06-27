@@ -1048,7 +1048,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-55, GEC-29.
 
-#### ◐ GEC-70 — Alert lifecycle & dedup · 3 SP · Phase: Development
+#### ☑ GEC-70 — Alert lifecycle & dedup · 3 SP · Phase: Development
+> **Done 2026-06-27:** Alert **lifecycle** (dismiss/resolve, GEC-29) + **dedup**: the attention feed now collapses open alerts sharing a `(facility_id, type)` to the most recent one, so a recurring condition surfaces once. Tested.
 > **Status 2026-06-27:** Deferred with GEC-67: alert dedup by idempotency key + lifecycle transitions (dismiss/resolve already shipped in GEC-29). Design in [docs/deferred.md](docs/deferred.md).
 - User story: As the system, I want alerts deduped and lifecycle-managed, so that the feed stays trustworthy.
 - Business value: Avoids alert fatigue.
@@ -1704,3 +1705,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-52 — brief-quality harness complete.** Added a fidelity check (brief items == engine top-N signals, severity preserved) to the worst-first + grounding + planted-story assertions. | Claude |
 | 2026-06-27 | **GEC-33 complete — preferences influence prioritisation.** /metrics stable-sorts watched KPIs first per-user; tested. | Claude |
 | 2026-06-27 | **GEC-32/64 — delegation & follow-through.** POST /tasks takes assigned_to+due_date; seed has manager-assigned (one stalled) tasks; a Delegation UI groups them by assignee with a stalled flag. Backend+frontend tests; lint(0). | Claude |
+| 2026-06-27 | **GEC-70 — alert lifecycle & dedup.** Feed collapses same facility+type to the most recent; lifecycle already shipped in GEC-29. | Claude |

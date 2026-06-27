@@ -24,6 +24,13 @@ func mkAlert(t *testing.T, id, fid string, sev severity.Severity, status alert.S
 	return a
 }
 
+func mkAlertTyped(t *testing.T, id, fid, typ string, sev severity.Severity, status alert.Status, created time.Time) alert.Alert {
+	t.Helper()
+	a, err := alert.New(alert.Alert{ID: id, FacilityID: fid, Type: typ, Severity: sev, Title: id, Status: status, CreatedAt: created})
+	require.NoError(t, err)
+	return a
+}
+
 func TestAlertFeedRanksOpenWorstFirst(t *testing.T) {
 	t0 := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
 	repo := memory.NewAlertRepo(
@@ -80,4 +87,17 @@ func TestAlertUpdateStatusTransitions(t *testing.T) {
 
 	_, err = svc.UpdateStatus(ctx, "a1", alert.StatusOpen)
 	require.ErrorIs(t, err, app.ErrInvalidAlertStatus, "only dismissed/resolved allowed")
+}
+
+func TestAlertFeedDedupsByFacilityAndType(t *testing.T) {
+	t0 := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
+	repo := memory.NewAlertRepo(
+		mkAlertTyped(t, "a-old", "kasoa", "denial", severity.Watch, alert.StatusOpen, t0),
+		mkAlertTyped(t, "a-new", "kasoa", "denial", severity.Critical, alert.StatusOpen, t0.Add(time.Hour)),
+		mkAlertTyped(t, "a-other", "kasoa", "stockout", severity.Watch, alert.StatusOpen, t0),
+	)
+	items, _, err := app.NewAlertService(repo).Feed(context.Background(), "", 0)
+	require.NoError(t, err)
+	require.Len(t, items, 2, "the two kasoa/denial alerts collapse to one; kasoa/stockout stays")
+	assert.Equal(t, "a-new", items[0].ID, "the most recent of the deduped pair survives, ranked first (critical)")
 }
