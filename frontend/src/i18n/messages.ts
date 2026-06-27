@@ -5,6 +5,7 @@ export const messages = {
   'nav.today': 'Today',
   'nav.network': 'Network',
   'nav.kpis': 'KPIs',
+  'nav.reports': 'Reports',
   'nav.ask': 'Ask',
   'nav.myDay': 'My Day',
   'nav.approvals': 'Approvals',

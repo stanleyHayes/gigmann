@@ -16,6 +16,7 @@ import DarkModeOutlined from '@mui/icons-material/DarkModeOutlined'
 import ForumOutlined from '@mui/icons-material/ForumOutlined'
 import HubOutlined from '@mui/icons-material/HubOutlined'
 import InsightsOutlined from '@mui/icons-material/InsightsOutlined'
+import SummarizeOutlined from '@mui/icons-material/SummarizeOutlined'
 import LightModeOutlined from '@mui/icons-material/LightModeOutlined'
 import LogoutOutlined from '@mui/icons-material/LogoutOutlined'
 import SettingsOutlined from '@mui/icons-material/SettingsOutlined'
@@ -37,6 +38,7 @@ const NAV: NavItem[] = [
   { to: '/', label: t('nav.today'), icon: <TodayOutlined />, end: true },
   { to: '/network', label: t('nav.network'), icon: <HubOutlined /> },
   { to: '/kpis', label: t('nav.kpis'), icon: <InsightsOutlined /> },
+  { to: '/reports', label: t('nav.reports'), icon: <SummarizeOutlined /> },
   { to: '/ask', label: t('nav.ask'), icon: <ForumOutlined /> },
   { to: '/my-day', label: t('nav.myDay'), icon: <ChecklistOutlined /> },
   { to: '/approvals', label: t('nav.approvals'), icon: <TaskAltOutlined /> },

@@ -951,7 +951,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-31.
 
-#### ◐ GEC-63 — Reports screen (generate & export) · 5 SP · Phase: Development
+#### ☑ GEC-63 — Reports screen (generate & export) · 5 SP · Phase: Development
+> **Done 2026-06-27:** A dedicated **Reports** screen + nav entry: generates a shareable **network report** (the Daily Brief + the network KPIs with WoW deltas, cedis/ratio/count formatted) and downloads it as Markdown (`networkReportMarkdown` + `downloadFile`); loading/error/ready states. Lazy-routed. Tested.
 > **Started 2026-06-26:** the Daily Brief can be **exported** — Copy (to clipboard) and Download (`.md`) actions on the Today screen render the brief as shareable Markdown (`briefToMarkdown`). _Remaining: a dedicated Reports screen with KPI/period exports (CSV/PDF)._
 - User story: As Sammy, I want one-tap network/investor/board reports from live data, so that reporting isn't hand-assembled.
 - Business value: Spec §5.10.
@@ -1685,3 +1686,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-52 — brief-quality harness.** Multi-seed acceptance test: worst-first ordering, facility-grounding (no invented entities), planted-critical-story-leads. | Claude |
 | 2026-06-27 | **GEC-118/83/84/85 — public marketing site + SEO.** Static, animated, accessible landing page (welcome.html) with full metadata, JSON-LD, OG/Twitter cards, sitemap + robots; linked from login. Frontend gate green. | Claude |
 | 2026-06-27 | **GEC-60 done; GEC-88 progressed.** Ask copy-answer export + helper; a11y axe sweep extended to the Ask screen (Lighthouse-a11y already a CI gate). | Claude |
+| 2026-06-27 | **GEC-63 — Reports screen.** Generate + download a Markdown network report (brief + KPIs); nav + lazy route + tests. | Claude |
