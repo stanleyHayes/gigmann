@@ -17,6 +17,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/xcreativs/gigmann/internal/adapters/inbound/httpapi"
+	"github.com/xcreativs/gigmann/internal/adapters/inbound/realtime"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/anthropic"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/audit"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/localembedder"
@@ -175,6 +176,8 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		Inventory: net.Inventory, Staff: net.Staff,
 	}
 	briefs := app.NewCachedBrief(app.NewStaticBrief(briefSvc, input), briefCacheTTL)
+	hub := realtime.New()
+	briefs.SetNotifier(hub)
 	go func() { //nolint:contextcheck // startup cache warm runs detached from the request
 		if _, err := briefs.Generate(context.Background()); err != nil {
 			logger.Warn("brief cache warm failed", "err", err)
@@ -210,6 +213,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		Tokens:         tokens,
 		Logger:         logger,
 		CORSOrigins:    cfg.CORSAllowedOrigins,
+		Realtime:       hub.Handler(tokens, cfg.CORSAllowedOrigins),
 		HSTS:           cfg.IsProduction(),
 		Ready:          r.ready,
 	}), cleanup, nil

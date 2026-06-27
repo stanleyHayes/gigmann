@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.52.0
+	github.com/coder/websocket v1.8.15
 	github.com/getkin/kin-openapi v0.135.0
 	github.com/getsentry/sentry-go v0.47.0
 	github.com/go-chi/chi/v5 v5.3.0

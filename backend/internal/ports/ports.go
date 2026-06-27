@@ -167,3 +167,8 @@ type AuditEvent struct {
 type AuditLogger interface {
 	Record(ctx context.Context, e AuditEvent)
 }
+
+// Notifier broadcasts a named event to connected clients (realtime channel).
+type Notifier interface {
+	Notify(event string)
+}

@@ -64,6 +64,7 @@ type Deps struct {
 	Tokens         ports.TokenService
 	Logger         *slog.Logger
 	CORSOrigins    []string
+	Realtime       http.HandlerFunc
 	HSTS           bool
 	Ready          func(context.Context) error
 }
@@ -109,6 +110,9 @@ func NewRouter(d Deps) http.Handler {
 	r.Get("/readyz", readyHandler(d.Ready))
 	r.Handle("/metrics", metricsHandler(metricsReg))
 	r.Get("/openapi.json", openAPIHandler(logger))
+	if d.Realtime != nil {
+		r.Get("/api/v1/ws", d.Realtime)
+	}
 	r.Get("/docs", redocHandler())
 
 	srv := &Server{facilities: d.Facilities, facilityDetail: d.FacilityDetail, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask, alerts: d.Alerts, drafts: d.Drafts, search: d.Search, preferences: d.Preferences}

@@ -29,6 +29,7 @@ import { flushSync } from 'react-dom'
 import type { MouseEvent, ReactNode } from 'react'
 
 import { FacilitySearch } from '../components/FacilitySearch'
+import { useLiveUpdates } from '../api/useLiveUpdates'
 import { useAuth } from '../auth/authContext'
 import { useColorMode } from './colorMode'
 import { t } from '../i18n/messages'
@@ -55,6 +56,7 @@ export function AppShell() {
   const navigation = useNavigation()
   const location = useLocation()
   const reduceMotion = useReducedMotion()
+  useLiveUpdates()
 
   // Theme toggle with a circular clip-path reveal (View Transitions API), with a
   // graceful fallback where it is unsupported or reduced motion is requested.

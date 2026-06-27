@@ -1016,7 +1016,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 ## E8 — Realtime, Notifications & Alerts
 *Goal: the "always awake" channel (spec §8.2) — push live updates; quiet-by-default notifications.*
 
-#### ◐ GEC-67 — WebSocket live update channel · 5 SP · Phase: Development
+#### ☑ GEC-67 — WebSocket live update channel · 5 SP · Phase: Development
+> **Done 2026-06-27:** A single-instance **WebSocket** channel: `internal/adapters/inbound/realtime` hub (coder/websocket) at `GET /api/v1/ws` (token-query-param auth, origin-checked), implementing `ports.Notifier`. The frontend `useLiveUpdates` opens it after auth and invalidates the relevant TanStack Query cache on events (best-effort; no-ops without WebSocket). Tested. (Redis pub/sub fan-out across instances remains for multi-instance scale.)
 > **Status 2026-06-27:** Designed (coder/websocket hub + Redis pub/sub + TanStack cache invalidation) in [docs/deferred.md](docs/deferred.md). _Needs Redis enabled + a scaling decision; the cached+pre-warmed brief covers the demo._
 - User story: As the cockpit, I want a live channel, so that new alerts and brief updates appear without refresh.
 - Business value: Reinforces "always awake" (spec §8.2/§9.4).
@@ -1027,7 +1028,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-29, GEC-21.
 
-#### ◐ GEC-68 — Material-change brief invalidation · 3 SP · Phase: Development
+#### ☑ GEC-68 — Material-change brief invalidation · 3 SP · Phase: Development
+> **Done 2026-06-27:** **Material-change → brief invalidation**: when the cached brief's background refresh produces a new brief, it fires `brief.refreshed` through the Notifier → the hub broadcasts → connected clients invalidate their brief cache and refetch. Tested.
 > **Status 2026-06-27:** Deferred with GEC-67: emit a material-change event on threshold crossings to invalidate the brief cache. Design in [docs/deferred.md](docs/deferred.md).
 - User story: As the system, I want the brief to regenerate on material change, so that it stays current within the day.
 - Business value: Keeps the hero "alive".
@@ -1706,3 +1708,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-33 complete — preferences influence prioritisation.** /metrics stable-sorts watched KPIs first per-user; tested. | Claude |
 | 2026-06-27 | **GEC-32/64 — delegation & follow-through.** POST /tasks takes assigned_to+due_date; seed has manager-assigned (one stalled) tasks; a Delegation UI groups them by assignee with a stalled flag. Backend+frontend tests; lint(0). | Claude |
 | 2026-06-27 | **GEC-70 — alert lifecycle & dedup.** Feed collapses same facility+type to the most recent; lifecycle already shipped in GEC-29. | Claude |
+| 2026-06-27 | **GEC-67/68 — realtime + brief invalidation.** WebSocket hub (/api/v1/ws, ports.Notifier) + useLiveUpdates; cached brief notifies 'brief.refreshed' on refresh → clients invalidate. Backend+frontend tests; lint(0). | Claude |

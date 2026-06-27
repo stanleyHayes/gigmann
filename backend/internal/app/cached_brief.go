@@ -19,6 +19,8 @@ type CachedBrief struct {
 	ttl   time.Duration
 	now   func() time.Time
 
+	notifier ports.Notifier
+
 	mu         sync.Mutex
 	cached     brief.Brief
 	at         time.Time
@@ -32,6 +34,10 @@ var _ ports.BriefGenerator = (*CachedBrief)(nil)
 func NewCachedBrief(inner ports.BriefGenerator, ttl time.Duration) *CachedBrief {
 	return &CachedBrief{inner: inner, ttl: ttl, now: time.Now}
 }
+
+// SetNotifier registers a notifier that is pinged when a background refresh
+// produces a new brief (so connected clients can invalidate their cache).
+func (c *CachedBrief) SetNotifier(n ports.Notifier) { c.notifier = n }
 
 // Generate serves the cached brief when present (refreshing in the background
 // when stale); the first call generates synchronously.
@@ -64,6 +70,9 @@ func (c *CachedBrief) refresh() {
 	}()
 	if b, err := c.inner.Generate(context.Background()); err == nil {
 		c.store(b)
+		if c.notifier != nil {
+			c.notifier.Notify("brief.refreshed")
+		}
 	}
 }
 
