@@ -359,12 +359,13 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-11.
 
-#### ☐ GEC-13 — pgvector for NL retrieval · 3 SP · Phase: Development
+#### ☑ GEC-13 — pgvector for NL retrieval · 3 SP · Phase: Development
+> **Done 2026-06-27:** a `ports.Embedder` with two adapters — **Voyage AI** (REST, `voyage-3.5-lite` @ dim 1024, key-gated) and a **deterministic local fallback** (feature-hashed bag-of-words, offline) — selected by `VOYAGE_API_KEY` like the narrator. Migration `000004` adds `facility_embeddings (vector(1024))` + an **HNSW** cosine index (in-memory brute-force repo for the no-DB path; `::vector` text cast, no new dep). Facilities are embedded (name/region/town/type/manager) at first-run (idempotent, best-effort). `FacilitySearchService` + the authed `GET /api/v1/facilities/search?q=…` resolve NL phrases to facilities. Runtime-verified on **native PG18 + pgvector 0.8.3**: full migration chain (incl. HNSW), write path, and NL resolution all pass ("Assin Fosu specialist hospital" → `assin-fosu`, "Tamale North clinic" → `tamale-north`) even with the lexical local embedder. See [ADR-0006](docs/adr/0006-nl-retrieval-embeddings.md).
 - User story: As an engineer, I want pgvector enabled with embeddings on facility notes/names, so that NL Ask can fuzzy-match.
 - Business value: Enables grounded natural-language query (spec §6.4).
 - Acceptance criteria:
-  - [ ] `vector` extension + embedding columns + ANN index.
-  - [ ] Embedding write path on relevant text fields.
+  - [x] `vector` extension + embedding columns + ANN index (HNSW, cosine).
+  - [x] Embedding write path on relevant text fields (facility name/region/town/type/manager).
 - Technical notes: Choose embedding model; store dimension in config.
 - Definition of done: Global DoD.
 - Dependencies: GEC-11.
@@ -1587,3 +1588,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-26 | **GEC-14 completed — full Postgres persistence vertical.** User/refresh/approval/task adapters, embedded+locked migration runner, atomic first-run seed, DATABASE_URL wiring, integration tests; 10-finding adversarial review hardened. build/vet/lint(0)/unit-gate(91.8%) green. _Integration run is CI-only this session (local Docker could not pull images)._ Documented follow-ups: (a) map credentials email-unique violation to a typed 409 if an email-change/signup flow is ever added; (b) optionally re-read the user (or add a token epoch) on refresh so role/facility changes invalidate outstanding refresh tokens before TTL — a cross-cutting auth-design item shared with the in-memory store, not specific to this vertical. | Claude |
 | 2026-06-26 | **GEC-14 persistence runtime-verified (native Postgres 18).** Docker couldn't pull images, so instead of relying on CI alone the migration runner + real demo seed were exercised through all adapters against a native PG18 instance — all checks passed (FK integrity, money exactness, single-use tokens, seed idempotency). | Claude |
 | 2026-06-26 | **GEC-12 done — metrics on native Postgres.** facility_metrics repository-backed (Postgres + in-memory), KPI endpoint DB-backed with figures still computed in Go (kpi.Compute), network_daily_metrics materialized view + refresh, ADR-0005 (partitioning + measured query plan). Runtime-verified on native PG18 (KPI parity, MV==series, 0.006 ms index scan); integration tests added. build/vet/lint(0)/gate(91.5%) green. | Claude |
+| 2026-06-27 | **GEC-13 done — pgvector NL retrieval.** Embedder port + Voyage adapter + deterministic local fallback; facility_embeddings + HNSW index; first-run embedding write path; GET /facilities/search endpoint + service. Runtime-verified on PG18+pgvector 0.8.3 (NL queries resolve correctly via ANN). ADR-0006. build/vet/lint(0)/gate green. **Persistence epic (GEC-11/12/13/14) complete.** | Claude |

@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/facilities/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resolve a natural-language phrase to facilities via vector similarity */
+        get: operations["searchFacilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/brief": {
         parameters: {
             query?: never;
@@ -300,6 +317,19 @@ export interface components {
         };
         FacilityList: {
             facilities: components["schemas"]["Facility"][];
+        };
+        FacilityMatch: {
+            facilityId: string;
+            name: string;
+            /**
+             * Format: double
+             * @description Cosine similarity in [0,1]; 1 is identical.
+             */
+            score: number;
+        };
+        FacilitySearchResults: {
+            query: string;
+            matches: components["schemas"]["FacilityMatch"][];
         };
         Brief: {
             id: string;
@@ -569,6 +599,31 @@ export interface operations {
                     "application/json": components["schemas"]["FacilityList"];
                 };
             };
+            500: components["responses"]["InternalError"];
+        };
+    };
+    searchFacilities: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ranked facility matches */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacilitySearchResults"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
             500: components["responses"]["InternalError"];
         };
     };

@@ -38,6 +38,8 @@ To use the real model, drop a key into `backend/.env` (git-ignored — never com
 ```
 ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_MODEL=claude-sonnet-4-6   # optional
+VOYAGE_API_KEY=pa-...                # optional — semantic NL facility search (else a local lexical embedder)
+VOYAGE_MODEL=voyage-3.5-lite         # optional
 ```
 Run the API with it loaded: `set -a; . backend/.env; set +a; make backend-run`.
 The brief is generated once and cached (served in ~30 ms); `/ask` calls the model per question.
@@ -77,7 +79,7 @@ cd frontend && npm run lint && npm run typecheck && npm run test:coverage
 ## Deploy (Render)
 [`infra/render.yaml`](./infra/render.yaml) is a one-click Blueprint: a Dockerised Go **web service** (`gigmann-api`,
 health check `/healthz`) plus a **static SPA** (`gigmann-frontend`). In the `gigmann-secrets` env group set
-**`JWT_SECRET`** (required) and optionally `ANTHROPIC_API_KEY` / `DEMO_PASSWORD`. The API reads
+**`JWT_SECRET`** (required) and optionally `ANTHROPIC_API_KEY` / `VOYAGE_API_KEY` / `DEMO_PASSWORD`. The API reads
 `CORS_ALLOWED_ORIGINS` (the SPA URL) and the SPA builds with `VITE_API_BASE_URL` (the API URL). The demo runs
 fully in-memory, so no database is needed to boot.
 

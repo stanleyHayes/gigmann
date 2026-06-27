@@ -72,6 +72,8 @@ envVarGroups:
     envVars:
       - key: ANTHROPIC_API_KEY # optional — local narrator fallback when unset
         sync: false
+      - key: VOYAGE_API_KEY # optional — local (lexical) embedder fallback when unset
+        sync: false
       - key: JWT_SECRET # required: HS256 token-signing secret
         sync: false
       - key: DEMO_PASSWORD # optional — seed login password (defaults otherwise)

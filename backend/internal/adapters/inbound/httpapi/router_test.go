@@ -1,6 +1,7 @@
 package httpapi_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/xcreativs/gigmann/internal/adapters/inbound/httpapi"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/audit"
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/localembedder"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/localnarrator"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/memory"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/passwordhash"
@@ -80,6 +82,11 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 
 	detailSvc := app.NewFacilityDetailService(net.Facilities, net.Inventory, net.Staff, net.Alerts)
 
+	emb := localembedder.New()
+	embRepo := memory.NewFacilityEmbeddingRepo()
+	_, _ = app.SeedFacilityEmbeddings(context.Background(), emb, embRepo, net.Facilities)
+	searchSvc := app.NewFacilitySearchService(emb, embRepo, net.Facilities)
+
 	return httpapi.NewRouter(httpapi.Deps{
 		Facilities:     app.NewFacilityService(repo),
 		FacilityDetail: detailSvc,
@@ -89,6 +96,7 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 		Approvals:      approvalSvc,
 		Tasks:          taskSvc,
 		Ask:            askSvc,
+		Search:         searchSvc,
 		Tokens:         tokens,
 		CORSOrigins:    []string{"http://localhost:5173"},
 	})
@@ -511,4 +519,24 @@ func TestMetricsEndpoint(t *testing.T) {
 	body := rec.Body.String()
 	assert.Contains(t, body, "http_requests_total")
 	assert.Contains(t, body, "http_request_duration_seconds")
+}
+
+func TestSearchFacilities(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	rec := serveAuth(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl),
+		http.MethodGet, "/api/v1/facilities/search?q=Kasoa%20polyclinic&limit=3")
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var res httpapi.FacilitySearchResults
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &res))
+	require.NotEmpty(t, res.Matches)
+	assert.Equal(t, "Kasoa Polyclinic", res.Matches[0].Name, "top NL match resolves to Kasoa")
+	assert.LessOrEqual(t, len(res.Matches), 3)
+}
+
+func TestSearchFacilitiesRequiresAuth(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	rec := serve(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl),
+		http.MethodGet, "/api/v1/facilities/search?q=Kasoa")
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }

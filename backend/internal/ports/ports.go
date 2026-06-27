@@ -17,7 +17,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/intel"
 )
 
-//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore,ApprovalRepository,TaskRepository,MetricsRepository,Answerer,QuestionAnswerer,AuditLogger
+//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore,ApprovalRepository,TaskRepository,MetricsRepository,Embedder,FacilityEmbeddingRepository,Answerer,QuestionAnswerer,AuditLogger
 
 // ErrAccountNotFound is returned by UserRepository when no account matches.
 var ErrAccountNotFound = errors.New("ports: account not found")
@@ -32,6 +32,36 @@ type FacilityRepository interface {
 // is never a source of numbers.
 type MetricsRepository interface {
 	ListNetwork(ctx context.Context) ([]metric.FacilityMetric, error)
+}
+
+// EmbedKind distinguishes corpus documents from search queries (maps to the
+// provider's input_type; symmetric embedders may ignore it).
+type EmbedKind string
+
+const (
+	EmbedDocument EmbedKind = "document"
+	EmbedQuery    EmbedKind = "query"
+)
+
+// Embedder turns text into fixed-dimension vectors for similarity search.
+// Implementations: a cloud provider (Voyage) and a deterministic local fallback.
+type Embedder interface {
+	Embed(ctx context.Context, texts []string, kind EmbedKind) ([][]float32, error)
+	Dimensions() int
+}
+
+// FacilityMatch is a facility ranked by vector similarity to a query.
+type FacilityMatch struct {
+	FacilityID string
+	Content    string
+	Distance   float64 // cosine distance (0 = identical)
+}
+
+// FacilityEmbeddingRepository stores and ANN-searches facility text embeddings.
+type FacilityEmbeddingRepository interface {
+	Upsert(ctx context.Context, facilityID, content string, embedding []float32) error
+	Count(ctx context.Context) (int, error)
+	Search(ctx context.Context, embedding []float32, limit int) ([]FacilityMatch, error)
 }
 
 // Narrator turns a computed brief context into a narrated Daily Brief.

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/localembedder"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/postgres"
 	"github.com/xcreativs/gigmann/internal/core/approval"
 	"github.com/xcreativs/gigmann/internal/core/auth"
@@ -394,4 +395,40 @@ func TestMetricsRepoIntegration(t *testing.T) {
 	assert.Equal(t, 150, daily[0].PatientsSeen) // 80 + 70
 	// d2 rollup = kasoa(6000) only.
 	assert.Equal(t, int64(600000), daily[1].Revenue.Pesewas())
+}
+
+func TestFacilityEmbeddingRepoIntegration(t *testing.T) {
+	ctx := context.Background()
+	truncateAll(ctx, t)
+	seedFacility(ctx, t, "kasoa")
+	seedFacility(ctx, t, "nima")
+
+	repo := postgres.NewFacilityEmbeddingRepo(testPool)
+	emb := localembedder.New()
+	docs, err := emb.Embed(ctx, []string{
+		"Kasoa Polyclinic Central Kasoa High-volume OPD",
+		"Nima Urban Health Centre Greater Accra Nima",
+	}, ports.EmbedDocument)
+	require.NoError(t, err)
+	require.NoError(t, repo.Upsert(ctx, "kasoa", "Kasoa Polyclinic", docs[0]))
+	require.NoError(t, repo.Upsert(ctx, "nima", "Nima Urban Health Centre", docs[1]))
+
+	n, err := repo.Count(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 2, n)
+
+	// ANN search (HNSW, cosine) resolves the named facility first.
+	qv, err := emb.Embed(ctx, []string{"how is Kasoa doing"}, ports.EmbedQuery)
+	require.NoError(t, err)
+	matches, err := repo.Search(ctx, qv[0], 2)
+	require.NoError(t, err)
+	require.NotEmpty(t, matches)
+	assert.Equal(t, "kasoa", matches[0].FacilityID)
+	assert.LessOrEqual(t, matches[0].Distance, matches[len(matches)-1].Distance, "ordered by distance")
+
+	// Upsert replaces in place (no duplicate row).
+	require.NoError(t, repo.Upsert(ctx, "kasoa", "Kasoa Polyclinic (updated)", docs[0]))
+	n2, err := repo.Count(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 2, n2)
 }

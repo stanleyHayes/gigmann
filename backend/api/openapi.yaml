@@ -39,6 +39,38 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/facilities/search:
+    get:
+      operationId: searchFacilities
+      summary: Resolve a natural-language phrase to facilities via vector similarity
+      tags: [facilities]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 5
+      responses:
+        '200':
+          description: Ranked facility matches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacilitySearchResults'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/brief:
     get:
       operationId: getBrief
@@ -368,6 +400,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Facility'
+
+    FacilityMatch:
+      type: object
+      required: [facilityId, name, score]
+      properties:
+        facilityId:
+          type: string
+        name:
+          type: string
+        score:
+          type: number
+          format: double
+          description: Cosine similarity in [0,1]; 1 is identical.
+    FacilitySearchResults:
+      type: object
+      required: [query, matches]
+      properties:
+        query:
+          type: string
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/FacilityMatch'
 
     Brief:
       type: object

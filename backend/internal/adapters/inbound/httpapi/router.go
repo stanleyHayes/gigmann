@@ -49,6 +49,7 @@ type Deps struct {
 	Approvals      *app.ApprovalService
 	Tasks          *app.TaskService
 	Ask            ports.QuestionAnswerer
+	Search         *app.FacilitySearchService
 	Tokens         ports.TokenService
 	Logger         *slog.Logger
 	CORSOrigins    []string
@@ -64,6 +65,7 @@ type Server struct {
 	approvals      *app.ApprovalService
 	tasks          *app.TaskService
 	ask            ports.QuestionAnswerer
+	search         *app.FacilitySearchService
 }
 
 // Compile-time guarantee that Server satisfies the generated contract.
@@ -89,7 +91,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Get("/readyz", writeReady)
 	r.Handle("/metrics", metricsHandler(metricsReg))
 
-	srv := &Server{facilities: d.Facilities, facilityDetail: d.FacilityDetail, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask}
+	srv := &Server{facilities: d.Facilities, facilityDetail: d.FacilityDetail, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask, search: d.Search}
 	return HandlerFromMux(NewStrictHandler(srv, []StrictMiddlewareFunc{requireAuth()}), r)
 }
 
@@ -211,6 +213,28 @@ func (s *Server) GetMetrics(ctx context.Context, _ GetMetricsRequestObject) (Get
 		return GetMetrics500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
 	}
 	return GetMetrics200JSONResponse(toAPINetworkMetrics(n)), nil
+}
+
+// SearchFacilities resolves a natural-language phrase to facilities via vector
+// similarity (GEC-13). Read-only; never triggers a side effect.
+func (s *Server) SearchFacilities(ctx context.Context, request SearchFacilitiesRequestObject) (SearchFacilitiesResponseObject, error) {
+	limit := 0
+	if request.Params.Limit != nil {
+		limit = *request.Params.Limit
+	}
+	matches, err := s.search.Resolve(ctx, request.Params.Q, limit)
+	if err != nil {
+		return SearchFacilities500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr // mapped to 500; detail not leaked
+	}
+	return SearchFacilities200JSONResponse(toAPIFacilitySearch(request.Params.Q, matches)), nil
+}
+
+func toAPIFacilitySearch(query string, matches []app.FacilityMatch) FacilitySearchResults {
+	out := make([]FacilityMatch, 0, len(matches))
+	for _, m := range matches {
+		out = append(out, FacilityMatch{FacilityId: m.FacilityID, Name: m.Name, Score: m.Score})
+	}
+	return FacilitySearchResults{Query: query, Matches: out}
 }
 
 // ListApprovals returns the approvals routed to the executive.

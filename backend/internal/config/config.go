@@ -29,6 +29,8 @@ type Config struct {
 	RedisURL           string
 	AnthropicAPIKey    string
 	AnthropicModel     string
+	VoyageAPIKey       string
+	VoyageModel        string
 	JWTSecret          string
 	CORSAllowedOrigins []string
 }
@@ -42,6 +44,8 @@ func Load() (Config, error) {
 		RedisURL:        os.Getenv("REDIS_URL"),
 		AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),
 		AnthropicModel:  getEnv("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+		VoyageAPIKey:    os.Getenv("VOYAGE_API_KEY"),
+		VoyageModel:     getEnv("VOYAGE_MODEL", "voyage-3.5-lite"),
 	}
 
 	port, err := strconv.Atoi(getEnv("HTTP_PORT", "8080"))

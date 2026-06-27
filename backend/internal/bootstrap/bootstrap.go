@@ -17,11 +17,13 @@ import (
 	"github.com/xcreativs/gigmann/internal/adapters/inbound/httpapi"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/anthropic"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/audit"
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/localembedder"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/localnarrator"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/memory"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/passwordhash"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/postgres"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/token"
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/voyage"
 	"github.com/xcreativs/gigmann/internal/app"
 	"github.com/xcreativs/gigmann/internal/config"
 	signalengine "github.com/xcreativs/gigmann/internal/core/signal"
@@ -46,6 +48,7 @@ const (
 type repos struct {
 	facilities ports.FacilityRepository
 	metrics    ports.MetricsRepository
+	embeddings ports.FacilityEmbeddingRepository
 	users      ports.UserRepository
 	refresh    ports.RefreshTokenStore
 	approvals  ports.ApprovalRepository
@@ -129,6 +132,24 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		logger.Info("no ANTHROPIC_API_KEY set — using the deterministic local narrator")
 	}
 
+	// Embedder: Voyage when configured, else the deterministic local fallback.
+	var embedder ports.Embedder
+	if cfg.VoyageAPIKey != "" {
+		embedder = voyage.NewEmbedder(cfg.VoyageAPIKey, cfg.VoyageModel)
+		logger.Info("using Voyage embeddings", "model", cfg.VoyageModel)
+	} else {
+		embedder = localembedder.New()
+		logger.Info("no VOYAGE_API_KEY set — using the deterministic local embedder")
+	}
+	// Best-effort first-run embedding of facilities: NL search degrades to empty
+	// if this fails, but it never blocks startup.
+	if embedded, eerr := app.SeedFacilityEmbeddings(ctx, embedder, r.embeddings, net.Facilities); eerr != nil {
+		logger.Warn("facility embedding seed failed; NL facility search disabled until retried", "err", eerr)
+	} else if embedded {
+		logger.Info("seeded facility embeddings", "facilities", len(net.Facilities))
+	}
+	searchSvc := app.NewFacilitySearchService(embedder, r.embeddings, net.Facilities)
+
 	briefSvc := app.NewBriefService(engine, narrator, briefTopN)
 	input := signalengine.Input{
 		AsOf: time.Now().UTC(), Facilities: net.Facilities, Metrics: net.Metrics,
@@ -161,6 +182,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		Approvals:      approvalSvc,
 		Tasks:          taskSvc,
 		Ask:            askSvc,
+		Search:         searchSvc,
 		Tokens:         tokens,
 		Logger:         logger,
 		CORSOrigins:    cfg.CORSAllowedOrigins,
@@ -178,6 +200,7 @@ func selectRepos(
 		return repos{
 			facilities: memory.NewFacilityRepo(net.Facilities...),
 			metrics:    memory.NewMetricsRepo(net.Metrics...),
+			embeddings: memory.NewFacilityEmbeddingRepo(),
 			users:      memory.NewUserRepo(accounts...),
 			refresh:    memory.NewRefreshStore(),
 			approvals:  memory.NewApprovalRepo(net.Approvals...),
@@ -208,6 +231,7 @@ func selectRepos(
 	return repos{
 		facilities: postgres.NewFacilityRepo(pool),
 		metrics:    postgres.NewMetricsRepo(pool),
+		embeddings: postgres.NewFacilityEmbeddingRepo(pool),
 		users:      postgres.NewUserRepo(pool),
 		refresh:    postgres.NewRefreshRepo(pool),
 		approvals:  postgres.NewApprovalRepo(pool),
