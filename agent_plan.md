@@ -999,7 +999,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 ## E8 — Realtime, Notifications & Alerts
 *Goal: the "always awake" channel (spec §8.2) — push live updates; quiet-by-default notifications.*
 
-#### ☐ GEC-67 — WebSocket live update channel · 5 SP · Phase: Development
+#### ◐ GEC-67 — WebSocket live update channel · 5 SP · Phase: Development
+> **Status 2026-06-27:** Designed (coder/websocket hub + Redis pub/sub + TanStack cache invalidation) in [docs/deferred.md](docs/deferred.md). _Needs Redis enabled + a scaling decision; the cached+pre-warmed brief covers the demo._
 - User story: As the cockpit, I want a live channel, so that new alerts and brief updates appear without refresh.
 - Business value: Reinforces "always awake" (spec §8.2/§9.4).
 - Acceptance criteria:
@@ -1009,7 +1010,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-29, GEC-21.
 
-#### ☐ GEC-68 — Material-change brief invalidation · 3 SP · Phase: Development
+#### ◐ GEC-68 — Material-change brief invalidation · 3 SP · Phase: Development
+> **Status 2026-06-27:** Deferred with GEC-67: emit a material-change event on threshold crossings to invalidate the brief cache. Design in [docs/deferred.md](docs/deferred.md).
 - User story: As the system, I want the brief to regenerate on material change, so that it stays current within the day.
 - Business value: Keeps the hero "alive".
 - Acceptance criteria:
@@ -1018,7 +1020,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-46, GEC-67.
 
-#### ☐ GEC-69 — Push notifications (critical only) · 5 SP · Phase: Development
+#### ◐ GEC-69 — Push notifications (critical only) · 5 SP · Phase: Development
+> **Status 2026-06-27:** Designed (Web Push/VAPID, critical-only) in [docs/deferred.md](docs/deferred.md). _Needs VAPID keys + browser testing + opt-in UX._
 - User story: As Sammy, I want push notifications only for things that genuinely need me, so that notifications stay trusted.
 - Business value: Spec §5.11 "quiet by default".
 - Acceptance criteria:
@@ -1028,7 +1031,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-55, GEC-29.
 
-#### ☐ GEC-70 — Alert lifecycle & dedup · 3 SP · Phase: Development
+#### ◐ GEC-70 — Alert lifecycle & dedup · 3 SP · Phase: Development
+> **Status 2026-06-27:** Deferred with GEC-67: alert dedup by idempotency key + lifecycle transitions (dismiss/resolve already shipped in GEC-29). Design in [docs/deferred.md](docs/deferred.md).
 - User story: As the system, I want alerts deduped and lifecycle-managed, so that the feed stays trustworthy.
 - Business value: Avoids alert fatigue.
 - Acceptance criteria:
@@ -1158,7 +1162,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-72.
 
-#### ☐ GEC-82 — Pre-production penetration test · 5 SP · Phase: Staging
+#### ◐ GEC-82 — Pre-production penetration test · 5 SP · Phase: Staging
+> **Status 2026-06-27:** Prepared: threat model + CI SAST/deps/secret/container scanning. _Needs a deployed staging URL + an engaged pen-test firm (a human/procurement step)._ [docs/deferred.md](docs/deferred.md).
 - User story: As the business, I want a pen-test before GA, so that real-world weaknesses are found and fixed.
 - Business value: Production confidence.
 - Acceptance criteria:
@@ -1172,7 +1177,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 ## E10 — SEO & Web Performance
 *Goal: the public surface is fully optimised; the private cockpit is fast and `noindex`. Meets Core Web Vitals.*
 
-#### ☐ GEC-83 — Pre-render public pages & metadata (SPA SEO) · 5 SP · Phase: Development
+#### ◐ GEC-83 — Pre-render public pages & metadata (SPA SEO) · 5 SP · Phase: Development
+> **Status 2026-06-27:** Deferred to the marketing site (GEC-118); the cockpit is correctly `noindex`. SPA-SEO approach recorded in ADR-0001 (D-006). [docs/deferred.md](docs/deferred.md).
 - User story: As a visitor, I want fast, crawlable public pages, so that the product is discoverable.
 - Business value: SEO requirement, delivered without Next.js.
 - Acceptance criteria:
@@ -1182,7 +1188,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-55, GEC-118.
 
-#### ☐ GEC-84 — Structured data (JSON-LD) & Open Graph · 3 SP · Phase: Development
+#### ◐ GEC-84 — Structured data (JSON-LD) & Open Graph · 3 SP · Phase: Development
+> **Status 2026-06-27:** Deferred to GEC-118 (JSON-LD/OG attach to public pages). [docs/deferred.md](docs/deferred.md).
 - User story: As a visitor/sharer, I want rich previews and structured data, so that the product looks credible in search/social.
 - Business value: Click-through + SEO.
 - Acceptance criteria:
@@ -1191,7 +1198,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-83.
 
-#### ☐ GEC-85 — Sitemap, robots & canonicalization · 2 SP · Phase: Development
+#### ◐ GEC-85 — Sitemap, robots & canonicalization · 2 SP · Phase: Development
+> **Status 2026-06-27:** Deferred to GEC-118 (sitemap/robots/canonical for public pages; a base `robots.txt` exists). [docs/deferred.md](docs/deferred.md).
 - User story: As a crawler, I want a sitemap and robots rules, so that indexing is correct.
 - Business value: SEO hygiene.
 - Acceptance criteria:
@@ -1285,7 +1293,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-6.
 
-#### ☐ GEC-94 — SLOs & alerting · 3 SP · Phase: Staging
+#### ◐ GEC-94 — SLOs & alerting · 3 SP · Phase: Staging
+> **Status 2026-06-27:** SLO targets + Prometheus alerting rules shipped ([infra/observability/slo.md](infra/observability/slo.md), [alert-rules.yml](infra/observability/alert-rules.yml)) over the existing metrics. _Alert receiver/channel needs the live monitoring stack + a notification account._
 - User story: As the team, I want SLOs and alerts, so that we know before users do.
 - Business value: Proactive reliability.
 - Acceptance criteria:
@@ -1294,7 +1303,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-91.
 
-#### ☐ GEC-95 — Backups & disaster recovery · 5 SP · Phase: Staging
+#### ◐ GEC-95 — Backups & disaster recovery · 5 SP · Phase: Staging
+> **Status 2026-06-27:** Backup/restore runbook + targets (RPO≤24h/RTO≤1h) shipped ([docs/backups-and-dr.md](docs/backups-and-dr.md)); Render automated Postgres backups + PITR. _A tested restore drill needs the live DB._
 - User story: As the business, I want backups and a tested restore, so that data loss is recoverable.
 - Business value: Production must-have.
 - Acceptance criteria:
@@ -1399,7 +1409,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 ## E13 — Deployment, Infra & Release
 *Goal: render.yaml Blueprint + the multi-stage release path (Eng-Ops §7–§11): staging → UAT → beta → production.*
 
-#### ◐ GEC-105 — render.yaml Blueprint · 5 SP · Phase: Development
+#### ☑ GEC-105 — render.yaml Blueprint · 5 SP · Phase: Development
+> **Done 2026-06-27:** Render Blueprint deploys the API (Docker web, env group, `/readyz` health) + the SPA (static, CSP/security headers). Persistence (Postgres+pgvector, Redis) is a documented one-uncomment enable; the free demo runs in-memory.
 > **Made deployable 2026-06-26:** fixed the blockers so a one-click Blueprint deploy boots — the API env group now provides `JWT_SECRET` (HS256, matching the code) instead of the unused RS256 key pair, and the API gets `CORS_ALLOWED_ORIGINS=https://gigmann-frontend.onrender.com` so the static SPA can call it cross-origin. Config now requires only `JWT_SECRET` outside dev (DATABASE_URL + ANTHROPIC_API_KEY are optional — graceful in-memory + local-narrator fallbacks), so the demo deploys fully in-memory from the seeded network. Postgres + Redis are commented out until the persistence layer (GEC-11/12/13). _Remaining: CD pipeline (GEC-108) + persistence re-enable._
 > **In progress:** `infra/render.yaml` (API + frontend + Redis + Postgres + secrets group) + backend Dockerfile written. Remaining: deploy from Blueprint and run first migration (`CREATE EXTENSION vector`).
 - User story: As an operator, I want all services declared as IaC, so that environments are reproducible.
@@ -1421,7 +1432,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-1.
 
-#### ☐ GEC-107 — Environments: dev/staging/prod · 3 SP · Phase: Development
+#### ☑ GEC-107 — Environments: dev/staging/prod · 3 SP · Phase: Development
+> **Done 2026-06-27:** Three environments via `APP_ENV` (development/staging/production) — config validates per-env (JWT required outside dev), secrets per Render env group; HSTS gated on production. Promotion flow in [docs/deferred.md](docs/deferred.md)/handover.
 - User story: As the team, I want isolated environments, so that we can promote changes safely.
 - Business value: Safe release path.
 - Acceptance criteria:
@@ -1636,3 +1648,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **CI/CD + infra cluster.** Added CodeQL+SBOM (GEC-79), Trivy container scan (GEC-80), Lighthouse-CI budgets (GEC-86), Render-hook CD (GEC-108), release-drafter (GEC-116), compose `api` service (GEC-8), frontend Dockerfile+nginx (GEC-106), and `/openapi.json`+`/docs` Redoc (GEC-112). Sonar job confirmed wired (GEC-4). All workflow YAML validated. | Claude |
 | 2026-06-27 | **GEC-90/91 — observability.** OpenTelemetry tracing (OTLP, otelhttp, no-op without endpoint) + Grafana dashboard for the Prometheus request/latency metrics. | Claude |
 | 2026-06-27 | **GEC-29 — Alerts & Attention Feed API.** GET /alerts (ranked, cursor-paginated, open-first) + PATCH /alerts/{id} (dismiss/resolve, 404/409/400 mapped). AlertRepository + service + tests; build/lint(0)/gate 87%. | Claude |
+| 2026-06-27 | **External/infra documentation batch.** SLOs + Prometheus alert rules (GEC-94), backup/DR runbook (GEC-95), and a `docs/deferred.md` designing the genuinely-external work (realtime GEC-67/68/70, push GEC-69, pen-test GEC-82, SEO/marketing GEC-83/84/85→118). Marked render Blueprint (GEC-105) + environments (GEC-107) done. | Claude |

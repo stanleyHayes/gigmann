@@ -1,0 +1,29 @@
+# Prometheus alerting rules for the Gigmann API (GEC-94).
+# Load with `rule_files` in prometheus.yml; route to a receiver in Alertmanager.
+groups:
+  - name: gigmann-api
+    rules:
+      - alert: ApiDown
+        expr: up{job="gigmann-api"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "API target down"
+          description: "The Gigmann API has been unreachable for 2m."
+      - alert: HighErrorRate
+        expr: |
+          100 * sum(rate(http_requests_total{status=~"5.."}[5m]))
+              / clamp_min(sum(rate(http_requests_total[5m])), 1) > 5
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "5xx error rate > 5%"
+          description: "API 5xx error rate has exceeded the 99% availability SLO budget."
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m]))) > 1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "p95 latency > 1s"
+          description: "API p95 latency breaches the latency SLO (excludes the cached brief warm-up)."
