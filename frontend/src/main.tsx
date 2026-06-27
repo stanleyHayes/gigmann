@@ -7,6 +7,9 @@ import ReactDOM from 'react-dom/client'
 
 import { App } from './App'
 import { ReloadPrompt } from './app/ReloadPrompt'
+import { initErrorTracking } from './observability/sentry'
+
+initErrorTracking()
 
 const rootElement = document.getElementById('root')
 if (!rootElement) throw new Error('root element not found')

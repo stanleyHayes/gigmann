@@ -1295,7 +1295,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-90.
 
-#### ◐ GEC-92 — Error tracking (Sentry) · 2 SP · Phase: Development
+#### ☑ GEC-92 — Error tracking (Sentry) · 2 SP · Phase: Development
+> **Done 2026-06-27:** Error tracking on **both** tiers, gated on a DSN: backend `sentry-go` (no-op without `SENTRY_DSN`) + panic-reporting middleware; frontend `initErrorTracking` **lazily** loads `@sentry/react` only when `VITE_SENTRY_DSN` is set (a separate chunk — the SDK never ships in the default build). Tested.
 > **Started 2026-06-27:** **Backend error tracking** wired: `observability.SetupErrorTracking` inits Sentry gated on `SENTRY_DSN` (empty → SDK disabled, zero-overhead), flushed on shutdown; a `sentryMiddleware` (after the chi Recoverer, Repanic→500) reports handler panics. _Frontend `@sentry/react` (into the existing RouteError boundary) is deferred to avoid bundle bloat without a DSN — wire it when a project DSN exists._
 - User story: As the team, I want client + server error tracking, so that we catch issues fast.
 - Business value: Reliability.
@@ -1691,3 +1692,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-63 — Reports screen.** Generate + download a Markdown network report (brief + KPIs); nav + lazy route + tests. | Claude |
 | 2026-06-27 | **GEC-51 — inline brief actions complete.** POST /tasks (TaskService.Create, source-traced) + 'Turn into task' button on brief items → My Day, with toast. Backend+frontend tests; gates green. | Claude |
 | 2026-06-27 | **GEC-91 — AI cost/usage metrics.** ai_requests/ai_tokens(input/output)/ai_request_duration on /metrics, recorded by the Anthropic adapter. | Claude |
+| 2026-06-27 | **GEC-92 — error tracking complete.** Frontend Sentry added (lazy, VITE_SENTRY_DSN-gated → no bundle bloat without a DSN) alongside the backend sentry-go. | Claude |
