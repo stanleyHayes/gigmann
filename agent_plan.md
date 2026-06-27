@@ -1421,7 +1421,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-3, GEC-100.
 
-#### ◐ GEC-104 — Mutation testing (core) · 3 SP · Phase: QA
+#### ☑ GEC-104 — Mutation testing (core) · 3 SP · Phase: QA
+> **Done 2026-06-27:** Mutation testing wired (`backend/.gremlins.yaml` + `make mutation-test`) and **demonstrated working**: `gremlins unleash ./internal/core/money/` runs and reports per-mutant KILLED/LIVED (arithmetic/boundary/negation mutators) — the domain's arithmetic mutants are killed by the unit tests; a few display-formatting boundary mutants survive (acceptable for the cedis String() formatter). Intended for nightly/manual runs, not the per-push gate.
 > **Status 2026-06-27:** Mutation-testing harness ready: `backend/.gremlins.yaml` (arithmetic/boundary/negation/… mutators scoped to the domain) + `make mutation-test` over `internal/core/...`. _Slow; intended for a nightly/manual run, not the per-push gate._
 - User story: As the team, I want mutation testing on the signal engine, so that tests are meaningful, not just coverage theatre.
 - Business value: Real confidence in the math.
@@ -1693,3 +1694,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-51 — inline brief actions complete.** POST /tasks (TaskService.Create, source-traced) + 'Turn into task' button on brief items → My Day, with toast. Backend+frontend tests; gates green. | Claude |
 | 2026-06-27 | **GEC-91 — AI cost/usage metrics.** ai_requests/ai_tokens(input/output)/ai_request_duration on /metrics, recorded by the Anthropic adapter. | Claude |
 | 2026-06-27 | **GEC-92 — error tracking complete.** Frontend Sentry added (lazy, VITE_SENTRY_DSN-gated → no bundle bloat without a DSN) alongside the backend sentry-go. | Claude |
+| 2026-06-27 | **GEC-104 — mutation testing demonstrated.** gremlins runs over core/money (arithmetic mutants killed; display-formatting boundary mutants noted). Nightly/manual. | Claude |
