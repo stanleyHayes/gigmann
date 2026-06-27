@@ -66,9 +66,9 @@ export function DailyBrief({ brief, isLoading, isError, onAction, onTask }: Prop
             ) : null}
             {item.suggested_actions && item.suggested_actions.length > 0 ? (
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                {item.suggested_actions.map((action) => (
+                {item.suggested_actions.map((action, ai) => (
                   <Button
-                    key={action}
+                    key={`${action}-${ai}`}
                     size="small"
                     variant="outlined"
                     aria-label={`${action} for ${item.facility_id}`}

@@ -85,7 +85,7 @@ export function AskScreen() {
             </Typography>
             {ask.data.citations && ask.data.citations.length > 0 ? (
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mt: 2 }}>
-                {ask.data.citations.map((c) => (
+                {[...new Set(ask.data.citations)].map((c) => (
                   <Chip key={c} size="small" label={c} />
                 ))}
               </Stack>

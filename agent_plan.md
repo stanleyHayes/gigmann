@@ -839,7 +839,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + sign-off that "the magic lands".
 - Dependencies: GEC-51, GEC-16.
 
-#### ◐ GEC-53 — Demo-narrative e2e (§3.3) · 5 SP · Phase: QA
+#### ☑ GEC-53 — Demo-narrative e2e (§3.3) · 5 SP · Phase: QA
+> **Done 2026-06-27:** Playwright demo-narrative e2e (login → brief worst-first → network → ask → my-day → approvals) **runs and passes** end-to-end against the real stack (in-memory API + Vite, Chromium); `playwright.config.ts` starts both servers; the `E2E` CI workflow runs it on clean runners. Locally verified (1 passed). The run surfaced + fixed a real duplicate-React-key bug (duplicate Ask citations).
 > **Status 2026-06-27:** Playwright demo-narrative e2e (`frontend/e2e/demo.spec.ts`) — login→brief(worst-first)→network→ask→my-day→approvals — with `playwright.config.ts` starting the in-memory API + Vite dev server, run by the `E2E` CI workflow (browsers installed in CI). _Authored + CI-wired; runs in CI (no local browser runtime here)._
 - User story: As the team, I want the full demo narrative automated end-to-end on a phone viewport, so that it runs flawlessly twice in a row.
 - Business value: The demo-readiness gate (spec §11.2).
@@ -1399,7 +1400,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-54.
 
-#### ◐ GEC-101 — E2E tests (Playwright) · 5 SP · Phase: QA
+#### ☑ GEC-101 — E2E tests (Playwright) · 5 SP · Phase: QA
+> **Done 2026-06-27:** Playwright harness (`@playwright/test` + config + `.github/workflows/e2e.yml`, Chromium) with the demo spec as the first e2e — **runs green** locally (1 passed, ~11–17s) and in CI.
 > **Status 2026-06-27:** Playwright harness shipped (`@playwright/test` + `playwright.config.ts` + `.github/workflows/e2e.yml`, Chromium); the demo spec is the first e2e. _More flows can be added; runs in CI._
 - User story: As the team, I want e2e coverage of critical journeys, so that the demo path can't silently break.
 - Business value: Protects the close.
@@ -1709,3 +1711,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-32/64 — delegation & follow-through.** POST /tasks takes assigned_to+due_date; seed has manager-assigned (one stalled) tasks; a Delegation UI groups them by assignee with a stalled flag. Backend+frontend tests; lint(0). | Claude |
 | 2026-06-27 | **GEC-70 — alert lifecycle & dedup.** Feed collapses same facility+type to the most recent; lifecycle already shipped in GEC-29. | Claude |
 | 2026-06-27 | **GEC-67/68 — realtime + brief invalidation.** WebSocket hub (/api/v1/ws, ports.Notifier) + useLiveUpdates; cached brief notifies 'brief.refreshed' on refresh → clients invalidate. Backend+frontend tests; lint(0). | Claude |
+| 2026-06-27 | **GEC-53/101 — e2e runs green.** Playwright demo narrative passes end-to-end against the live stack; the run caught + fixed a duplicate-key bug (deduped Ask citations, index-safe action keys). | Claude |
