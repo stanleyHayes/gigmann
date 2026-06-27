@@ -67,3 +67,35 @@ func TestBriefLeadsWithPlantedCriticalStory(t *testing.T) {
 	}
 	assert.True(t, hasTafo, "the planted Tafo story surfaces")
 }
+
+// TestBriefFaithfullyReflectsTopSignals: every brief item must correspond to one
+// of the engine's top-N signals with the SAME severity — the narrator may phrase
+// and order, but never invent an item or change a severity.
+func TestBriefFaithfullyReflectsTopSignals(t *testing.T) {
+	asOf := time.Date(2026, 6, 24, 0, 0, 0, 0, time.UTC)
+	net := seed.Generate(42, asOf, seed.DefaultDays)
+	engine := signal.Default(signal.DefaultThresholds())
+	input := signal.Input{
+		AsOf: net.Metrics[0].Date, Facilities: net.Facilities, Metrics: net.Metrics,
+		Inventory: net.Inventory, Staff: net.Staff,
+	}
+	const topN = 5
+	signals := engine.Run(input)
+	allowed := make(map[string]severity.Severity)
+	for i, sig := range signals {
+		if i >= topN {
+			break
+		}
+		allowed[sig.FacilityID] = sig.Severity
+	}
+
+	svc := app.NewBriefService(engine, localnarrator.New(), topN)
+	b, err := svc.Generate(context.Background(), input)
+	require.NoError(t, err)
+	require.NotEmpty(t, b.Items)
+	for _, it := range b.Items {
+		sev, ok := allowed[it.FacilityID]
+		require.Truef(t, ok, "brief item %q must correspond to a top-%d signal", it.FacilityID, topN)
+		assert.Equalf(t, sev, it.Severity, "brief preserves the signal severity for %q", it.FacilityID)
+	}
+}

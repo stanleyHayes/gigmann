@@ -823,7 +823,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-50, GEC-45, GEC-31.
 
-#### ◐ GEC-52 — Brief-quality acceptance harness · 8 SP · Phase: QA
+#### ☑ GEC-52 — Brief-quality acceptance harness · 8 SP · Phase: QA
+> **Done 2026-06-27:** Brief-quality acceptance harness asserts the core contract across multiple synthetic networks: **worst-first** ordering, **facility-grounding** (no invented entities), the planted Tafo critical story leads, and — added now — **fidelity**: every brief item corresponds to one of the engine's top-N signals with the *same* severity (the narrator phrases/orders but never invents an item or changes a severity).
 > **Started 2026-06-27:** Brief-quality acceptance harness (`brief_quality_test.go`) runs the full brief pipeline (signal engine + deterministic narrator) over multiple synthetic networks and asserts the core contract: items are **worst-first** (severity rank non-increasing), **every item references a real facility** (no invented entities/figures — the grounding promise), headlines/prose non-empty, and the **planted Tafo critical story leads** for the Appendix-C demo seed. _Per-scenario golden files could expand it further._
 > **Started 2026-06-26:** a live, build-tagged integration test verifies the core grounding guardrail (no invented facilities; supplied figures only). _Remaining: the full multi-scenario harness (numeric-accuracy checks, prompt-injection resistance, regression fixtures)._
 - User story: As the team, I want an automated check that the brief meets its four qualities, so that we protect the hero.
@@ -1697,3 +1698,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-92 — error tracking complete.** Frontend Sentry added (lazy, VITE_SENTRY_DSN-gated → no bundle bloat without a DSN) alongside the backend sentry-go. | Claude |
 | 2026-06-27 | **GEC-104 — mutation testing demonstrated.** gremlins runs over core/money (arithmetic mutants killed; display-formatting boundary mutants noted). Nightly/manual. | Claude |
 | 2026-06-27 | **GEC-88 — accessibility.** axe sweep extended to the Network/KPIs/My-Day/Approvals screens (zero violations) on top of the hero surfaces + Lighthouse-a11y gate. | Claude |
+| 2026-06-27 | **GEC-52 — brief-quality harness complete.** Added a fidelity check (brief items == engine top-N signals, severity preserved) to the worst-first + grounding + planted-story assertions. | Claude |
