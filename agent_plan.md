@@ -1244,7 +1244,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 ## E11 — Observability & Reliability
 *Goal: see, measure, and recover. The "things we might not have thought of" for running it in production.*
 
-#### ☐ GEC-90 — OpenTelemetry tracing · 5 SP · Phase: Development
+#### ☑ GEC-90 — OpenTelemetry tracing · 5 SP · Phase: Development
+> **Done 2026-06-27:** OpenTelemetry tracing in internal/observability — a TracerProvider with OTLP/HTTP exporter (endpoint from the standard OTEL_EXPORTER_OTLP_ENDPOINT), ParentBased sampler, service/env resource, W3C trace-context + baggage propagation; the whole HTTP surface is instrumented via otelhttp. Zero-overhead no-op when no endpoint is set; graceful shutdown flush. Tested.
 - User story: As an operator, I want distributed traces, so that I can debug the brief pipeline and slow requests.
 - Business value: Fast diagnosis in prod.
 - Acceptance criteria:
@@ -1254,6 +1255,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-7.
 
 #### ◐ GEC-91 — Metrics & dashboards · 5 SP · Phase: Development
+> **Started 2026-06-27:** Prometheus /metrics exposes http_requests_total (route/method/status) + http_request_duration_seconds histograms; a Grafana dashboard (infra/observability/grafana-dashboard.json) charts request rate, 5xx error rate, and p95 latency by route. Remaining: AI token-count/cost metrics (needs the Anthropic/Voyage usage threaded through the outbound adapters via a metrics port).
 > **Started 2026-06-26:** a Prometheus `/metrics` endpoint exposes RED-ish HTTP metrics — `http_requests_total` (by method+status) and `http_request_duration_seconds` (histogram by method), via a per-router registry + middleware (client_golang). Verified live + tested. _Remaining: AI cost/token + cache-hit-rate metrics, and Grafana dashboards._
 - User story: As an operator, I want Prometheus metrics + Grafana dashboards, so that I see system health at a glance.
 - Business value: Operability.
@@ -1631,3 +1633,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-75/93/110 — security headers, readiness, feature flags.** HSTS+strict-CSP+CORP on API (+SPA CSP via Render headers, CORS PATCH); /readyz pings Postgres; FEATURE_* flags gate AI narration + facility search. Tests + lint(0), gate 88.7%. | Claude |
 | 2026-06-27 | **GEC-73/48 — input validation + AI abuse controls.** App-boundary validation (question rune-cap, preference sanitisation, strict-server body validation); per-principal Ask rate limit (20/min/user) + question cap. Tests + lint(0), gate 88.8%. | Claude |
 | 2026-06-27 | **CI/CD + infra cluster.** Added CodeQL+SBOM (GEC-79), Trivy container scan (GEC-80), Lighthouse-CI budgets (GEC-86), Render-hook CD (GEC-108), release-drafter (GEC-116), compose `api` service (GEC-8), frontend Dockerfile+nginx (GEC-106), and `/openapi.json`+`/docs` Redoc (GEC-112). Sonar job confirmed wired (GEC-4). All workflow YAML validated. | Claude |
+| 2026-06-27 | **GEC-90/91 — observability.** OpenTelemetry tracing (OTLP, otelhttp, no-op without endpoint) + Grafana dashboard for the Prometheus request/latency metrics. | Claude |
