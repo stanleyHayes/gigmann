@@ -6,15 +6,24 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { buildTheme, type ThemeMode } from '../theme'
 import { ColorModeContext, type ColorModeContextValue } from './colorMode'
+import { loadThemeMode, saveThemeMode } from './themePreference'
 
 const queryClient = new QueryClient()
 
 /** AppProviders wires data fetching, theming, and the light/dark colour mode. */
 export function AppProviders({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>('light')
+  const [mode, setMode] = useState<ThemeMode>(loadThemeMode)
 
   const colorMode = useMemo<ColorModeContextValue>(
-    () => ({ mode, toggle: () => setMode((m) => (m === 'light' ? 'dark' : 'light')) }),
+    () => ({
+      mode,
+      toggle: () =>
+        setMode((m) => {
+          const next: ThemeMode = m === 'light' ? 'dark' : 'light'
+          saveThemeMode(next)
+          return next
+        }),
+    }),
     [mode],
   )
   const theme = useMemo(() => buildTheme(mode), [mode])
