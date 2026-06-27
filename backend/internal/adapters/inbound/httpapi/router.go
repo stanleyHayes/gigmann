@@ -56,6 +56,7 @@ type Deps struct {
 	Approvals      *app.ApprovalService
 	Tasks          *app.TaskService
 	Ask            ports.QuestionAnswerer
+	Alerts         *app.AlertService
 	Search         *app.FacilitySearchService
 	Preferences    *app.PreferencesService
 	Tokens         ports.TokenService
@@ -75,6 +76,7 @@ type Server struct {
 	approvals      *app.ApprovalService
 	tasks          *app.TaskService
 	ask            ports.QuestionAnswerer
+	alerts         *app.AlertService
 	search         *app.FacilitySearchService
 	preferences    *app.PreferencesService
 }
@@ -105,7 +107,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Get("/openapi.json", openAPIHandler(logger))
 	r.Get("/docs", redocHandler())
 
-	srv := &Server{facilities: d.Facilities, facilityDetail: d.FacilityDetail, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask, search: d.Search, preferences: d.Preferences}
+	srv := &Server{facilities: d.Facilities, facilityDetail: d.FacilityDetail, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask, alerts: d.Alerts, search: d.Search, preferences: d.Preferences}
 	return HandlerFromMux(NewStrictHandler(srv, []StrictMiddlewareFunc{requireAuth()}), r)
 }
 
@@ -284,6 +286,49 @@ func toAPIFacilitySearch(query string, matches []app.FacilityMatch) FacilitySear
 		out = append(out, FacilityMatch{FacilityId: m.FacilityID, Name: m.Name, Score: m.Score})
 	}
 	return FacilitySearchResults{Query: query, Matches: out}
+}
+
+// ListAlerts returns the ranked, cursor-paginated attention feed (open alerts).
+func (s *Server) ListAlerts(ctx context.Context, request ListAlertsRequestObject) (ListAlertsResponseObject, error) {
+	cursor := ""
+	if request.Params.Cursor != nil {
+		cursor = *request.Params.Cursor
+	}
+	limit := 0
+	if request.Params.Limit != nil {
+		limit = *request.Params.Limit
+	}
+	items, next, err := s.alerts.Feed(ctx, cursor, limit)
+	if err != nil {
+		return ListAlerts500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr // mapped to 500
+	}
+	feed := AlertFeed{Alerts: make([]AlertItem, 0, len(items))}
+	for _, a := range items {
+		feed.Alerts = append(feed.Alerts, toAPIAlertItem(a))
+	}
+	if next != "" {
+		feed.NextCursor = &next
+	}
+	return ListAlerts200JSONResponse(feed), nil
+}
+
+// UpdateAlertStatus dismisses or resolves an alert (explicit, user-initiated).
+func (s *Server) UpdateAlertStatus(ctx context.Context, request UpdateAlertStatusRequestObject) (UpdateAlertStatusResponseObject, error) {
+	if request.Body == nil {
+		return UpdateAlertStatus400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
+	}
+	updated, err := s.alerts.UpdateStatus(ctx, request.AlertId, alert.Status(request.Body.Status))
+	switch {
+	case errors.Is(err, ports.ErrAlertNotFound):
+		return UpdateAlertStatus404JSONResponse{NotFoundJSONResponse{Error: "not_found"}}, nil
+	case errors.Is(err, app.ErrInvalidAlertStatus):
+		return UpdateAlertStatus400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
+	case errors.Is(err, alert.ErrAlreadyTerminal):
+		return UpdateAlertStatus409JSONResponse{ConflictJSONResponse{Error: "already_decided"}}, nil
+	case err != nil:
+		return UpdateAlertStatus500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr // mapped to 500
+	}
+	return UpdateAlertStatus200JSONResponse(toAPIAlertItem(updated)), nil
 }
 
 // GetMePreferences returns the current user's personalisation preferences.
@@ -552,6 +597,10 @@ func toAPIAlertItem(a alert.Alert) AlertItem {
 		Severity: FacilityStatus(a.Severity),
 		Title:    a.Title,
 		Status:   string(a.Status),
+	}
+	if a.FacilityID != "" {
+		fid := a.FacilityID
+		out.FacilityId = &fid
 	}
 	if a.Detail != "" {
 		detail := a.Detail

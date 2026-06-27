@@ -311,6 +311,72 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/alerts:
+    get:
+      operationId: listAlerts
+      summary: The ranked, cursor-paginated attention feed (open alerts, worst first)
+      tags: [alerts]
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: The attention feed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertFeed'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/alerts/{alertId}:
+    patch:
+      operationId: updateAlertStatus
+      summary: Dismiss or resolve an alert
+      tags: [alerts]
+      parameters:
+        - name: alertId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertStatusUpdate'
+      responses:
+        '200':
+          description: The updated alert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/ask:
     post:
       operationId: postAsk
@@ -475,6 +541,24 @@ components:
           additionalProperties:
             type: number
             format: double
+
+    AlertFeed:
+      type: object
+      required: [alerts]
+      properties:
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertItem'
+        next_cursor:
+          type: string
+    AlertStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [dismissed, resolved]
 
     Brief:
       type: object
@@ -770,6 +854,8 @@ components:
       required: [id, type, severity, title, status]
       properties:
         id:
+          type: string
+        facility_id:
           type: string
         type:
           type: string

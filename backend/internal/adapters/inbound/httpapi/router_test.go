@@ -87,6 +87,7 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 	_, _ = app.SeedFacilityEmbeddings(context.Background(), emb, embRepo, net.Facilities)
 	searchSvc := app.NewFacilitySearchService(emb, embRepo, net.Facilities)
 	preferencesSvc := app.NewPreferencesService(users)
+	alertSvc := app.NewAlertService(memory.NewAlertRepo(net.Alerts...))
 
 	return httpapi.NewRouter(httpapi.Deps{
 		Facilities:     app.NewFacilityService(repo),
@@ -97,6 +98,7 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 		Approvals:      approvalSvc,
 		Tasks:          taskSvc,
 		Ask:            askSvc,
+		Alerts:         alertSvc,
 		Search:         searchSvc,
 		Preferences:    preferencesSvc,
 		Tokens:         tokens,
@@ -600,4 +602,40 @@ func TestOpenAPIDocsArePublic(t *testing.T) {
 	require.Equal(t, http.StatusOK, docsRec.Code)
 	assert.Contains(t, docsRec.Body.String(), "redoc")
 	assert.Contains(t, docsRec.Header().Get("Content-Security-Policy"), "cdn.redoc.ly")
+}
+
+func TestListAlertsFeed(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	rec := serveAuth(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl),
+		http.MethodGet, "/api/v1/alerts?limit=50")
+	require.Equal(t, http.StatusOK, rec.Code)
+	var feed httpapi.AlertFeed
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &feed))
+	require.NotEmpty(t, feed.Alerts, "the seeded network surfaces open alerts")
+}
+
+func TestUpdateAlertStatusDismiss(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	router := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+
+	feedRec := authedRequest(t, router, http.MethodGet, "/api/v1/alerts?limit=50", "")
+	require.Equal(t, http.StatusOK, feedRec.Code)
+	var feed httpapi.AlertFeed
+	require.NoError(t, json.Unmarshal(feedRec.Body.Bytes(), &feed))
+	require.NotEmpty(t, feed.Alerts)
+	id := feed.Alerts[0].Id
+
+	patchRec := authedRequest(t, router, http.MethodPatch, "/api/v1/alerts/"+id, `{"status":"dismissed"}`)
+	require.Equal(t, http.StatusOK, patchRec.Code)
+	var updated httpapi.AlertItem
+	require.NoError(t, json.Unmarshal(patchRec.Body.Bytes(), &updated))
+	assert.Equal(t, "dismissed", updated.Status)
+
+	// Re-dismissing a terminal alert → 409.
+	again := authedRequest(t, router, http.MethodPatch, "/api/v1/alerts/"+id, `{"status":"resolved"}`)
+	require.Equal(t, http.StatusConflict, again.Code)
+
+	// Unknown id → 404.
+	missing := authedRequest(t, router, http.MethodPatch, "/api/v1/alerts/ghost", `{"status":"dismissed"}`)
+	require.Equal(t, http.StatusNotFound, missing.Code)
 }

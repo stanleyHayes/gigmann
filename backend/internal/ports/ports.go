@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/xcreativs/gigmann/internal/core/alert"
 	"github.com/xcreativs/gigmann/internal/core/approval"
 	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/brief"
@@ -17,7 +18,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/intel"
 )
 
-//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore,ApprovalRepository,TaskRepository,MetricsRepository,Embedder,FacilityEmbeddingRepository,Answerer,QuestionAnswerer,AuditLogger
+//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore,ApprovalRepository,TaskRepository,AlertRepository,MetricsRepository,Embedder,FacilityEmbeddingRepository,Answerer,QuestionAnswerer,AuditLogger
 
 // ErrAccountNotFound is returned by UserRepository when no account matches.
 var ErrAccountNotFound = errors.New("ports: account not found")
@@ -125,6 +126,16 @@ type ApprovalRepository interface {
 
 // ErrTaskNotFound is returned by TaskRepository when no task matches.
 var ErrTaskNotFound = errors.New("ports: task not found")
+
+// ErrAlertNotFound is returned by AlertRepository when no alert matches.
+var ErrAlertNotFound = errors.New("ports: alert not found")
+
+// AlertRepository is a driven port for reading and updating alerts.
+type AlertRepository interface {
+	List(ctx context.Context) ([]alert.Alert, error)
+	Get(ctx context.Context, id string) (alert.Alert, error)
+	Save(ctx context.Context, a alert.Alert) error
+}
 
 // TaskRepository is a driven port for reading and updating "My Day" tasks.
 type TaskRepository interface {

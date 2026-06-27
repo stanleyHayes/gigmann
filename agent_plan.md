@@ -558,7 +558,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-14, GEC-17.
 
-#### ☐ GEC-29 — Alerts & Attention Feed API · 5 SP · Phase: Development
+#### ☑ GEC-29 — Alerts & Attention Feed API · 5 SP · Phase: Development
+> **Done 2026-06-27:** `GET /api/v1/alerts` returns the ranked, **cursor-paginated** attention feed — open alerts only, worst-first (severity → newest → id), with an opaque keyset `next_cursor`. `PATCH /api/v1/alerts/{id}` dismisses or resolves an alert (domain transitions: already-terminal → 409, unknown → 404, non-terminal target → 400). Backed by a new `AlertRepository` + in-memory adapter seeded from the network; resolved/dismissed alerts drop off the feed. Service + endpoint tests.
 - User story: As the cockpit, I want a prioritised, dismissible attention feed, so that exceptions surface and resolve.
 - Business value: Spec §5.5 attention feed.
 - Acceptance criteria:
@@ -1634,3 +1635,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-73/48 — input validation + AI abuse controls.** App-boundary validation (question rune-cap, preference sanitisation, strict-server body validation); per-principal Ask rate limit (20/min/user) + question cap. Tests + lint(0), gate 88.8%. | Claude |
 | 2026-06-27 | **CI/CD + infra cluster.** Added CodeQL+SBOM (GEC-79), Trivy container scan (GEC-80), Lighthouse-CI budgets (GEC-86), Render-hook CD (GEC-108), release-drafter (GEC-116), compose `api` service (GEC-8), frontend Dockerfile+nginx (GEC-106), and `/openapi.json`+`/docs` Redoc (GEC-112). Sonar job confirmed wired (GEC-4). All workflow YAML validated. | Claude |
 | 2026-06-27 | **GEC-90/91 — observability.** OpenTelemetry tracing (OTLP, otelhttp, no-op without endpoint) + Grafana dashboard for the Prometheus request/latency metrics. | Claude |
+| 2026-06-27 | **GEC-29 — Alerts & Attention Feed API.** GET /alerts (ranked, cursor-paginated, open-first) + PATCH /alerts/{id} (dismiss/resolve, 404/409/400 mapped). AlertRepository + service + tests; build/lint(0)/gate 87%. | Claude |

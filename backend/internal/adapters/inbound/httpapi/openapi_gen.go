@@ -23,6 +23,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AlertStatusUpdateStatus.
+const (
+	Dismissed AlertStatusUpdateStatus = "dismissed"
+	Resolved  AlertStatusUpdateStatus = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the AlertStatusUpdateStatus enum.
+func (e AlertStatusUpdateStatus) Valid() bool {
+	switch e {
+	case Dismissed:
+		return true
+	case Resolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ApprovalStatus.
 const (
 	Approved ApprovalStatus = "approved"
@@ -248,10 +266,17 @@ func (e TaskStatusRequestStatus) Valid() bool {
 	}
 }
 
+// AlertFeed defines model for AlertFeed.
+type AlertFeed struct {
+	Alerts     []AlertItem `json:"alerts"`
+	NextCursor *string     `json:"next_cursor,omitempty"`
+}
+
 // AlertItem defines model for AlertItem.
 type AlertItem struct {
-	Detail *string `json:"detail,omitempty"`
-	Id     string  `json:"id"`
+	Detail     *string `json:"detail,omitempty"`
+	FacilityId *string `json:"facility_id,omitempty"`
+	Id         string  `json:"id"`
 
 	// Severity AI-assessed operational health signal.
 	Severity FacilityStatus `json:"severity"`
@@ -259,6 +284,14 @@ type AlertItem struct {
 	Title    string         `json:"title"`
 	Type     string         `json:"type"`
 }
+
+// AlertStatusUpdate defines model for AlertStatusUpdate.
+type AlertStatusUpdate struct {
+	Status AlertStatusUpdateStatus `json:"status"`
+}
+
+// AlertStatusUpdateStatus defines model for AlertStatusUpdate.Status.
+type AlertStatusUpdateStatus string
 
 // Answer defines model for Answer.
 type Answer struct {
@@ -533,11 +566,20 @@ type NotFound = Error
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
 
+// ListAlertsParams defines parameters for ListAlerts.
+type ListAlertsParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // SearchFacilitiesParams defines parameters for SearchFacilities.
 type SearchFacilitiesParams struct {
 	Q     string `form:"q" json:"q"`
 	Limit *int   `form:"limit,omitempty" json:"limit,omitempty"`
 }
+
+// UpdateAlertStatusJSONRequestBody defines body for UpdateAlertStatus for application/json ContentType.
+type UpdateAlertStatusJSONRequestBody = AlertStatusUpdate
 
 // DecideApprovalJSONRequestBody defines body for DecideApproval for application/json ContentType.
 type DecideApprovalJSONRequestBody = DecisionRequest
@@ -565,6 +607,12 @@ type UpdateTaskStatusJSONRequestBody = TaskStatusRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// The ranked, cursor-paginated attention feed (open alerts, worst first)
+	// (GET /api/v1/alerts)
+	ListAlerts(w http.ResponseWriter, r *http.Request, params ListAlertsParams)
+	// Dismiss or resolve an alert
+	// (PATCH /api/v1/alerts/{alertId})
+	UpdateAlertStatus(w http.ResponseWriter, r *http.Request, alertId string)
 	// Approvals routed to the executive
 	// (GET /api/v1/approvals)
 	ListApprovals(w http.ResponseWriter, r *http.Request)
@@ -627,6 +675,18 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// The ranked, cursor-paginated attention feed (open alerts, worst first)
+// (GET /api/v1/alerts)
+func (_ Unimplemented) ListAlerts(w http.ResponseWriter, r *http.Request, params ListAlertsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Dismiss or resolve an alert
+// (PATCH /api/v1/alerts/{alertId})
+func (_ Unimplemented) UpdateAlertStatus(w http.ResponseWriter, r *http.Request, alertId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // Approvals routed to the executive
 // (GET /api/v1/approvals)
@@ -750,6 +810,78 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListAlerts operation middleware
+func (siw *ServerInterfaceWrapper) ListAlerts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAlertsParams
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAlerts(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateAlertStatus operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAlertStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "alertId" -------------
+	var alertId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "alertId", chi.URLParam(r, "alertId"), &alertId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "alertId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAlertStatus(w, r, alertId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // ListApprovals operation middleware
 func (siw *ServerInterfaceWrapper) ListApprovals(w http.ResponseWriter, r *http.Request) {
@@ -1199,6 +1331,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/alerts", wrapper.ListAlerts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/alerts/{alertId}", wrapper.UpdateAlertStatus)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/approvals", wrapper.ListApprovals)
 	})
 	r.Group(func(r chi.Router) {
@@ -1270,6 +1408,149 @@ type InternalErrorJSONResponse Error
 type NotFoundJSONResponse Error
 
 type UnauthorizedJSONResponse Error
+
+type ListAlertsRequestObject struct {
+	Params ListAlertsParams
+}
+
+type ListAlertsResponseObject interface {
+	VisitListAlertsResponse(w http.ResponseWriter) error
+}
+
+type ListAlerts200JSONResponse AlertFeed
+
+func (response ListAlerts200JSONResponse) VisitListAlertsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAlerts401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListAlerts401JSONResponse) VisitListAlertsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAlerts500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListAlerts500JSONResponse) VisitListAlertsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAlertStatusRequestObject struct {
+	AlertId string `json:"alertId"`
+	Body    *UpdateAlertStatusJSONRequestBody
+}
+
+type UpdateAlertStatusResponseObject interface {
+	VisitUpdateAlertStatusResponse(w http.ResponseWriter) error
+}
+
+type UpdateAlertStatus200JSONResponse AlertItem
+
+func (response UpdateAlertStatus200JSONResponse) VisitUpdateAlertStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAlertStatus400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateAlertStatus400JSONResponse) VisitUpdateAlertStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAlertStatus401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateAlertStatus401JSONResponse) VisitUpdateAlertStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAlertStatus404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateAlertStatus404JSONResponse) VisitUpdateAlertStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAlertStatus409JSONResponse struct{ ConflictJSONResponse }
+
+func (response UpdateAlertStatus409JSONResponse) VisitUpdateAlertStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAlertStatus500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response UpdateAlertStatus500JSONResponse) VisitUpdateAlertStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type ListApprovalsRequestObject struct {
 }
@@ -2148,6 +2429,12 @@ func (response GetHealthz200JSONResponse) VisitGetHealthzResponse(w http.Respons
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// The ranked, cursor-paginated attention feed (open alerts, worst first)
+	// (GET /api/v1/alerts)
+	ListAlerts(ctx context.Context, request ListAlertsRequestObject) (ListAlertsResponseObject, error)
+	// Dismiss or resolve an alert
+	// (PATCH /api/v1/alerts/{alertId})
+	UpdateAlertStatus(ctx context.Context, request UpdateAlertStatusRequestObject) (UpdateAlertStatusResponseObject, error)
 	// Approvals routed to the executive
 	// (GET /api/v1/approvals)
 	ListApprovals(ctx context.Context, request ListApprovalsRequestObject) (ListApprovalsResponseObject, error)
@@ -2234,6 +2521,65 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// ListAlerts operation middleware
+func (sh *strictHandler) ListAlerts(w http.ResponseWriter, r *http.Request, params ListAlertsParams) {
+	var request ListAlertsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAlerts(ctx, request.(ListAlertsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAlerts")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAlertsResponseObject); ok {
+		if err := validResponse.VisitListAlertsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateAlertStatus operation middleware
+func (sh *strictHandler) UpdateAlertStatus(w http.ResponseWriter, r *http.Request, alertId string) {
+	var request UpdateAlertStatusRequestObject
+
+	request.AlertId = alertId
+
+	var body UpdateAlertStatusJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateAlertStatus(ctx, request.(UpdateAlertStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateAlertStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateAlertStatusResponseObject); ok {
+		if err := validResponse.VisitUpdateAlertStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // ListApprovals operation middleware
@@ -2761,58 +3107,61 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"OUcjO8GRYg1LvDIpXilZNI5G0frL+n8BAAD//w==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
