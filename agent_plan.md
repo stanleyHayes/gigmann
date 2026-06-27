@@ -1350,7 +1350,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-14.
 
-#### ☐ GEC-99 — API contract tests · 3 SP · Phase: Development
+#### ☑ GEC-99 — API contract tests · 3 SP · Phase: Development
+> **Done 2026-06-27:** Go contract test (`contract_test.go`) validates the embedded OpenAPI spec is well-formed and covers the hero routes; combined with the CI `codegen-drift` job (regenerates server+client from the spec) the published contract and the code stay in lock-step.
 - User story: As the team, I want contract tests against the OpenAPI spec, so that the API never drifts from its contract.
 - Business value: Frontend/back-end stay in sync.
 - Acceptance criteria:
@@ -1378,7 +1379,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-56, GEC-57, GEC-60.
 
-#### ☐ GEC-102 — Load & latency test (brief endpoint) · 3 SP · Phase: Staging
+#### ☑ GEC-102 — Load & latency test (brief endpoint) · 3 SP · Phase: Staging
+> **Done 2026-06-27:** k6 load test for the brief hot path (`infra/load/brief-load.js`) — login→brief→metrics under a 25-VU ramp with thresholds (p95<500ms, error rate<1%); `make load-test`. (Runs against a deployed/local API.)
 - User story: As the team, I want a load test on the brief/Ask paths, so that latency budgets hold under load.
 - Business value: "Fast" hero quality under real conditions.
 - Acceptance criteria:
@@ -1397,7 +1399,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-3, GEC-100.
 
-#### ☐ GEC-104 — Mutation testing (core) · 3 SP · Phase: QA
+#### ◐ GEC-104 — Mutation testing (core) · 3 SP · Phase: QA
+> **Status 2026-06-27:** Mutation-testing harness ready: `backend/.gremlins.yaml` (arithmetic/boundary/negation/… mutators scoped to the domain) + `make mutation-test` over `internal/core/...`. _Slow; intended for a nightly/manual run, not the per-push gate._
 - User story: As the team, I want mutation testing on the signal engine, so that tests are meaningful, not just coverage theatre.
 - Business value: Real confidence in the math.
 - Acceptance criteria:
@@ -1653,3 +1656,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **External/infra documentation batch.** SLOs + Prometheus alert rules (GEC-94), backup/DR runbook (GEC-95), and a `docs/deferred.md` designing the genuinely-external work (realtime GEC-67/68/70, push GEC-69, pen-test GEC-82, SEO/marketing GEC-83/84/85→118). Marked render Blueprint (GEC-105) + environments (GEC-107) done. | Claude |
 | 2026-06-27 | **GEC-65 — personalisation & settings UI.** A 'What you watch' preferences card (checkboxes, load+save via /me/preferences) added to Settings alongside MFA. Frontend lint/tests/build green. | Claude |
 | 2026-06-27 | **GEC-71 — scheduled jobs (cron worker).** cmd/worker (migrate + refresh-views) wired into the image + Render cron; refreshes the GEC-12 materialized view. Runtime-verified on native PG18. | Claude |
+| 2026-06-27 | **GEC-99/102/104 — test harnesses.** OpenAPI contract test (spec valid + route coverage), k6 brief load script + thresholds + make target, and a gremlins mutation config + target over the domain core. | Claude |

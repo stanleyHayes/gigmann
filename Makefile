@@ -79,3 +79,11 @@ test: backend-cover-gate ## Run all gated tests (backend coverage gate)
 
 .PHONY: lint
 lint: backend-lint ## Run all linters
+
+.PHONY: load-test
+load-test: ## Run the k6 load test against $(BASE_URL) (needs k6 + a running API)
+	k6 run infra/load/brief-load.js
+
+.PHONY: mutation-test
+mutation-test: ## Run mutation testing on the domain core (slow; needs gremlins)
+	cd $(BACKEND_DIR) && go run github.com/go-gremlins/gremlins/cmd/gremlins@latest unleash ./internal/core/...

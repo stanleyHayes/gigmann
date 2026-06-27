@@ -1,0 +1,17 @@
+# Mutation testing (GEC-104) for the deterministic domain + signal engine.
+# Run: cd backend && go run github.com/go-gremlins/gremlins/cmd/gremlins@latest unleash
+# (slow; intended for a nightly/manual run, not the per-push gate.)
+unleash:
+  dry-run: false
+  tags: ""
+  coverpkg: ""
+silent: false
+test-cpu: 0
+timeout-coefficient: 3
+# Focus on the pure domain + engine, where mutation coverage matters most.
+mutant-types:
+  arithmetic-base: { enabled: true }
+  conditionals-boundary: { enabled: true }
+  conditionals-negation: { enabled: true }
+  increment-decrement: { enabled: true }
+  invert-negatives: { enabled: true }
