@@ -74,6 +74,12 @@ func Run() error {
 	}
 	defer func() { _ = shutdownTracing(context.Background()) }()
 
+	flushSentry, err := observability.SetupErrorTracking(cfg.SentryDSN, cfg.AppEnv)
+	if err != nil {
+		return err
+	}
+	defer flushSentry()
+
 	handler, cleanup, err := newHandler(context.Background(), cfg, logger)
 	if err != nil {
 		return err

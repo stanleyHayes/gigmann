@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
@@ -44,6 +45,14 @@ var securityHeaderValues = map[string]string{
 }
 
 // securityHeaders sets conservative response security headers on every response.
+// sentryMiddleware reports panics to Sentry (no-op when Sentry is not configured),
+// then repanics so the chi Recoverer still returns a 500. Registered after
+// Recoverer so it unwinds first.
+func sentryMiddleware() func(http.Handler) http.Handler {
+	h := sentryhttp.New(sentryhttp.Options{Repanic: true})
+	return func(next http.Handler) http.Handler { return h.Handle(next) }
+}
+
 func securityHeaders(hsts bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -31,6 +31,7 @@ type Config struct {
 	AnthropicModel     string
 	VoyageAPIKey       string
 	VoyageModel        string
+	SentryDSN          string
 	JWTSecret          string
 	CORSAllowedOrigins []string
 	Flags              Flags
@@ -54,6 +55,7 @@ func Load() (Config, error) {
 		AnthropicModel:  getEnv("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
 		VoyageAPIKey:    os.Getenv("VOYAGE_API_KEY"),
 		VoyageModel:     getEnv("VOYAGE_MODEL", "voyage-3.5-lite"),
+		SentryDSN:       os.Getenv("SENTRY_DSN"),
 	}
 
 	port, err := strconv.Atoi(getEnv("HTTP_PORT", "8080"))

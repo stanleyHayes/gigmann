@@ -1280,7 +1280,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-90.
 
-#### ☐ GEC-92 — Error tracking (Sentry) · 2 SP · Phase: Development
+#### ◐ GEC-92 — Error tracking (Sentry) · 2 SP · Phase: Development
+> **Started 2026-06-27:** **Backend error tracking** wired: `observability.SetupErrorTracking` inits Sentry gated on `SENTRY_DSN` (empty → SDK disabled, zero-overhead), flushed on shutdown; a `sentryMiddleware` (after the chi Recoverer, Repanic→500) reports handler panics. _Frontend `@sentry/react` (into the existing RouteError boundary) is deferred to avoid bundle bloat without a DSN — wire it when a project DSN exists._
 - User story: As the team, I want client + server error tracking, so that we catch issues fast.
 - Business value: Reliability.
 - Acceptance criteria:
@@ -1664,3 +1665,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-99/102/104 — test harnesses.** OpenAPI contract test (spec valid + route coverage), k6 brief load script + thresholds + make target, and a gremlins mutation config + target over the domain core. | Claude |
 | 2026-06-27 | **GEC-47/109 done; GEC-51/87 progressed.** Brief AI-source indicator (graceful fallback visible); zero-downtime/rollback documented (Render rolling + advisory-locked migrations); inline-action + asset-optimization notes. | Claude |
 | 2026-06-27 | **GEC-89 — i18n-readiness (en-GH).** Centralised message catalog + `t()` + Intl formatters (number/cedis/date), wired into nav + brief; tested. | Claude |
+| 2026-06-27 | **GEC-92 — error tracking (Sentry, backend).** Gated sentry-go init (no-op without SENTRY_DSN) + panic-reporting middleware; flush on shutdown. Frontend SDK deferred to DSN availability. | Claude |

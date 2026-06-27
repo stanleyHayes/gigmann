@@ -17,3 +17,10 @@ func TestSetupTracingNoopWithoutEndpoint(t *testing.T) {
 	require.NotNil(t, shutdown)
 	require.NoError(t, shutdown(context.Background()))
 }
+
+func TestSetupErrorTrackingNoopWithoutDSN(t *testing.T) {
+	flush, err := observability.SetupErrorTracking("", "test")
+	require.NoError(t, err)
+	require.NotNil(t, flush)
+	flush()
+}

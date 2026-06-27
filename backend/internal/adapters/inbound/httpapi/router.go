@@ -93,6 +93,7 @@ func NewRouter(d Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
+	r.Use(sentryMiddleware())
 	metrics, metricsReg := newMetrics()
 	r.Use(requestLogger(logger))
 	r.Use(metrics.middleware())
