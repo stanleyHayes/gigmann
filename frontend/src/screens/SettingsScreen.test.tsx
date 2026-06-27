@@ -5,21 +5,31 @@ import { SettingsScreen } from './SettingsScreen'
 
 type Enroll = { mutate: ReturnType<typeof vi.fn>; isPending: boolean; data: { secret: string; otpauth_uri: string } | undefined }
 type Confirm = { mutate: ReturnType<typeof vi.fn>; isPending: boolean; isError: boolean; isSuccess: boolean }
+type Prefs = { data: { watched_metrics: string[]; thresholds: Record<string, number> } | undefined; isLoading: boolean }
+type SavePrefs = { mutate: ReturnType<typeof vi.fn>; isPending: boolean; isSuccess: boolean }
 
 const hoisted = vi.hoisted(() => ({
   enroll: { mutate: vi.fn(), isPending: false, data: undefined } as Enroll,
   confirm: { mutate: vi.fn(), isPending: false, isError: false, isSuccess: false } as Confirm,
+  prefs: { data: { watched_metrics: [], thresholds: {} }, isLoading: false } as Prefs,
+  savePrefs: { mutate: vi.fn(), isPending: false, isSuccess: false } as SavePrefs,
 }))
 
 vi.mock('../api/useMfa', () => ({
   useMfaEnroll: () => hoisted.enroll,
   useMfaConfirm: () => hoisted.confirm,
 }))
+vi.mock('../api/usePreferences', () => ({
+  usePreferences: () => hoisted.prefs,
+  useSavePreferences: () => hoisted.savePrefs,
+}))
 
 describe('SettingsScreen', () => {
   beforeEach(() => {
     hoisted.enroll = { mutate: vi.fn(), isPending: false, data: undefined }
     hoisted.confirm = { mutate: vi.fn(), isPending: false, isError: false, isSuccess: false }
+    hoisted.prefs = { data: { watched_metrics: [], thresholds: {} }, isLoading: false }
+    hoisted.savePrefs = { mutate: vi.fn(), isPending: false, isSuccess: false }
   })
 
   it('starts enrollment', () => {
@@ -41,5 +51,18 @@ describe('SettingsScreen', () => {
     hoisted.confirm = { mutate: vi.fn(), isPending: false, isError: false, isSuccess: true }
     render(<SettingsScreen />)
     expect(screen.getByText(/two-factor authentication is on/i)).toBeInTheDocument()
+  })
+
+  it('saves watched-metric preferences', () => {
+    hoisted.prefs = { data: { watched_metrics: ['revenue'], thresholds: {} }, isLoading: false }
+    render(<SettingsScreen />)
+    // pre-checked from preferences
+    expect(screen.getByRole('checkbox', { name: /revenue/i })).toBeChecked()
+    fireEvent.click(screen.getByRole('checkbox', { name: /occupancy/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save preferences/i }))
+    expect(hoisted.savePrefs.mutate).toHaveBeenCalledWith({
+      watched_metrics: ['revenue', 'occupancy'],
+      thresholds: {},
+    })
   })
 })

@@ -963,7 +963,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-32, GEC-61.
 
-#### ☐ GEC-65 — Personalisation & settings UI · 3 SP · Phase: Development
+#### ☑ GEC-65 — Personalisation & settings UI · 3 SP · Phase: Development
+> **Done 2026-06-27:** Settings screen now has a **What you watch** card (MUI checkboxes for revenue/patients/occupancy/denial-rate) backed by `usePreferences`/`useSavePreferences` against `GET/PATCH /me/preferences`; pre-checked from saved prefs, saves on click, success toast. Joins the existing MFA-enrolment card. Tested.
 - User story: As Sammy, I want to tune which metrics/facilities are watched, so that the cockpit learns what I care about.
 - Business value: Spec §5.12.
 - Acceptance criteria:
@@ -1649,3 +1650,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-90/91 — observability.** OpenTelemetry tracing (OTLP, otelhttp, no-op without endpoint) + Grafana dashboard for the Prometheus request/latency metrics. | Claude |
 | 2026-06-27 | **GEC-29 — Alerts & Attention Feed API.** GET /alerts (ranked, cursor-paginated, open-first) + PATCH /alerts/{id} (dismiss/resolve, 404/409/400 mapped). AlertRepository + service + tests; build/lint(0)/gate 87%. | Claude |
 | 2026-06-27 | **External/infra documentation batch.** SLOs + Prometheus alert rules (GEC-94), backup/DR runbook (GEC-95), and a `docs/deferred.md` designing the genuinely-external work (realtime GEC-67/68/70, push GEC-69, pen-test GEC-82, SEO/marketing GEC-83/84/85→118). Marked render Blueprint (GEC-105) + environments (GEC-107) done. | Claude |
+| 2026-06-27 | **GEC-65 — personalisation & settings UI.** A 'What you watch' preferences card (checkboxes, load+save via /me/preferences) added to Settings alongside MFA. Frontend lint/tests/build green. | Claude |
