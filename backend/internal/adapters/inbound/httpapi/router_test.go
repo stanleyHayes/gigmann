@@ -88,6 +88,7 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 	searchSvc := app.NewFacilitySearchService(emb, embRepo, net.Facilities)
 	preferencesSvc := app.NewPreferencesService(users)
 	alertSvc := app.NewAlertService(memory.NewAlertRepo(net.Alerts...))
+	draftSvc := app.NewDraftService(askSvc)
 
 	return httpapi.NewRouter(httpapi.Deps{
 		Facilities:     app.NewFacilityService(repo),
@@ -99,6 +100,7 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 		Tasks:          taskSvc,
 		Ask:            askSvc,
 		Alerts:         alertSvc,
+		Drafts:         draftSvc,
 		Search:         searchSvc,
 		Preferences:    preferencesSvc,
 		Tokens:         tokens,
@@ -638,4 +640,16 @@ func TestUpdateAlertStatusDismiss(t *testing.T) {
 	// Unknown id → 404.
 	missing := authedRequest(t, router, http.MethodPatch, "/api/v1/alerts/ghost", `{"status":"dismissed"}`)
 	require.Equal(t, http.StatusNotFound, missing.Code)
+}
+
+func TestCreateDraft(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	router := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+	rec := authedRequest(t, router, http.MethodPost, "/api/v1/drafts",
+		`{"kind":"message","facility_id":"kasoa","instruction":"the NHIS denial spike"}`)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var draft httpapi.Draft
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &draft))
+	assert.Equal(t, "message", draft.Kind)
+	assert.NotEmpty(t, draft.Draft, "the (deterministic) draft is generated")
 }

@@ -377,6 +377,29 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/drafts:
+    post:
+      operationId: createDraft
+      summary: Generate an AI-drafted message or summary (read-only — never sent without explicit user action)
+      tags: [drafts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftRequest'
+      responses:
+        '200':
+          description: The generated draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Draft'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/ask:
     post:
       operationId: postAsk
@@ -559,6 +582,29 @@ components:
         status:
           type: string
           enum: [dismissed, resolved]
+
+    DraftRequest:
+      type: object
+      required: [kind, instruction]
+      properties:
+        kind:
+          type: string
+          enum: [message, summary]
+        facility_id:
+          type: string
+        instruction:
+          type: string
+          minLength: 1
+    Draft:
+      type: object
+      required: [kind, draft]
+      properties:
+        kind:
+          type: string
+        facility_id:
+          type: string
+        draft:
+          type: string
 
     Brief:
       type: object

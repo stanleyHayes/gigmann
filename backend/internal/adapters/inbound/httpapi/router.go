@@ -44,7 +44,7 @@ const (
 var authRateLimitedPaths = []string{"/api/v1/auth/login", "/api/v1/auth/refresh"}
 
 // askRateLimitedPaths bound AI cost/abuse per principal (GEC-48).
-var askRateLimitedPaths = []string{"/api/v1/ask"}
+var askRateLimitedPaths = []string{"/api/v1/ask", "/api/v1/drafts"}
 
 // Deps are the application use cases the HTTP layer delegates to.
 type Deps struct {
@@ -57,6 +57,7 @@ type Deps struct {
 	Tasks          *app.TaskService
 	Ask            ports.QuestionAnswerer
 	Alerts         *app.AlertService
+	Drafts         *app.DraftService
 	Search         *app.FacilitySearchService
 	Preferences    *app.PreferencesService
 	Tokens         ports.TokenService
@@ -77,6 +78,7 @@ type Server struct {
 	tasks          *app.TaskService
 	ask            ports.QuestionAnswerer
 	alerts         *app.AlertService
+	drafts         *app.DraftService
 	search         *app.FacilitySearchService
 	preferences    *app.PreferencesService
 }
@@ -108,7 +110,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Get("/openapi.json", openAPIHandler(logger))
 	r.Get("/docs", redocHandler())
 
-	srv := &Server{facilities: d.Facilities, facilityDetail: d.FacilityDetail, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask, alerts: d.Alerts, search: d.Search, preferences: d.Preferences}
+	srv := &Server{facilities: d.Facilities, facilityDetail: d.FacilityDetail, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask, alerts: d.Alerts, drafts: d.Drafts, search: d.Search, preferences: d.Preferences}
 	return HandlerFromMux(NewStrictHandler(srv, []StrictMiddlewareFunc{requireAuth()}), r)
 }
 
@@ -330,6 +332,28 @@ func (s *Server) UpdateAlertStatus(ctx context.Context, request UpdateAlertStatu
 		return UpdateAlertStatus500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr // mapped to 500
 	}
 	return UpdateAlertStatus200JSONResponse(toAPIAlertItem(updated)), nil
+}
+
+// CreateDraft returns an AI-drafted message/summary grounded in the network's
+// figures. Read-only: the draft is never sent without an explicit user action.
+func (s *Server) CreateDraft(ctx context.Context, request CreateDraftRequestObject) (CreateDraftResponseObject, error) {
+	if request.Body == nil {
+		return CreateDraft500JSONResponse{InternalErrorJSONResponse{Error: "bad_request"}}, nil
+	}
+	facilityID := ""
+	if request.Body.FacilityId != nil {
+		facilityID = *request.Body.FacilityId
+	}
+	text, err := s.drafts.Draft(ctx, string(request.Body.Kind), facilityID, request.Body.Instruction)
+	if err != nil {
+		return CreateDraft500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr // mapped to 500
+	}
+	out := Draft{Kind: string(request.Body.Kind), Draft: text}
+	if facilityID != "" {
+		fid := facilityID
+		out.FacilityId = &fid
+	}
+	return CreateDraft200JSONResponse(out), nil
 }
 
 // GetMePreferences returns the current user's personalisation preferences.

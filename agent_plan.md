@@ -740,7 +740,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + guardrail tests.
 - Dependencies: GEC-41, GEC-13, GEC-26.
 
-#### ☐ GEC-45 — Generated actions & documents · 5 SP · Phase: Development
+#### ☑ GEC-45 — Generated actions & documents · 5 SP · Phase: Development
+> **Done 2026-06-27:** `POST /api/v1/drafts` (authed, AI-rate-limited) generates an AI-drafted **message** or **summary** grounded in the network's computed figures — `DraftService` builds a grounded prompt and reuses the deterministic-or-Claude answerer (`never invent numbers`). The draft is **read-only**: it is returned for the executive to review/send; the AI never sends anything (CLAUDE.md §7). Service + endpoint tests.
 - User story: As Sammy, I want the system to produce work, so that the cockpit *does* work, not just shows it.
 - Business value: Spec §6.5 — second wow ("Message the manager").
 - Acceptance criteria:
@@ -1666,3 +1667,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-47/109 done; GEC-51/87 progressed.** Brief AI-source indicator (graceful fallback visible); zero-downtime/rollback documented (Render rolling + advisory-locked migrations); inline-action + asset-optimization notes. | Claude |
 | 2026-06-27 | **GEC-89 — i18n-readiness (en-GH).** Centralised message catalog + `t()` + Intl formatters (number/cedis/date), wired into nav + brief; tested. | Claude |
 | 2026-06-27 | **GEC-92 — error tracking (Sentry, backend).** Gated sentry-go init (no-op without SENTRY_DSN) + panic-reporting middleware; flush on shutdown. Frontend SDK deferred to DSN availability. | Claude |
+| 2026-06-27 | **GEC-45 — generated actions & documents.** POST /drafts returns grounded AI-drafted messages/summaries (read-only, never auto-sent); reuses the answerer; per-principal rate-limited; tested. | Claude |

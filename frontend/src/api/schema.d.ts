@@ -277,6 +277,23 @@ export interface paths {
         patch: operations["updateAlertStatus"];
         trace?: never;
     };
+    "/api/v1/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate an AI-drafted message or summary (read-only — never sent without explicit user action) */
+        post: operations["createDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ask": {
         parameters: {
             query?: never;
@@ -396,6 +413,17 @@ export interface components {
         AlertStatusUpdate: {
             /** @enum {string} */
             status: "dismissed" | "resolved";
+        };
+        DraftRequest: {
+            /** @enum {string} */
+            kind: "message" | "summary";
+            facility_id?: string;
+            instruction: string;
+        };
+        Draft: {
+            kind: string;
+            facility_id?: string;
+            draft: string;
         };
         Brief: {
             id: string;
@@ -1034,6 +1062,32 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftRequest"];
+            };
+        };
+        responses: {
+            /** @description The generated draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Draft"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
             500: components["responses"]["InternalError"];
         };
     };

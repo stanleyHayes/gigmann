@@ -192,6 +192,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 	approvalSvc := app.NewApprovalService(r.approvals, auditLog)
 	taskSvc := app.NewTaskService(r.tasks)
 	alertSvc := app.NewAlertService(memory.NewAlertRepo(net.Alerts...))
+	draftSvc := app.NewDraftService(askSvc)
 
 	return httpapi.NewRouter(httpapi.Deps{
 		Facilities:     app.NewFacilityService(r.facilities),
@@ -203,6 +204,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		Tasks:          taskSvc,
 		Ask:            askSvc,
 		Alerts:         alertSvc,
+		Drafts:         draftSvc,
 		Search:         searchSvc,
 		Preferences:    preferencesSvc,
 		Tokens:         tokens,
