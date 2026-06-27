@@ -64,16 +64,17 @@ services:
       - key: VITE_API_BASE_URL
         value: https://gigmann-api.onrender.com
 
-  # Morning brief pre-warm (GEC-71). Enable once the worker entrypoint exists
-  # (E8). Until then this is intentionally commented out to keep the Blueprint
-  # deployable.
+  # Materialized-view refresh (GEC-71/GEC-12). The worker entrypoint (cmd/worker)
+  # exists and is built into the image (/worker). Enable alongside Postgres
+  # (needs DATABASE_URL from the env group); commented while the demo runs
+  # in-memory to keep the Blueprint free + deployable.
   # - type: cron
-  #   name: gigmann-prewarm
+  #   name: gigmann-refresh-views
   #   runtime: docker
   #   rootDir: backend
   #   dockerfilePath: ./Dockerfile
   #   schedule: "0 5 * * *"   # 05:00 UTC daily
-  #   dockerCommand: /worker prewarm
+  #   dockerCommand: /worker refresh-views
   #   envVars:
   #     - fromGroup: gigmann-secrets
 

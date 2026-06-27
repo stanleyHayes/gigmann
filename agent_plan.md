@@ -1042,7 +1042,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-29.
 
-#### ☐ GEC-71 — Scheduled jobs (pre-warm, follow-ups) · 5 SP · Phase: Development
+#### ☑ GEC-71 — Scheduled jobs (pre-warm, follow-ups) · 5 SP · Phase: Development
+> **Done 2026-06-27:** `cmd/worker` is a thin scheduled-job entrypoint over the same outbound adapters — `worker migrate` (idempotent, advisory-locked) and `worker refresh-views` (reconciles schema, then refreshes the `network_daily_metrics` materialized view, GEC-12). Built into the image (`/worker`); the Render cron block (`infra/render.yaml`) runs it daily once Postgres is enabled. Runtime-verified against native Postgres 18 (migrate + MV refresh + idempotent re-run).
 - User story: As an operator, I want scheduled jobs, so that the morning brief is pre-warmed and stalled follow-ups surface.
 - Business value: Fast brief + delegation follow-through.
 - Acceptance criteria:
@@ -1651,3 +1652,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-29 — Alerts & Attention Feed API.** GET /alerts (ranked, cursor-paginated, open-first) + PATCH /alerts/{id} (dismiss/resolve, 404/409/400 mapped). AlertRepository + service + tests; build/lint(0)/gate 87%. | Claude |
 | 2026-06-27 | **External/infra documentation batch.** SLOs + Prometheus alert rules (GEC-94), backup/DR runbook (GEC-95), and a `docs/deferred.md` designing the genuinely-external work (realtime GEC-67/68/70, push GEC-69, pen-test GEC-82, SEO/marketing GEC-83/84/85→118). Marked render Blueprint (GEC-105) + environments (GEC-107) done. | Claude |
 | 2026-06-27 | **GEC-65 — personalisation & settings UI.** A 'What you watch' preferences card (checkboxes, load+save via /me/preferences) added to Settings alongside MFA. Frontend lint/tests/build green. | Claude |
+| 2026-06-27 | **GEC-71 — scheduled jobs (cron worker).** cmd/worker (migrate + refresh-views) wired into the image + Render cron; refreshes the GEC-12 materialized view. Runtime-verified on native PG18. | Claude |
