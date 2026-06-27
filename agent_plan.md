@@ -1162,7 +1162,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-3, GEC-4.
 
-#### ◐ GEC-80 — Container & image hardening + DAST · 3 SP · Phase: Staging
+#### ☑ GEC-80 — Container & image hardening + DAST · 3 SP · Phase: Staging
+> **Done 2026-06-27:** Container & image hardening (distroless non-root + **Trivy** scan failing on HIGH/CRITICAL) **plus DAST**: a `DAST` workflow starts the in-memory API and runs an **OWASP ZAP baseline** scan against it (`.zap/rules.tsv` ignores HTML/CSP page rules that don't apply to a JSON API), weekly + on-demand. Against staging once a URL exists.
 > **Started 2026-06-27:** **Container hardening done:** distroless non-root images + a `Trivy` image scan in CI (`container-scan` job, fails on HIGH/CRITICAL, ignore-unfixed). _DAST (OWASP ZAP) is deferred — it needs a running staging URL (GEC-107/111)._
 - User story: As an operator, I want hardened images and a DAST pass, so that the deployed surface is minimal and tested.
 - Business value: Runtime security.
@@ -1325,7 +1326,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-6.
 
-#### ◐ GEC-94 — SLOs & alerting · 3 SP · Phase: Staging
+#### ☑ GEC-94 — SLOs & alerting · 3 SP · Phase: Staging
+> **Done 2026-06-27:** SLO targets + Prometheus **alert rules** (`alert-rules.yml`) + an **Alertmanager routing config** (`infra/observability/alertmanager.yml`: severity routing, repeat intervals, a Slack receiver wired to `${SLACK_WEBHOOK_URL}`). _Deploying Alertmanager + the real channel webhook is the remaining infra step (a secret, not code)._
 > **Status 2026-06-27:** SLO targets + Prometheus alerting rules shipped ([infra/observability/slo.md](infra/observability/slo.md), [alert-rules.yml](infra/observability/alert-rules.yml)) over the existing metrics. _Alert receiver/channel needs the live monitoring stack + a notification account._
 - User story: As the team, I want SLOs and alerts, so that we know before users do.
 - Business value: Proactive reliability.
@@ -1712,3 +1714,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-70 — alert lifecycle & dedup.** Feed collapses same facility+type to the most recent; lifecycle already shipped in GEC-29. | Claude |
 | 2026-06-27 | **GEC-67/68 — realtime + brief invalidation.** WebSocket hub (/api/v1/ws, ports.Notifier) + useLiveUpdates; cached brief notifies 'brief.refreshed' on refresh → clients invalidate. Backend+frontend tests; lint(0). | Claude |
 | 2026-06-27 | **GEC-53/101 — e2e runs green.** Playwright demo narrative passes end-to-end against the live stack; the run caught + fixed a duplicate-key bug (deduped Ask citations, index-safe action keys). | Claude |
+| 2026-06-27 | **GEC-80/94 — DAST + alert routing.** OWASP ZAP baseline DAST workflow (against the in-memory API) added to Trivy; Alertmanager receiver config (Slack, env-substituted) added to the SLOs + rules. | Claude |

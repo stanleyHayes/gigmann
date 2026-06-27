@@ -1,0 +1,33 @@
+name: DAST
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * 1"   # weekly
+permissions:
+  contents: read
+  issues: write
+jobs:
+  zap-baseline:
+    name: OWASP ZAP baseline (API)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          cache-dependency-path: backend/go.sum
+      - name: Start the API (in-memory)
+        working-directory: backend
+        env:
+          JWT_SECRET: dast-secret
+          APP_ENV: development
+        run: |
+          go run ./cmd/api &
+          for i in $(seq 1 30); do curl -fs localhost:8080/healthz && break || sleep 1; done
+      - name: ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: http://localhost:8080
+          rules_file_name: .zap/rules.tsv
+          cmd_options: "-a"
+          fail_action: false

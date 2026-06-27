@@ -1,0 +1,21 @@
+# Alertmanager routing for the Gigmann API alert rules (alert-rules.yml). Set the
+# real receiver URL via an env-substituted secret at deploy time (do NOT commit it).
+route:
+  receiver: gigmann-oncall
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: ['severity="critical"']
+      receiver: gigmann-oncall
+      repeat_interval: 1h
+receivers:
+  - name: gigmann-oncall
+    # Replace with a real Slack webhook / PagerDuty key / email at deploy time.
+    slack_configs:
+      - api_url: ${SLACK_WEBHOOK_URL}
+        channel: '#gigmann-alerts'
+        title: '{{ .CommonAnnotations.summary }}'
+        text: '{{ .CommonAnnotations.description }}'
+        send_resolved: true

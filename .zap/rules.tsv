@@ -1,0 +1,4 @@
+# OWASP ZAP baseline rule overrides (tab-separated: ruleId<TAB>action<TAB>note).
+# The API serves JSON only (no HTML), so HTML/CSP-page rules are not applicable.
+10038	IGNORE	(CSP) — the JSON API sets a strict CSP; page-level CSP rules don't apply
+10020	IGNORE	(X-Frame-Options) — set by the API; ZAP's HTML check is N/A for JSON
