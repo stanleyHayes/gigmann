@@ -594,11 +594,12 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-30, GEC-29.
 
-#### ☐ GEC-33 — Users & personalisation API · 3 SP · Phase: Development
+#### ◐ GEC-33 — Users & personalisation API · 3 SP · Phase: Development
+> **Started 2026-06-27:** `GET /api/v1/me/preferences` + `PATCH /api/v1/me/preferences` (authed) read/replace the current user's watched metrics + thresholds, persisted on the user via `UserRepository` (in-memory or Postgres). `PreferencesService` sanitises input at the app boundary (trim, de-dupe, drop empties/non-finite, cap entries). Round-trip + sanitisation + auth tests. _Remaining: wire preferences into brief/feed prioritisation (the "influence" criterion) + a settings UI._
 - User story: As Sammy, I want the cockpit to learn what I watch, so that it prioritises what I care about.
 - Business value: Spec §5.12 personalisation (simulated learning in PoC).
 - Acceptance criteria:
-  - [ ] `GET/PATCH /me/preferences` (watched metrics, thresholds).
+  - [x] `GET/PATCH /me/preferences` (watched metrics, thresholds).
   - [ ] Preferences influence brief/feed prioritisation.
 - Technical notes: JSON preferences on users (spec §7).
 - Definition of done: Global DoD.
@@ -1592,3 +1593,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-13 UI — facility quick-search in the app bar.** A command-palette-style search (`FacilitySearch` + `useFacilitySearch`) calls the new `/facilities/search` endpoint: type a name or NL phrase, see ranked matches, jump to the facility. Wired into `AppShell`; debounced, keyboard-navigable (Enter selects first), a11y-labelled. Frontend tsc + eslint clean, 63 tests (coverage 86.1%), build green. | Claude |
 | 2026-06-27 | **UX — theme preference persists + respects the OS.** The light/dark choice was hardcoded to light on every load; now `themePreference` resolves saved-choice → `prefers-color-scheme` → light, and the toggle persists to localStorage (matchMedia feature-detected for jsdom/SSR). 68 frontend tests, lint/build green. | Claude |
 | 2026-06-27 | **Security — refresh re-validates the live account (review finding resolved).** `AuthService.Refresh` now re-reads the account via `FindByID` and rebuilds the principal from current data, so a role/facility change — or a deleted account — takes effect on the next refresh (within the 15-min access TTL) instead of persisting for the 7-day refresh-token lifetime. Closes the stale-snapshot finding from the GEC-14 review. New tests prove a demoted exec→manager is re-scoped and a deleted account is rejected. app coverage, lint(0), gate 88.7%. | Claude |
+| 2026-06-27 | **GEC-33 (started) — personalisation API.** GET/PATCH /me/preferences with app-boundary sanitisation, persisted per-user; tests + lint(0); gate 88.6%. Remaining: brief/feed prioritisation + settings UI. | Claude |

@@ -25,6 +25,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/core/kpi"
 	"github.com/xcreativs/gigmann/internal/core/staff"
 	"github.com/xcreativs/gigmann/internal/core/task"
+	"github.com/xcreativs/gigmann/internal/core/user"
 	"github.com/xcreativs/gigmann/internal/intel"
 	"github.com/xcreativs/gigmann/internal/ports"
 )
@@ -50,6 +51,7 @@ type Deps struct {
 	Tasks          *app.TaskService
 	Ask            ports.QuestionAnswerer
 	Search         *app.FacilitySearchService
+	Preferences    *app.PreferencesService
 	Tokens         ports.TokenService
 	Logger         *slog.Logger
 	CORSOrigins    []string
@@ -66,6 +68,7 @@ type Server struct {
 	tasks          *app.TaskService
 	ask            ports.QuestionAnswerer
 	search         *app.FacilitySearchService
+	preferences    *app.PreferencesService
 }
 
 // Compile-time guarantee that Server satisfies the generated contract.
@@ -91,7 +94,7 @@ func NewRouter(d Deps) http.Handler {
 	r.Get("/readyz", writeReady)
 	r.Handle("/metrics", metricsHandler(metricsReg))
 
-	srv := &Server{facilities: d.Facilities, facilityDetail: d.FacilityDetail, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask, search: d.Search}
+	srv := &Server{facilities: d.Facilities, facilityDetail: d.FacilityDetail, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask, search: d.Search, preferences: d.Preferences}
 	return HandlerFromMux(NewStrictHandler(srv, []StrictMiddlewareFunc{requireAuth()}), r)
 }
 
@@ -235,6 +238,52 @@ func toAPIFacilitySearch(query string, matches []app.FacilityMatch) FacilitySear
 		out = append(out, FacilityMatch{FacilityId: m.FacilityID, Name: m.Name, Score: m.Score})
 	}
 	return FacilitySearchResults{Query: query, Matches: out}
+}
+
+// GetMePreferences returns the current user's personalisation preferences.
+func (s *Server) GetMePreferences(ctx context.Context, _ GetMePreferencesRequestObject) (GetMePreferencesResponseObject, error) {
+	p, ok := principalFrom(ctx)
+	if !ok {
+		return GetMePreferences401JSONResponse{UnauthorizedJSONResponse{Error: "unauthorized"}}, nil
+	}
+	prefs, err := s.preferences.Get(ctx, p.UserID)
+	if err != nil {
+		return GetMePreferences500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr // mapped to 500
+	}
+	return GetMePreferences200JSONResponse(toAPIPreferences(prefs)), nil
+}
+
+// UpdateMePreferences replaces the current user's preferences (sanitised in the app layer).
+func (s *Server) UpdateMePreferences(ctx context.Context, request UpdateMePreferencesRequestObject) (UpdateMePreferencesResponseObject, error) {
+	p, ok := principalFrom(ctx)
+	if !ok {
+		return UpdateMePreferences401JSONResponse{UnauthorizedJSONResponse{Error: "unauthorized"}}, nil
+	}
+	var body Preferences
+	if request.Body != nil {
+		body = *request.Body
+	}
+	updated, err := s.preferences.Update(ctx, p.UserID, fromAPIPreferences(body))
+	if err != nil {
+		return UpdateMePreferences500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr // mapped to 500
+	}
+	return UpdateMePreferences200JSONResponse(toAPIPreferences(updated)), nil
+}
+
+func toAPIPreferences(p user.Preferences) Preferences {
+	watched := p.WatchedMetrics
+	if watched == nil {
+		watched = []string{}
+	}
+	thresholds := p.Thresholds
+	if thresholds == nil {
+		thresholds = map[string]float64{}
+	}
+	return Preferences{WatchedMetrics: watched, Thresholds: thresholds}
+}
+
+func fromAPIPreferences(in Preferences) user.Preferences {
+	return user.Preferences{WatchedMetrics: in.WatchedMetrics, Thresholds: in.Thresholds}
 }
 
 // ListApprovals returns the approvals routed to the executive.

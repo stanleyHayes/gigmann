@@ -86,6 +86,7 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 	embRepo := memory.NewFacilityEmbeddingRepo()
 	_, _ = app.SeedFacilityEmbeddings(context.Background(), emb, embRepo, net.Facilities)
 	searchSvc := app.NewFacilitySearchService(emb, embRepo, net.Facilities)
+	preferencesSvc := app.NewPreferencesService(users)
 
 	return httpapi.NewRouter(httpapi.Deps{
 		Facilities:     app.NewFacilityService(repo),
@@ -97,6 +98,7 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 		Tasks:          taskSvc,
 		Ask:            askSvc,
 		Search:         searchSvc,
+		Preferences:    preferencesSvc,
 		Tokens:         tokens,
 		CORSOrigins:    []string{"http://localhost:5173"},
 	})
@@ -538,5 +540,47 @@ func TestSearchFacilitiesRequiresAuth(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	rec := serve(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl),
 		http.MethodGet, "/api/v1/facilities/search?q=Kasoa")
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func authedRequest(t *testing.T, handler http.Handler, method, target, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(method, target, strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+bearerToken(t))
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestMePreferencesRoundTrip(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	router := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+
+	get1 := authedRequest(t, router, http.MethodGet, "/api/v1/me/preferences", "")
+	require.Equal(t, http.StatusOK, get1.Code)
+
+	patch := authedRequest(t, router, http.MethodPatch, "/api/v1/me/preferences",
+		`{"watched_metrics":["revenue"," revenue ",""],"thresholds":{"denial_rate":0.15}}`)
+	require.Equal(t, http.StatusOK, patch.Code)
+	var updated httpapi.Preferences
+	require.NoError(t, json.Unmarshal(patch.Body.Bytes(), &updated))
+	assert.Equal(t, []string{"revenue"}, updated.WatchedMetrics, "trimmed + de-duped + empties dropped")
+	assert.InDelta(t, 0.15, updated.Thresholds["denial_rate"], 1e-9)
+
+	// Persisted across requests.
+	get2 := authedRequest(t, router, http.MethodGet, "/api/v1/me/preferences", "")
+	var got httpapi.Preferences
+	require.NoError(t, json.Unmarshal(get2.Body.Bytes(), &got))
+	assert.Equal(t, []string{"revenue"}, got.WatchedMetrics)
+	assert.InDelta(t, 0.15, got.Thresholds["denial_rate"], 1e-9)
+}
+
+func TestGetMePreferencesRequiresAuth(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	rec := serve(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl),
+		http.MethodGet, "/api/v1/me/preferences")
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }

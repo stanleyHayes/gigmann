@@ -137,6 +137,44 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/v1/me/preferences:
+    get:
+      operationId: getMePreferences
+      summary: The current user's personalisation preferences
+      tags: [me]
+      responses:
+        '200':
+          description: Preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preferences'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      operationId: updateMePreferences
+      summary: Update the current user's personalisation preferences
+      tags: [me]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Preferences'
+      responses:
+        '200':
+          description: Updated preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preferences'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/auth/refresh:
     post:
       operationId: postAuthRefresh
@@ -423,6 +461,20 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FacilityMatch'
+
+    Preferences:
+      type: object
+      required: [watched_metrics, thresholds]
+      properties:
+        watched_metrics:
+          type: array
+          items:
+            type: string
+        thresholds:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
 
     Brief:
       type: object

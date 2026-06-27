@@ -149,6 +149,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		logger.Info("seeded facility embeddings", "facilities", len(net.Facilities))
 	}
 	searchSvc := app.NewFacilitySearchService(embedder, r.embeddings, net.Facilities)
+	preferencesSvc := app.NewPreferencesService(r.users)
 
 	briefSvc := app.NewBriefService(engine, narrator, briefTopN)
 	input := signalengine.Input{
@@ -183,6 +184,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		Tasks:          taskSvc,
 		Ask:            askSvc,
 		Search:         searchSvc,
+		Preferences:    preferencesSvc,
 		Tokens:         tokens,
 		Logger:         logger,
 		CORSOrigins:    cfg.CORSAllowedOrigins,
