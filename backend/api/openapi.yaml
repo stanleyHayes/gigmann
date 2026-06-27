@@ -279,6 +279,29 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createTask
+      summary: Create a task (e.g. turning a brief item or alert into a "My Day" task)
+      tags: [tasks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+      responses:
+        '201':
+          description: The created task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /api/v1/tasks/{taskId}/status:
     post:
@@ -605,6 +628,26 @@ components:
           type: string
         draft:
           type: string
+
+    TaskCreate:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        detail:
+          type: string
+        facility_id:
+          type: string
+        priority:
+          type: string
+          enum: [low, medium, high]
+          default: medium
+        source:
+          type: string
+          enum: [manual, brief, alert]
+          default: manual
 
     Brief:
       type: object

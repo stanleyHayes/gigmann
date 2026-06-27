@@ -356,6 +356,34 @@ func (s *Server) CreateDraft(ctx context.Context, request CreateDraftRequestObje
 	return CreateDraft200JSONResponse(out), nil
 }
 
+// CreateTask creates a "My Day" task — e.g. turning a brief item or alert into a task.
+func (s *Server) CreateTask(ctx context.Context, request CreateTaskRequestObject) (CreateTaskResponseObject, error) {
+	if request.Body == nil {
+		return CreateTask400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
+	}
+	in := app.NewTaskInput{Title: request.Body.Title, Priority: task.PriorityMedium, Source: task.SourceManual}
+	if request.Body.Detail != nil {
+		in.Detail = *request.Body.Detail
+	}
+	if request.Body.FacilityId != nil {
+		in.FacilityID = *request.Body.FacilityId
+	}
+	if request.Body.Priority != nil {
+		in.Priority = task.Priority(*request.Body.Priority)
+	}
+	if request.Body.Source != nil {
+		in.Source = task.Source(*request.Body.Source)
+	}
+	t, err := s.tasks.Create(ctx, in)
+	switch {
+	case errors.Is(err, task.ErrEmptyTitle), errors.Is(err, task.ErrInvalidPriority), errors.Is(err, task.ErrInvalidSource):
+		return CreateTask400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
+	case err != nil:
+		return CreateTask500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr // mapped to 500
+	}
+	return CreateTask201JSONResponse(toAPITask(t)), nil
+}
+
 // GetMePreferences returns the current user's personalisation preferences.
 func (s *Server) GetMePreferences(ctx context.Context, _ GetMePreferencesRequestObject) (GetMePreferencesResponseObject, error) {
 	p, ok := principalFrom(ctx)

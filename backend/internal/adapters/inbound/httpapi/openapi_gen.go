@@ -202,19 +202,19 @@ func (e KpiUnit) Valid() bool {
 
 // Defines values for TaskPriority.
 const (
-	High   TaskPriority = "high"
-	Low    TaskPriority = "low"
-	Medium TaskPriority = "medium"
+	TaskPriorityHigh   TaskPriority = "high"
+	TaskPriorityLow    TaskPriority = "low"
+	TaskPriorityMedium TaskPriority = "medium"
 )
 
 // Valid indicates whether the value is a known member of the TaskPriority enum.
 func (e TaskPriority) Valid() bool {
 	switch e {
-	case High:
+	case TaskPriorityHigh:
 		return true
-	case Low:
+	case TaskPriorityLow:
 		return true
-	case Medium:
+	case TaskPriorityMedium:
 		return true
 	default:
 		return false
@@ -257,6 +257,48 @@ func (e TaskStatus) Valid() bool {
 	case TaskStatusInProgress:
 		return true
 	case TaskStatusTodo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskCreatePriority.
+const (
+	TaskCreatePriorityHigh   TaskCreatePriority = "high"
+	TaskCreatePriorityLow    TaskCreatePriority = "low"
+	TaskCreatePriorityMedium TaskCreatePriority = "medium"
+)
+
+// Valid indicates whether the value is a known member of the TaskCreatePriority enum.
+func (e TaskCreatePriority) Valid() bool {
+	switch e {
+	case TaskCreatePriorityHigh:
+		return true
+	case TaskCreatePriorityLow:
+		return true
+	case TaskCreatePriorityMedium:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskCreateSource.
+const (
+	TaskCreateSourceAlert  TaskCreateSource = "alert"
+	TaskCreateSourceBrief  TaskCreateSource = "brief"
+	TaskCreateSourceManual TaskCreateSource = "manual"
+)
+
+// Valid indicates whether the value is a known member of the TaskCreateSource enum.
+func (e TaskCreateSource) Valid() bool {
+	switch e {
+	case TaskCreateSourceAlert:
+		return true
+	case TaskCreateSourceBrief:
+		return true
+	case TaskCreateSourceManual:
 		return true
 	default:
 		return false
@@ -570,6 +612,21 @@ type TaskSource string
 // TaskStatus defines model for Task.Status.
 type TaskStatus string
 
+// TaskCreate defines model for TaskCreate.
+type TaskCreate struct {
+	Detail     *string             `json:"detail,omitempty"`
+	FacilityId *string             `json:"facility_id,omitempty"`
+	Priority   *TaskCreatePriority `json:"priority,omitempty"`
+	Source     *TaskCreateSource   `json:"source,omitempty"`
+	Title      string              `json:"title"`
+}
+
+// TaskCreatePriority defines model for TaskCreate.Priority.
+type TaskCreatePriority string
+
+// TaskCreateSource defines model for TaskCreate.Source.
+type TaskCreateSource string
+
 // TaskList defines model for TaskList.
 type TaskList struct {
 	Tasks []Task `json:"tasks"`
@@ -640,6 +697,9 @@ type CreateDraftJSONRequestBody = DraftRequest
 // UpdateMePreferencesJSONRequestBody defines body for UpdateMePreferences for application/json ContentType.
 type UpdateMePreferencesJSONRequestBody = Preferences
 
+// CreateTaskJSONRequestBody defines body for CreateTask for application/json ContentType.
+type CreateTaskJSONRequestBody = TaskCreate
+
 // UpdateTaskStatusJSONRequestBody defines body for UpdateTaskStatus for application/json ContentType.
 type UpdateTaskStatusJSONRequestBody = TaskStatusRequest
 
@@ -705,6 +765,9 @@ type ServerInterface interface {
 	// The executive's "My Day" tasks
 	// (GET /api/v1/tasks)
 	ListTasks(w http.ResponseWriter, r *http.Request)
+	// Create a task (e.g. turning a brief item or alert into a "My Day" task)
+	// (POST /api/v1/tasks)
+	CreateTask(w http.ResponseWriter, r *http.Request)
 	// Update a task's status
 	// (POST /api/v1/tasks/{taskId}/status)
 	UpdateTaskStatus(w http.ResponseWriter, r *http.Request, taskId string)
@@ -834,6 +897,12 @@ func (_ Unimplemented) GetMetrics(w http.ResponseWriter, r *http.Request) {
 // The executive's "My Day" tasks
 // (GET /api/v1/tasks)
 func (_ Unimplemented) ListTasks(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a task (e.g. turning a brief item or alert into a "My Day" task)
+// (POST /api/v1/tasks)
+func (_ Unimplemented) CreateTask(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1238,6 +1307,20 @@ func (siw *ServerInterfaceWrapper) ListTasks(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// CreateTask operation middleware
+func (siw *ServerInterfaceWrapper) CreateTask(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateTask(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // UpdateTaskStatus operation middleware
 func (siw *ServerInterfaceWrapper) UpdateTaskStatus(w http.ResponseWriter, r *http.Request) {
 
@@ -1450,6 +1533,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/tasks", wrapper.ListTasks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/tasks", wrapper.CreateTask)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/tasks/{taskId}/status", wrapper.UpdateTaskStatus)
@@ -2455,6 +2541,70 @@ func (response ListTasks500JSONResponse) VisitListTasksResponse(w http.ResponseW
 	return err
 }
 
+type CreateTaskRequestObject struct {
+	Body *CreateTaskJSONRequestBody
+}
+
+type CreateTaskResponseObject interface {
+	VisitCreateTaskResponse(w http.ResponseWriter) error
+}
+
+type CreateTask201JSONResponse Task
+
+func (response CreateTask201JSONResponse) VisitCreateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTask400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateTask400JSONResponse) VisitCreateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTask401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateTask401JSONResponse) VisitCreateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTask500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateTask500JSONResponse) VisitCreateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type UpdateTaskStatusRequestObject struct {
 	TaskId string `json:"taskId"`
 	Body   *UpdateTaskStatusJSONRequestBody
@@ -2603,6 +2753,9 @@ type StrictServerInterface interface {
 	// The executive's "My Day" tasks
 	// (GET /api/v1/tasks)
 	ListTasks(ctx context.Context, request ListTasksRequestObject) (ListTasksResponseObject, error)
+	// Create a task (e.g. turning a brief item or alert into a "My Day" task)
+	// (POST /api/v1/tasks)
+	CreateTask(ctx context.Context, request CreateTaskRequestObject) (CreateTaskResponseObject, error)
 	// Update a task's status
 	// (POST /api/v1/tasks/{taskId}/status)
 	UpdateTaskStatus(ctx context.Context, request UpdateTaskStatusRequestObject) (UpdateTaskStatusResponseObject, error)
@@ -3193,6 +3346,37 @@ func (sh *strictHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// CreateTask operation middleware
+func (sh *strictHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
+	var request CreateTaskRequestObject
+
+	var body CreateTaskJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateTask(ctx, request.(CreateTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateTaskResponseObject); ok {
+		if err := validResponse.VisitCreateTaskResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // UpdateTaskStatus operation middleware
 func (sh *strictHandler) UpdateTaskStatus(w http.ResponseWriter, r *http.Request, taskId string) {
 	var request UpdateTaskStatusRequestObject
@@ -3255,64 +3439,65 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"1Fzvcts2tn8VDO+daTKlLTtJ78z1fnLiuNU07nps51ObUSHiiERFAiwASlY9mtmH2CfcJ9nBH1KkCIqU",
-	"Y9npp1gieHBw/p+Dn/IQRDzLOQOmZHD2EAiQOWcSzIf3mNzAnwVIpT9FnClg5k+c5ymNsKKcjf6QnOnv",
-	"ZJRAhvVf/ytgFpwF/zPakB7Zp3L0UQgugvV6HQYEZCRorokEZ8FdAkjYzdASS5ThdMZFBgRxgShb4JSS",
-	"YB0GHzibpTR6No4kL0QEiEpEGcIocttTFiOpsALN0yUXU0oIsOdhKheURTTHqeaKcYVwmvIlEKQ4ykFo",
-	"sSGVUIlwZN5ah8GYKRAMp5buwbkst0MSxAIEArswDH7h6pIXjByehZtSc1pAM7PnOgw+M1yohAv6FzwD",
-	"D+eFSoApR9WYNxXWomeYpkAC/Y4jo3c5T0GoS7C85YLnIBS1voj1I/MXVZDJPp4MpbGCTJ9arXIIzgIs",
-	"BF7pzwzu1SQqhLS24B5LJSiLDUslp8HZr+XGXyoyfPoHRErT2WzSYpeAwjT1UA+DGY5oStVqQon3ecfX",
-	"EhYgqFr1nfzSkb9VWBXSvGn/8hFVVKXgf2K+6BMOJYFbWmOwJFvt3Ck7y+PnnOhA0pLhhm9gRaa3I1Rm",
-	"VErQu+rQlC6A1Kh3MLmLCyaXINpbR1QZm20aXIeQNoal4F71C82s8nKT54IvcOqx/owXTE1ykLC0rqKj",
-	"HFbBWUCZ+r93QUWNMgUxmGBjnNvLUBhEArACMsGqQUwr4kjRDIKw/Q6BiJJHvCMpZxPGFTylO7hcCWQy",
-	"Xfn9pWU9OTCiH4Y61gm+MGZEIEop85rREPcoaUc4pwqnQRgkVIAxTy4IiH7rrLtQXRbhttI3btU4e3XS",
-	"hlJ3mdcnaguaLRNzT/eIsaW5tjxhO4RWpL1syXmtymoyZb6mNhlllH0CFqskODvtE2r1nnfDQiW3IKWj",
-	"29xRwEyATCaKz20901Z955NC2liyU2iFSj7rda2oYMiGWww4ol3H+Cx90euRLsVw5jd2wdOGscM9RIWi",
-	"i4bJZpjheLDBm70cZd/h3guqZdhKqy5RNIKPL+7EwEDsHeG65FV6wyC3MKx3lR4ZJ+AvC3LB5dCM605t",
-	"XymJlnx2itNfqcB9nmKGSy/bOz4ngImOoE9dtBRxbGOcreL3ysTbBcCmMmlG2Ip3n8wuXOrqDE5lbqu7",
-	"hsssm8TizSsdyXCL7Yq+lzuBZz6eyq/31uOcMtLPk1kVum06+eoUWW9kYlKJIhoU8jcsl8LPQEocm8Kz",
-	"yDIsVv3ByJ2nvq/vVFXfuOU75de7N7HLfHRLu2+TngJp1Xlv33jrvL3DOcRdzr4pmvbzVsWXbGDsKiO/",
-	"ZcK9Gtrz7uwYyl0vqtbqcB3irKaXIZKwtrsAprhYDWZhXL7RxYZUeDYbTO5Wr76CbGrNYmdIrA5Y57vc",
-	"MNzV9JZH9leRjq77NIjtugyH8Kxp72LsCqso6Q494z29RUZcgA339dnGBy4pAyRpRlOskwuiDP16Ep5+",
-	"+Qc6NeMyYkcf6bFOO1X5wYtpWqs9WGHV1aGecc1jLCO7Tn4LWETJDcgitY7QlECmBfMIxViBeszzzwLE",
-	"qt/t7bKw2n/nEaoAtDVKGh9hKUH3/kifydQrOEUJ4FQlSNKYWUmXuSDmXMtuaXjXrRE1yvCm458MkZ0D",
-	"iHuc5alheR58xbyh6fHtsQNWEHPhb2gJXskJn02k4tG8WdN2GNX+qcHQnqSwsEXqgORj3uCFmtAso8zN",
-	"Et2yKecpYLYzD1RHbm7uI+wT6M859YixEMJxMkBGBFKFJ3k0eD0VUFUopbkVua6KbCqbpY0GvFYq0zgB",
-	"MaFyMgWlQPhEFQZz8Os/xdPO1gEWlBdy4AEkiH3i8xUoQaNrTpnyBYGCUdWcspTjCuOkWsW8YGpAKQba",
-	"COwpHVmPyMJKu7Vz15VYV1B1Vp/pfOIx7S7uI078LgJZ12A3x1IuuRhQRVsatTd8/NXl/vhGeIHTAgYZ",
-	"xnb3YQna9738zfAHzmZUZPsLUUIkYMCo1K0LLaUOLj4ywdM0A5+cuMpxoZJJIejTMFIn6OPnF1BLLuZW",
-	"eZ4kjHUMH6S5eU6HO6mOg71jOLO1I+zj/VrADASwCDyMq0SATHhq2xJMCLUp+LpZZfWHn9a2JkcDmWQb",
-	"mT2y0d+mFNa59p34xg7bOg24bxq4tX9zuW/Deo3etg2lhJHqRFD5lSk+pZFW5ATuc2oLil6D653/7WgX",
-	"9xz51YbWW4f2Ce0OW2lse5Ku+oBMFH/CK47OaztSwGRw1H3kBDYXlJfjsjKfpnypa2cgtMhcQvQWF/a6",
-	"tzEOwawwVxJTM0x1XZ3/5dZlieKEm+ZwkgseC5Amy/KOgVbXRYn3rsPdYlSHrRmDO0TvVYa2CH8DqrCc",
-	"Dw+bxrL6oool2cWG7Vg6I8jXSXZoZ7E284cZbzdONx9v79D59RjNuEAqAfQjjTPMGPpYDvHRBx7Nc6qO",
-	"0QfOlMCROppRIdWZXc5LEIMu+sUMRyARZsQ8vFvlcGs2Q1FKgSmEBaBq9o5mgjsoxoymgF79nuH55vnv",
-	"r4/RBTcAhQQzcgSEqtrLOuUf/8YqizkLOlnXB9S1Cgg7jw1Ojk+PT7SGeA4M6x4heHt8cvzW1FwqMfoY",
-	"4ZyOFqejzdwotpVA1V+OSXAWaDM7t0v0ywJnoEDI4OzXh4Dqvcr21obPwOEKwhp4oqVU/5spzUzNu3mR",
-	"wAwXqQrO3pzo9vmeZtqEftAfKLMfTttN2fpL2MQxvTk5eTKwxwai0YHOwUpvQjlDM7MqDN6dnHZRrdgc",
-	"NZAp6zD4wfK8+6UmrMeASdzg18GXMJsDCZHVyVGOY8qMbTWZRK+0mSBrCCFaciEVMj7wWlsfjmUdCKK3",
-	"adrO6MH8OyZr4//l/KlpRxblUIM9dJiTts+NTTjCQT0OKFHALvP6Ut0Qv+dk9bSabyA21s34pPlaH9r0",
-	"7KjUb3qFYYtYRVrLG2BENZTfY4313cm7/pcq7Jd54f/7X6igfk/hDhcWOoO4QA45g7Az+T4brwMDukNk",
-	"teqQFlBHMHTFn4qRFws9lSyQ4IWywESdLuv35pXEN9gIr9BHD+WfY7Ie1a8ccy49urgwIJ0KmjEoxlQb",
-	"fAthZvva9bmDTAVq8ZuXA0FVZvYVMeNt/0sbZO3fI8pY6YGOMu7+G2HkcFeVyNAruNfqoSpEhQRxRBlV",
-	"VEfu1wMcw7WCXuO/5lKdy3lwoAS4ASo9t1FamGKHScZCK1zbpFv2YnFPzhFGDKtC4PQoxSwucAyoBGMh",
-	"POWFMpGQ2SlZXd26928oulDJKOUxZT36LlRiRrkH0npjTPzceq8h1Xbjq4EgWS58lPobivx4HyWYxYDM",
-	"oNq0e+Wo2vSRunKIIpASlSi1So2FSvx65IUapEi97jCa3Br2DdLlu3ZH/YnHMRCk+WxK7QYWfK4DnhsD",
-	"DhWOnbp5K6sfwYjlCoIDW5mDJPorqoaZGTziE9iYpuyucnw79EtthkeRvX/ot6vNXcWBbKt9GfJY87q6",
-	"PEdgbjTKOuF5epivjv7u/Ojun3fX7gSZVu6SqsT8cojAMK3adwcp1V79HNI5mvdLHg/ZPEXukujFNPAe",
-	"Yspa8n8lQBWCSYQdg+h75G6x0Oeb8et+pbh41q8RF2G/ofj9bLn4hqunzsKW5HY+QZQprsssWJZJ+Ps9",
-	"Ms60BFZ35Zv37rLgYIK0G3TkmgtM0xVyS55oCng+PmJY2KFyjT7iC7Aj8TINtatSK62GAA30VXb7wgdz",
-	"c2HhuQfqkOsQ22f2Anuurkakmt1bfPCLBcIfHSO6UD0fHxlugCCHD9bdqVurgyMmR5ylK/Sff/0bMdA2",
-	"Icu0pduVslc1ZYn7SWk9Zjp7aNhIEwXZOTO73Cw7oMoagM0OzdUYfgr5660QTtMaXURZR+dXh3X6hTiS",
-	"BtjYKUuLe2xIc8BFzZ87p109vzba+wbnh9oFzpuXvMDxg0V9Gc1cnpQqXKESvvliXn1Tzq3bI4Y8EVgC",
-	"UrxucQuK0QIipd29gunuZ3gPGyDuelfSvNzAqfvnrQ1w757z1gMbhcPW744SK+RgEs92XfLVpnNZcS5o",
-	"mh4RvmToVQV8D5HBvYfuBvD1ABvJYJQ30VJdpnEFdVjVAXVY38ajwMbjl7yULastnU+/kygHITnDKZX2",
-	"fwnIG9Iq9ZBB8MVALHfcrbYl/fS1V0vIz1d69ej3s7v8zL8FPVtmGsX1/upuuFsFDez2sxLzdzANbGE7",
-	"PUpwK9DP12OHkhHAyNMUVRc6qeiyQSoalXXUZqclwDxdlRvWRWm5bcizQkl11qZ3ZsUBhVlBuDqSjWXx",
-	"RSNVdV/7nUS/BVcrdIFXvwWOs42EHT6sJd/Rg/5nTNajDQjM3zNad9mgyQaVEZb4t3Bl24bBPXNotDC+",
-	"3aAQ5aB+f5OKxUVQbPj+TqIKIumzOvsrqL92hcef3JIDasH9jMqjh1sQC2r/FynL6qrVMC6AgZQoF3xa",
-	"HxPLlVSQ6WPaH64sSofY2gBncMQFjSlDr8wygqaQUIdTvL0+RyODgoyxgiVe6RKvEGlwFoyC9Zf1fwMA",
-	"AP//",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

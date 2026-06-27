@@ -1,9 +1,12 @@
 import Button from '@mui/material/Button'
+import Snackbar from '@mui/material/Snackbar'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { useBrief } from '../api/useBrief'
+import { useBrief, type Brief } from '../api/useBrief'
+import { useCreateTask } from '../api/useTasks'
 import { DailyBrief } from '../components/DailyBrief'
 import { briefToMarkdown } from './exportBrief'
 
@@ -11,6 +14,16 @@ import { briefToMarkdown } from './exportBrief'
 export function HomeScreen() {
   const { data, isLoading, isError } = useBrief()
   const navigate = useNavigate()
+  const createTask = useCreateTask()
+  const [taskAdded, setTaskAdded] = useState(false)
+
+  const onTask = (item: Brief['items'][number]) => {
+    const priority = item.severity === 'critical' ? 'high' : item.severity === 'watch' ? 'medium' : 'low'
+    createTask.mutate(
+      { title: item.headline, facility_id: item.facility_id, priority, source: 'brief' },
+      { onSuccess: () => setTaskAdded(true) },
+    )
+  }
 
   // A suggested action on a brief item jumps to Ask with the question prefilled.
   const askAbout = (action: string, facilityId: string) => {
@@ -51,7 +64,13 @@ export function HomeScreen() {
           </Stack>
         ) : null}
       </Stack>
-      <DailyBrief brief={data} isLoading={isLoading} isError={isError} onAction={askAbout} />
+      <DailyBrief brief={data} isLoading={isLoading} isError={isError} onAction={askAbout} onTask={onTask} />
+      <Snackbar
+        open={taskAdded}
+        autoHideDuration={3000}
+        onClose={() => setTaskAdded(false)}
+        message="Added to My Day"
+      />
     </Stack>
   )
 }

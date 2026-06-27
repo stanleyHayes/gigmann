@@ -5,6 +5,7 @@ import Paper from '@mui/material/Paper'
 import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import AddTaskOutlined from '@mui/icons-material/AddTaskOutlined'
 
 import { motion, useReducedMotion } from 'framer-motion'
 
@@ -13,15 +14,18 @@ import { StatusChip, type FacilityStatus } from './StatusChip'
 import { fmt } from '../i18n/locale'
 import { t } from '../i18n/messages'
 
+type BriefItem = Brief['items'][number]
+
 type Props = {
   brief?: Brief
   isLoading: boolean
   isError: boolean
   onAction?: (action: string, facilityId: string) => void
+  onTask?: (item: BriefItem) => void
 }
 
 /** DailyBrief is the hero surface: the morning brief, worst item first. */
-export function DailyBrief({ brief, isLoading, isError, onAction }: Props) {
+export function DailyBrief({ brief, isLoading, isError, onAction, onTask }: Props) {
   const reduceMotion = useReducedMotion()
   if (isLoading) {
     return (
@@ -74,6 +78,18 @@ export function DailyBrief({ brief, isLoading, isError, onAction }: Props) {
                   </Button>
                 ))}
               </Stack>
+            ) : null}
+            {onTask ? (
+              <Button
+                size="small"
+                variant="text"
+                startIcon={<AddTaskOutlined fontSize="small" />}
+                aria-label={`Turn ${item.facility_id} into a task`}
+                onClick={() => onTask(item)}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                Turn into task
+              </Button>
             ) : null}
           </Stack>
         </Paper>

@@ -7,10 +7,14 @@ import { HomeScreen } from './HomeScreen'
 
 const hoisted = vi.hoisted(() => ({
   result: { data: undefined as Brief | undefined, isLoading: true, isError: false },
+  createMutate: vi.fn(),
 }))
 
 vi.mock('../api/useBrief', () => ({
   useBrief: () => hoisted.result,
+}))
+vi.mock('../api/useTasks', () => ({
+  useCreateTask: () => ({ mutate: hoisted.createMutate }),
 }))
 
 const brief: Brief = {
@@ -21,6 +25,7 @@ const brief: Brief = {
 describe('HomeScreen', () => {
   beforeEach(() => {
     hoisted.result = { data: undefined, isLoading: true, isError: false }
+    hoisted.createMutate = vi.fn()
   })
 
   it('hides export actions until the brief loads', () => {
@@ -37,5 +42,15 @@ describe('HomeScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /copy/i }))
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('# Daily Brief — 2026-06-26'))
     vi.unstubAllGlobals()
+  })
+
+  it('turns a brief item into a task', () => {
+    hoisted.result = { data: brief, isLoading: false, isError: false }
+    render(<HomeScreen />, { wrapper: MemoryRouter })
+    fireEvent.click(screen.getByRole('button', { name: /turn .* into a task/i }))
+    expect(hoisted.createMutate).toHaveBeenCalledWith(
+      { title: 'Claims not submitted', facility_id: 'tafo-maternity', priority: 'high', source: 'brief' },
+      expect.anything(),
+    )
   })
 })

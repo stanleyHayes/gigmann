@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/memory"
 	"github.com/xcreativs/gigmann/internal/app"
 	"github.com/xcreativs/gigmann/internal/core/task"
 	"github.com/xcreativs/gigmann/internal/ports"
@@ -46,4 +47,27 @@ func TestTaskUpdateStatusNotFound(t *testing.T) {
 
 	_, err := app.NewTaskService(repo).UpdateStatus(context.Background(), "missing", task.StatusDone)
 	assert.ErrorIs(t, err, ports.ErrTaskNotFound)
+}
+
+func TestTaskServiceCreate(t *testing.T) {
+	repo := memory.NewTaskRepo()
+	svc := app.NewTaskService(repo)
+	created, err := svc.Create(context.Background(), app.NewTaskInput{
+		Title: "Message Tafo manager", FacilityID: "tafo-maternity",
+		Priority: task.PriorityHigh, Source: task.SourceBrief,
+	})
+	require.NoError(t, err)
+	assert.NotEmpty(t, created.ID)
+	assert.Equal(t, task.StatusTodo, created.Status)
+	assert.Equal(t, task.SourceBrief, created.Source)
+
+	list, err := svc.List(context.Background())
+	require.NoError(t, err)
+	require.Len(t, list, 1)
+}
+
+func TestTaskServiceCreateEmptyTitle(t *testing.T) {
+	svc := app.NewTaskService(memory.NewTaskRepo())
+	_, err := svc.Create(context.Background(), app.NewTaskInput{Title: "  ", Priority: task.PriorityMedium, Source: task.SourceManual})
+	require.ErrorIs(t, err, task.ErrEmptyTitle)
 }

@@ -812,7 +812,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-49, GEC-5.
 
-#### ◐ GEC-51 — Inline brief actions · 5 SP · Phase: Development
+#### ☑ GEC-51 — Inline brief actions · 5 SP · Phase: Development
+> **Done 2026-06-27:** **Turn a brief item into a task** end-to-end: `POST /api/v1/tasks` (`TaskService.Create`, generated id, status todo, `source` traced to brief/alert/manual) + a **Turn into task** button on each Daily Brief item → `useCreateTask` (priority derived from severity, source=brief) with an 'Added to My Day' toast. Joins the existing 'Why?'→Ask inline action. Backend + frontend tests.
 > **Status 2026-06-27:** Inline brief actions render as buttons on each item (`suggested_actions`), accessibility-labelled; clicking routes to **Ask** pre-filled (`'Why?' digs deeper`). _Remaining: a dedicated 'turn into a task' action that creates a task inline rather than routing to Ask._
 - User story: As Sammy, I want each brief item to act (explain, message manager, approve, open facility), so that I can act without leaving the brief.
 - Business value: Spec §2.4/§5.1 "actionable inline".
@@ -1687,3 +1688,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-118/83/84/85 — public marketing site + SEO.** Static, animated, accessible landing page (welcome.html) with full metadata, JSON-LD, OG/Twitter cards, sitemap + robots; linked from login. Frontend gate green. | Claude |
 | 2026-06-27 | **GEC-60 done; GEC-88 progressed.** Ask copy-answer export + helper; a11y axe sweep extended to the Ask screen (Lighthouse-a11y already a CI gate). | Claude |
 | 2026-06-27 | **GEC-63 — Reports screen.** Generate + download a Markdown network report (brief + KPIs); nav + lazy route + tests. | Claude |
+| 2026-06-27 | **GEC-51 — inline brief actions complete.** POST /tasks (TaskService.Create, source-traced) + 'Turn into task' button on brief items → My Day, with toast. Backend+frontend tests; gates green. | Claude |

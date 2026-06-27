@@ -653,3 +653,16 @@ func TestCreateDraft(t *testing.T) {
 	assert.Equal(t, "message", draft.Kind)
 	assert.NotEmpty(t, draft.Draft, "the (deterministic) draft is generated")
 }
+
+func TestCreateTask(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	router := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+	rec := authedRequest(t, router, http.MethodPost, "/api/v1/tasks",
+		`{"title":"Follow up with Tafo","facility_id":"tafo-maternity","priority":"high","source":"brief"}`)
+	require.Equal(t, http.StatusCreated, rec.Code)
+	var created httpapi.Task
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &created))
+	assert.Equal(t, "Follow up with Tafo", created.Title)
+	assert.Equal(t, "todo", string(created.Status))
+	assert.NotEmpty(t, created.Id)
+}

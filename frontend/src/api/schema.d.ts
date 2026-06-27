@@ -219,7 +219,8 @@ export interface paths {
         /** The executive's "My Day" tasks */
         get: operations["listTasks"];
         put?: never;
-        post?: never;
+        /** Create a task (e.g. turning a brief item or alert into a "My Day" task) */
+        post: operations["createTask"];
         delete?: never;
         options?: never;
         head?: never;
@@ -424,6 +425,21 @@ export interface components {
             kind: string;
             facility_id?: string;
             draft: string;
+        };
+        TaskCreate: {
+            title: string;
+            detail?: string;
+            facility_id?: string;
+            /**
+             * @default medium
+             * @enum {string}
+             */
+            priority: "low" | "medium" | "high";
+            /**
+             * @default manual
+             * @enum {string}
+             */
+            source: "manual" | "brief" | "alert";
         };
         Brief: {
             id: string;
@@ -976,6 +992,33 @@ export interface operations {
                     "application/json": components["schemas"]["TaskList"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskCreate"];
+            };
+        };
+        responses: {
+            /** @description The created task */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             500: components["responses"]["InternalError"];
         };

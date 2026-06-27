@@ -2,11 +2,23 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/xcreativs/gigmann/internal/core/task"
 	"github.com/xcreativs/gigmann/internal/ports"
 )
+
+// NewTaskInput describes a task to create (e.g. from a brief item or alert).
+type NewTaskInput struct {
+	Title      string
+	Detail     string
+	FacilityID string
+	Priority   task.Priority
+	Source     task.Source
+}
 
 // TaskService is the "My Day" use case: list tasks and update their status.
 type TaskService struct {
@@ -38,4 +50,32 @@ func (s *TaskService) UpdateStatus(ctx context.Context, id string, status task.S
 		return task.Task{}, fmt.Errorf("app: save task: %w", err)
 	}
 	return current, nil
+}
+
+// Create makes a new "My Day" task (status todo). The source records where it came
+// from (manual/brief/alert) for traceability.
+func (s *TaskService) Create(ctx context.Context, in NewTaskInput) (task.Task, error) {
+	id, err := newTaskID()
+	if err != nil {
+		return task.Task{}, err
+	}
+	t, err := task.New(task.Task{
+		ID: id, Title: in.Title, Detail: in.Detail, FacilityID: in.FacilityID,
+		Priority: in.Priority, Status: task.StatusTodo, Source: in.Source, CreatedAt: time.Now().UTC(),
+	})
+	if err != nil {
+		return task.Task{}, fmt.Errorf("app: new task: %w", err)
+	}
+	if err := s.repo.Save(ctx, t); err != nil {
+		return task.Task{}, fmt.Errorf("app: save task: %w", err)
+	}
+	return t, nil
+}
+
+func newTaskID() (string, error) {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("app: task id: %w", err)
+	}
+	return "task-" + hex.EncodeToString(b), nil
 }
