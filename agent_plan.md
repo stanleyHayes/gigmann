@@ -593,7 +593,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + audit logging.
 - Dependencies: GEC-14.
 
-#### ☐ GEC-32 — Delegation & follow-through API · 3 SP · Phase: Development
+#### ◐ GEC-32 — Delegation & follow-through API · 3 SP · Phase: Development
+> **Status 2026-06-27:** Delegation is served today by the Tasks API — tasks carry `assigned_to` + `source` (brief/alert) for traceability, and the Alerts feed surfaces exceptions. _A dedicated delegation entity (assign-to-manager + stalled-follow-up sweep) is deferred; design noted alongside GEC-67._
 - User story: As Sammy, I want to assign actions and see completion, so that nothing falls through.
 - Business value: Spec §5.9.
 - Acceptance criteria:
@@ -833,7 +834,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + sign-off that "the magic lands".
 - Dependencies: GEC-51, GEC-16.
 
-#### ☐ GEC-53 — Demo-narrative e2e (§3.3) · 5 SP · Phase: QA
+#### ◐ GEC-53 — Demo-narrative e2e (§3.3) · 5 SP · Phase: QA
+> **Status 2026-06-27:** Playwright demo-narrative e2e (`frontend/e2e/demo.spec.ts`) — login→brief(worst-first)→network→ask→my-day→approvals — with `playwright.config.ts` starting the in-memory API + Vite dev server, run by the `E2E` CI workflow (browsers installed in CI). _Authored + CI-wired; runs in CI (no local browser runtime here)._
 - User story: As the team, I want the full demo narrative automated end-to-end on a phone viewport, so that it runs flawlessly twice in a row.
 - Business value: The demo-readiness gate (spec §11.2).
 - Acceptance criteria:
@@ -957,7 +959,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-45, GEC-26.
 
-#### ☐ GEC-64 — Delegation & follow-through UI · 3 SP · Phase: Development
+#### ◐ GEC-64 — Delegation & follow-through UI · 3 SP · Phase: Development
+> **Status 2026-06-27:** Delegated work surfaces in **My Day** (tasks with assignee/source) + the **Attention feed** (GEC-29). _A dedicated delegation board (per-manager completion view) is deferred with the GEC-32 entity._
 - User story: As Sammy, I want to assign actions and see completion/stalls, so that nothing falls through.
 - Business value: Spec §5.9.
 - Acceptance criteria:
@@ -986,7 +989,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD + design sign-off.
 - Dependencies: GEC-56, GEC-57, GEC-67.
 
-#### ☐ GEC-118 — Public / marketing site & signature animations · 8 SP · Phase: Development
+#### ◐ GEC-118 — Public / marketing site & signature animations · 8 SP · Phase: Development
+> **Status 2026-06-27:** Deferred — a public marketing site needs brand/content/design direction. The cockpit is correctly `noindex`; the SPA-SEO approach (pre-render, JSON-LD, sitemap) is recorded in ADR-0001 (D-006) and the SEO infra stories (GEC-83/84/85) attach here. Not built to avoid low-value filler without content.
 - User story: As a prospect, I want a striking public site, so that the product feels premium before I even sign in.
 - Business value: Brand + conversion; it is the SEO surface (E10) and the first impression.
 - Acceptance criteria:
@@ -1376,7 +1380,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-54.
 
-#### ☐ GEC-101 — E2E tests (Playwright) · 5 SP · Phase: QA
+#### ◐ GEC-101 — E2E tests (Playwright) · 5 SP · Phase: QA
+> **Status 2026-06-27:** Playwright harness shipped (`@playwright/test` + `playwright.config.ts` + `.github/workflows/e2e.yml`, Chromium); the demo spec is the first e2e. _More flows can be added; runs in CI._
 - User story: As the team, I want e2e coverage of critical journeys, so that the demo path can't silently break.
 - Business value: Protects the close.
 - Acceptance criteria:
@@ -1484,7 +1489,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-6.
 
-#### ☐ GEC-111 — Staging smoke + UAT + beta gates · 5 SP · Phase: UAT/Beta
+#### ◐ GEC-111 — Staging smoke + UAT + beta gates · 5 SP · Phase: UAT/Beta
+> **Status 2026-06-27:** Staging smoke = the e2e demo spec + the full CI gate; a UAT/beta checklist with per-persona scenarios + entry/exit gates ([docs/uat-checklist.md](docs/uat-checklist.md)). _UAT + beta sign-off are human gates on a deployed staging URL._
 - User story: As the team, I want staging smoke tests and UAT/beta gates, so that releases follow the Eng-Ops SDLC.
 - Business value: Eng-Ops §7–§9 approval gates.
 - Acceptance criteria:
@@ -1668,3 +1674,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-89 — i18n-readiness (en-GH).** Centralised message catalog + `t()` + Intl formatters (number/cedis/date), wired into nav + brief; tested. | Claude |
 | 2026-06-27 | **GEC-92 — error tracking (Sentry, backend).** Gated sentry-go init (no-op without SENTRY_DSN) + panic-reporting middleware; flush on shutdown. Frontend SDK deferred to DSN availability. | Claude |
 | 2026-06-27 | **GEC-45 — generated actions & documents.** POST /drafts returns grounded AI-drafted messages/summaries (read-only, never auto-sent); reuses the answerer; per-principal rate-limited; tested. | Claude |
+| 2026-06-27 | **GEC-53/101/111 + delegation/marketing.** Playwright demo e2e + config + E2E CI workflow; UAT/beta checklist; marked delegation (GEC-32/64, served by tasks/alerts) and marketing (GEC-118, design-blocked) honestly. | Claude |
