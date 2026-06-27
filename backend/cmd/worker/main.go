@@ -29,13 +29,17 @@ func main() {
 		log.Fatal("worker: DATABASE_URL is required")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), jobTimeout)
-	defer cancel()
-
-	if err := run(ctx, os.Args[1], cfg.DatabaseURL); err != nil {
+	if err := execute(os.Args[1], cfg.DatabaseURL); err != nil {
 		log.Fatalf("worker: %s: %v", os.Args[1], err)
 	}
 	log.Printf("worker: %s done", os.Args[1])
+}
+
+// execute scopes the job timeout so the deferred cancel runs before main exits.
+func execute(job, dsn string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), jobTimeout)
+	defer cancel()
+	return run(ctx, job, dsn)
 }
 
 func run(ctx context.Context, job, dsn string) error {
