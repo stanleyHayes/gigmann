@@ -920,7 +920,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-26.
 
-#### ◐ GEC-60 — Ask screen (NL query + generated docs) · 8 SP · Phase: Development
+#### ☑ GEC-60 — Ask screen (NL query + generated docs) · 8 SP · Phase: Development
+> **Done 2026-06-27:** Ask screen: NL query input + suggestions, grounded answer rendered with citation chips, **and a Copy-answer export** (`answerToText` → clipboard, citations included) — the 'generated docs' export from an answer. Tested.
 > **Core done 2026-06-26:** `/ask` lets Sammy ask natural-language questions (typed or via suggested-prompt chips); `useAsk` posts to `/api/v1/ask` and renders the grounded Claude answer with citation chips (animated-dot loading). Completes the last placeholder — every nav slot is now functional. Lazily code-split. _Remaining: 'generated docs' (turn an answer into an exportable report/email) and markdown rendering of the answer._ 44 tests @ 90.8%.
 - User story: As Sammy, I want a plain-English query box with generated-document output, so that I interrogate and command in words.
 - Business value: Spec §5.6 — the close.
@@ -1244,6 +1245,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-86.
 
 #### ◐ GEC-88 — Accessibility (WCAG 2.2 AA) · 5 SP · Phase: QA
+> **Progressed 2026-06-27:** automated **axe** sweep now covers the Daily Brief, status chips, login, **and the Ask screen** (zero violations); **Lighthouse-a11y is a hard CI gate** (a11y ≥ 0.9, GEC-86). _Remaining: axe across the remaining data screens + a manual screen-reader pass on the hero path._
 > **Started 2026-06-26:** automated **axe** (jest-axe) checks assert zero violations on the Daily Brief, status chips, and the login screen — confirming the deliberate a11y work (aria-labels, semantic landmarks, AA-contrast status colours, single-h1, reduced-motion). _Remaining: axe across all screens, a manual screen-reader pass on the hero path, and Lighthouse-a11y in CI._
 - User story: As any user, I want an accessible cockpit, so that it's usable and compliant (and SEO-friendly).
 - Business value: Inclusion + SEO + risk.
@@ -1682,3 +1684,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **GEC-53/101/111 + delegation/marketing.** Playwright demo e2e + config + E2E CI workflow; UAT/beta checklist; marked delegation (GEC-32/64, served by tasks/alerts) and marketing (GEC-118, design-blocked) honestly. | Claude |
 | 2026-06-27 | **GEC-52 — brief-quality harness.** Multi-seed acceptance test: worst-first ordering, facility-grounding (no invented entities), planted-critical-story-leads. | Claude |
 | 2026-06-27 | **GEC-118/83/84/85 — public marketing site + SEO.** Static, animated, accessible landing page (welcome.html) with full metadata, JSON-LD, OG/Twitter cards, sitemap + robots; linked from login. Frontend gate green. | Claude |
+| 2026-06-27 | **GEC-60 done; GEC-88 progressed.** Ask copy-answer export + helper; a11y axe sweep extended to the Ask screen (Lighthouse-a11y already a CI gate). | Claude |

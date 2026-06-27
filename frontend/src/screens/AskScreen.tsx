@@ -8,9 +8,11 @@ import Chip from '@mui/material/Chip'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined'
 
 import { useAsk } from '../api/useAsk'
 import { ButtonLoadingDots } from '../components/ButtonLoadingDots'
+import { answerToText } from './exportBrief'
 
 const SUGGESTIONS = [
   'Which facility needs me most today, and why?',
@@ -88,6 +90,15 @@ export function AskScreen() {
                 ))}
               </Stack>
             ) : null}
+            <Stack direction="row" sx={{ mt: 2, justifyContent: 'flex-end' }}>
+              <Button
+                size="small"
+                startIcon={<ContentCopyOutlined fontSize="small" />}
+                onClick={() => void navigator.clipboard?.writeText(answerToText(ask.data))}
+              >
+                Copy answer
+              </Button>
+            </Stack>
           </CardContent>
         </Card>
       ) : null}

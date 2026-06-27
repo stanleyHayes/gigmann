@@ -24,3 +24,15 @@ describe('briefToMarkdown', () => {
     expect(md).toContain('**WATCH · asokwa** — Stock low')
   })
 })
+
+import { answerToText } from './exportBrief'
+
+describe('answerToText', () => {
+  it('appends citations as sources', () => {
+    expect(answerToText({ text: 'Kasoa denial rate is 19%.', citations: ['kasoa', 'tafo-maternity'] }))
+      .toBe('Kasoa denial rate is 19%.\n\nSources: kasoa, tafo-maternity')
+  })
+  it('omits sources when there are none', () => {
+    expect(answerToText({ text: 'All clear.' })).toBe('All clear.')
+  })
+})

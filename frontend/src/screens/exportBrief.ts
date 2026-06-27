@@ -15,3 +15,9 @@ export function briefToMarkdown(brief: Brief): string {
   }
   return lines.join('\n')
 }
+
+/** answerToText renders a grounded Ask answer (with its citations) as shareable text. */
+export function answerToText(answer: { text: string; citations?: string[] }): string {
+  const sources = answer.citations && answer.citations.length > 0 ? `\n\nSources: ${answer.citations.join(', ')}` : ''
+  return `${answer.text}${sources}`
+}

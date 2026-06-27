@@ -7,6 +7,7 @@ import type { Brief } from './api/useBrief'
 import { DailyBrief } from './components/DailyBrief'
 import { StatusChip } from './components/StatusChip'
 import { LoginScreen } from './screens/LoginScreen'
+import { AskScreen } from './screens/AskScreen'
 
 // LoginScreen reads the auth context; provide a stable stub.
 vi.mock('./auth/authContext', () => ({
@@ -29,6 +30,10 @@ const brief: Brief = {
   ],
 }
 
+vi.mock('./api/useAsk', () => ({
+  useAsk: () => ({ mutate: () => {}, isPending: false, isError: false, data: undefined }),
+}))
+
 describe('accessibility (axe)', () => {
   it('the Daily Brief has no violations', async () => {
     const { container } = render(<DailyBrief brief={brief} isLoading={false} isError={false} />)
@@ -43,6 +48,15 @@ describe('accessibility (axe)', () => {
         <StatusChip status="watch" label="Asokwa" />
         <StatusChip status="good" label="Kasoa" />
       </div>,
+    )
+    expect((await axe(container)).violations).toEqual([])
+  })
+
+  it('the Ask screen has no violations', async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <AskScreen />
+      </MemoryRouter>,
     )
     expect((await axe(container)).violations).toEqual([])
   })
