@@ -537,8 +537,12 @@ func TestMFAEnrollAndStepUp(t *testing.T) {
 	noCode := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234"}`)
 	require.Equal(t, http.StatusUnauthorized, noCode.Code)
 
-	// login with a fresh code (next step) succeeds — the confirm code was single-use
-	code2, err := mfa.Code(enr.Secret, time.Now().Add(31*time.Second))
+	// login with a fresh code for the next step succeeds (the confirm code was
+	// single-use). Computed at the next 30s step boundary so it is reliably one step
+	// ahead and within the server's ±1 skew — not a flaky two steps out when the
+	// test happens to run in the final second of a step.
+	nextStep := time.Unix((time.Now().Unix()/30+1)*30, 0)
+	code2, err := mfa.Code(enr.Secret, nextStep)
 	require.NoError(t, err)
 	withCode := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234","code":"`+code2+`"}`)
 	require.Equal(t, http.StatusOK, withCode.Code)

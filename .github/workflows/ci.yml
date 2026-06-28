@@ -208,6 +208,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Pull with retry first (Docker Hub can transiently EOF/rate-limit), so the
+          # run below fails only on a real Trivy finding — not a flaky registry pull.
+          for i in 1 2 3; do docker pull aquasec/trivy:0.65.0 && break || { echo "pull retry $i"; sleep 15; }; done
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$HOME/.cache/trivy:/root/.cache/trivy" \
