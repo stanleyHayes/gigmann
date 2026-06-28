@@ -53,4 +53,18 @@ func TestBuildContextTopN(t *testing.T) {
 	c := intel.BuildContext(time.Now(), nil, sigs, signal.Pulse{}, 2)
 	assert.Len(t, c.Items, 2)
 	assert.Equal(t, "a", c.Items[0].Type)
+	// FacilityName is never empty — it falls back to the id when unresolved, so the
+	// narrator never emits broken text like ": Headline".
+	for i, it := range c.Items {
+		assert.NotEmpty(t, it.FacilityName, "item %d FacilityName", i)
+	}
+	assert.Equal(t, "f1", c.Items[0].FacilityName, "unresolved name falls back to the id")
+}
+
+func TestBuildContextResolvesNames(t *testing.T) {
+	facilities := []facility.Facility{{ID: "kasoa", Name: "Kasoa Polyclinic"}}
+	sigs := []signal.Signal{{Type: "a", FacilityID: "kasoa", Severity: severity.Critical}}
+	c := intel.BuildContext(time.Now(), facilities, sigs, signal.Pulse{}, 0)
+	require.Len(t, c.Items, 1)
+	assert.Equal(t, "Kasoa Polyclinic", c.Items[0].FacilityName)
 }

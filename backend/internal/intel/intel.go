@@ -52,9 +52,15 @@ func BuildContext(asOf time.Time, facilities []facility.Facility, signals []sign
 
 	items := make([]Item, 0, len(signals))
 	for _, s := range signals {
+		// Fall back to the id if the name can't be resolved, so FacilityName is
+		// never empty (which would produce broken narration like ": Headline").
+		name := names[s.FacilityID]
+		if name == "" {
+			name = s.FacilityID
+		}
 		items = append(items, Item{
 			FacilityID:   s.FacilityID,
-			FacilityName: names[s.FacilityID],
+			FacilityName: name,
 			Type:         s.Type,
 			Severity:     s.Severity,
 			Headline:     s.Headline,
