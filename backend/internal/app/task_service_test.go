@@ -52,7 +52,7 @@ func TestTaskUpdateStatusNotFound(t *testing.T) {
 func TestTaskServiceCreate(t *testing.T) {
 	repo := memory.NewTaskRepo()
 	svc := app.NewTaskService(repo)
-	created, err := svc.Create(context.Background(), app.NewTaskInput{
+	created, err := svc.Create(context.Background(), execPrincipal(), app.NewTaskInput{
 		Title: "Message Tafo manager", FacilityID: "tafo-maternity",
 		Priority: task.PriorityHigh, Source: task.SourceBrief,
 	})
@@ -68,6 +68,19 @@ func TestTaskServiceCreate(t *testing.T) {
 
 func TestTaskServiceCreateEmptyTitle(t *testing.T) {
 	svc := app.NewTaskService(memory.NewTaskRepo())
-	_, err := svc.Create(context.Background(), app.NewTaskInput{Title: "  ", Priority: task.PriorityMedium, Source: task.SourceManual})
+	_, err := svc.Create(context.Background(), execPrincipal(), app.NewTaskInput{Title: "  ", Priority: task.PriorityMedium, Source: task.SourceManual})
 	require.ErrorIs(t, err, task.ErrEmptyTitle)
+}
+
+func TestTaskServiceCreateScopesManager(t *testing.T) {
+	svc := app.NewTaskService(memory.NewTaskRepo())
+
+	_, err := svc.Create(context.Background(), managerPrincipal("kasoa"),
+		app.NewTaskInput{Title: "x", FacilityID: "nima", Priority: task.PriorityMedium, Source: task.SourceManual})
+	require.ErrorIs(t, err, app.ErrForbidden, "manager cannot create a task for another facility")
+
+	ownTask, err := svc.Create(context.Background(), managerPrincipal("kasoa"),
+		app.NewTaskInput{Title: "x", FacilityID: "kasoa", Priority: task.PriorityMedium, Source: task.SourceManual})
+	require.NoError(t, err, "manager may create a task for their own facility")
+	assert.Equal(t, "kasoa", ownTask.FacilityID)
 }

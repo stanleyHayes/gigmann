@@ -34,9 +34,25 @@ func TestApprovalList(t *testing.T) {
 	repo := mocks.NewMockApprovalRepository(ctrl)
 	repo.EXPECT().List(gomock.Any()).Return([]approval.Approval{pending()}, nil)
 
-	got, err := app.NewApprovalService(repo, auditMock(ctrl)).List(context.Background())
+	got, err := app.NewApprovalService(repo, auditMock(ctrl)).List(context.Background(), execPrincipal())
 	require.NoError(t, err)
 	require.Len(t, got, 1)
+}
+
+func TestApprovalListScopesManager(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	repo := mocks.NewMockApprovalRepository(ctrl)
+	withFac := approval.Approval{ID: "ap1", Type: approval.TypeCapital, Title: "Ultrasound", Status: approval.StatusPending, FacilityID: "kasoa"}
+	repo.EXPECT().List(gomock.Any()).Return([]approval.Approval{withFac}, nil).Times(2)
+	svc := app.NewApprovalService(repo, auditMock(ctrl))
+
+	other, err := svc.List(context.Background(), managerPrincipal("nima"))
+	require.NoError(t, err)
+	assert.Empty(t, other, "manager does not see another facility's approvals")
+
+	own, err := svc.List(context.Background(), managerPrincipal("kasoa"))
+	require.NoError(t, err)
+	assert.Len(t, own, 1, "manager sees their own facility's approvals")
 }
 
 func TestApprovalDecideApproves(t *testing.T) {

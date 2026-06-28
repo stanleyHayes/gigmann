@@ -26,13 +26,23 @@ func NewApprovalService(repo ports.ApprovalRepository, audit ports.AuditLogger) 
 	return &ApprovalService{repo: repo, audit: audit}
 }
 
-// List returns all approvals routed to the executive.
-func (s *ApprovalService) List(ctx context.Context) ([]approval.Approval, error) {
+// List returns the approvals the principal may see: executives see the whole
+// network; a facility manager sees only their own facility's approvals (no IDOR).
+func (s *ApprovalService) List(ctx context.Context, p auth.Principal) ([]approval.Approval, error) {
 	items, err := s.repo.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("app: list approvals: %w", err)
 	}
-	return items, nil
+	if p.IsExecutive() {
+		return items, nil
+	}
+	scoped := make([]approval.Approval, 0, len(items))
+	for _, a := range items {
+		if p.CanAccessFacility(a.FacilityID) {
+			scoped = append(scoped, a)
+		}
+	}
+	return scoped, nil
 }
 
 // Decide records an approve/decline decision. Only executives are authorized;

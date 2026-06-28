@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/xcreativs/gigmann/internal/core/alert"
+	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/facility"
 	"github.com/xcreativs/gigmann/internal/core/inventory"
 	"github.com/xcreativs/gigmann/internal/core/staff"
@@ -42,10 +43,15 @@ func NewFacilityDetailService(
 }
 
 // Detail returns the facility and its inventory/staff/alerts, or ErrFacilityNotFound.
-func (s *FacilityDetailService) Detail(_ context.Context, id string) (FacilityDetail, error) {
+// Facility managers may only drill into their own facility (ErrForbidden otherwise);
+// executives see the whole network.
+func (s *FacilityDetailService) Detail(_ context.Context, p auth.Principal, id string) (FacilityDetail, error) {
 	f, ok := s.facilities[id]
 	if !ok {
 		return FacilityDetail{}, ErrFacilityNotFound
+	}
+	if !p.CanAccessFacility(id) {
+		return FacilityDetail{}, ErrForbidden
 	}
 	return FacilityDetail{
 		Facility:  f,

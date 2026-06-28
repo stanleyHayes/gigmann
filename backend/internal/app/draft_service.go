@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/ports"
 )
 
@@ -21,11 +22,20 @@ func NewDraftService(answerer ports.QuestionAnswerer) *DraftService {
 }
 
 // Draft returns a grounded draft for the given kind/instruction (and optional
-// facility). An empty instruction yields an empty draft.
-func (s *DraftService) Draft(ctx context.Context, kind, facilityID, instruction string) (string, error) {
+// facility). An empty instruction yields an empty draft. A facility manager may
+// only draft for their own facility; a network-wide draft requires an executive
+// (so a manager can't ground AI output in data outside their facility).
+func (s *DraftService) Draft(ctx context.Context, p auth.Principal, kind, facilityID, instruction string) (string, error) {
 	instruction = strings.TrimSpace(instruction)
 	if instruction == "" {
 		return "", nil
+	}
+	if facilityID == "" {
+		if !p.IsExecutive() {
+			return "", ErrForbidden
+		}
+	} else if !p.CanAccessFacility(facilityID) {
+		return "", ErrForbidden
 	}
 	answer, err := s.answerer.Answer(ctx, buildDraftPrompt(kind, facilityID, instruction))
 	if err != nil {

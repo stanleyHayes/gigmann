@@ -248,8 +248,11 @@ func (s *Server) ListFacilities(ctx context.Context, _ ListFacilitiesRequestObje
 
 // GetFacility returns one facility's drill-down (inventory, staff, alerts).
 func (s *Server) GetFacility(ctx context.Context, request GetFacilityRequestObject) (GetFacilityResponseObject, error) {
-	d, err := s.facilityDetail.Detail(ctx, request.FacilityId)
+	p, _ := principalFrom(ctx)
+	d, err := s.facilityDetail.Detail(ctx, p, request.FacilityId)
 	switch {
+	case errors.Is(err, app.ErrForbidden):
+		return GetFacility403JSONResponse{ForbiddenJSONResponse{Error: "forbidden"}}, nil
 	case errors.Is(err, app.ErrFacilityNotFound):
 		return GetFacility404JSONResponse{NotFoundJSONResponse{Error: "not_found"}}, nil
 	case err != nil:
@@ -335,7 +338,8 @@ func (s *Server) ListAlerts(ctx context.Context, request ListAlertsRequestObject
 	if request.Params.Limit != nil {
 		limit = *request.Params.Limit
 	}
-	items, next, err := s.alerts.Feed(ctx, cursor, limit)
+	p, _ := principalFrom(ctx)
+	items, next, err := s.alerts.Feed(ctx, p, cursor, limit)
 	if err != nil {
 		return ListAlerts500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr // mapped to 500
 	}
@@ -354,8 +358,11 @@ func (s *Server) UpdateAlertStatus(ctx context.Context, request UpdateAlertStatu
 	if request.Body == nil {
 		return UpdateAlertStatus400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
 	}
-	updated, err := s.alerts.UpdateStatus(ctx, request.AlertId, alert.Status(request.Body.Status))
+	p, _ := principalFrom(ctx)
+	updated, err := s.alerts.UpdateStatus(ctx, p, request.AlertId, alert.Status(request.Body.Status))
 	switch {
+	case errors.Is(err, app.ErrForbidden):
+		return UpdateAlertStatus403JSONResponse{ForbiddenJSONResponse{Error: "forbidden"}}, nil
 	case errors.Is(err, ports.ErrAlertNotFound):
 		return UpdateAlertStatus404JSONResponse{NotFoundJSONResponse{Error: "not_found"}}, nil
 	case errors.Is(err, app.ErrInvalidAlertStatus):
@@ -378,7 +385,11 @@ func (s *Server) CreateDraft(ctx context.Context, request CreateDraftRequestObje
 	if request.Body.FacilityId != nil {
 		facilityID = *request.Body.FacilityId
 	}
-	text, err := s.drafts.Draft(ctx, string(request.Body.Kind), facilityID, request.Body.Instruction)
+	p, _ := principalFrom(ctx)
+	text, err := s.drafts.Draft(ctx, p, string(request.Body.Kind), facilityID, request.Body.Instruction)
+	if errors.Is(err, app.ErrForbidden) {
+		return CreateDraft403JSONResponse{ForbiddenJSONResponse{Error: "forbidden"}}, nil
+	}
 	if err != nil {
 		return CreateDraft500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr // mapped to 500
 	}
@@ -414,8 +425,11 @@ func (s *Server) CreateTask(ctx context.Context, request CreateTaskRequestObject
 	if request.Body.DueDate != nil {
 		in.DueDate = request.Body.DueDate.Time
 	}
-	t, err := s.tasks.Create(ctx, in)
+	p, _ := principalFrom(ctx)
+	t, err := s.tasks.Create(ctx, p, in)
 	switch {
+	case errors.Is(err, app.ErrForbidden):
+		return CreateTask403JSONResponse{ForbiddenJSONResponse{Error: "forbidden"}}, nil
 	case errors.Is(err, task.ErrEmptyTitle), errors.Is(err, task.ErrInvalidPriority), errors.Is(err, task.ErrInvalidSource):
 		return CreateTask400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
 	case err != nil:
@@ -523,7 +537,8 @@ func (s *Server) PostPushUnsubscribe(ctx context.Context, request PostPushUnsubs
 
 // ListApprovals returns the approvals routed to the executive.
 func (s *Server) ListApprovals(ctx context.Context, _ ListApprovalsRequestObject) (ListApprovalsResponseObject, error) {
-	items, err := s.approvals.List(ctx)
+	p, _ := principalFrom(ctx)
+	items, err := s.approvals.List(ctx, p)
 	if err != nil {
 		return ListApprovals500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
 	}

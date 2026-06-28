@@ -68,10 +68,14 @@ func (s *Sender) Send(ctx context.Context, sub ports.PushSubscription, payload [
 		TTL:             int(pushTTL.Seconds()),
 		HTTPClient:      s.client,
 	})
+	// Close the body even on a non-nil error: some transports return both a
+	// partial response and an error (e.g. context cancellation mid-read).
+	if resp != nil {
+		defer func() { _ = resp.Body.Close() }()
+	}
 	if err != nil {
 		return fmt.Errorf("webpush: send: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
 		return ErrGone
 	}

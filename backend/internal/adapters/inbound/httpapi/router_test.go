@@ -127,6 +127,37 @@ func bearerToken(t *testing.T) string {
 	return tok
 }
 
+// managerBearerToken issues a facility-manager token scoped to facilityID.
+func managerBearerToken(t *testing.T, facilityID string) string {
+	t.Helper()
+	tok, err := token.New([]byte("test-secret"), time.Hour).Issue(
+		auth.Principal{UserID: "u-mgr", Name: "Ama Owusu", Role: user.RoleFacilityManager, FacilityID: facilityID})
+	require.NoError(t, err)
+	return tok
+}
+
+// managerRequest issues a request carrying a facility-manager Bearer token.
+func managerRequest(t *testing.T, handler http.Handler, facilityID, method, target string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(method, target, nil)
+	req.Header.Set("Authorization", "Bearer "+managerBearerToken(t, facilityID))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestGetFacilityScopesManager(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	router := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+
+	// A kasoa manager drilling into another facility is forbidden (IDOR); their own is allowed.
+	other := managerRequest(t, router, "kasoa", http.MethodGet, "/api/v1/facilities/asokwa")
+	require.Equal(t, http.StatusForbidden, other.Code)
+
+	own := managerRequest(t, router, "kasoa", http.MethodGet, "/api/v1/facilities/kasoa")
+	require.Equal(t, http.StatusOK, own.Code)
+}
+
 // serveAuth issues a request carrying a valid Bearer token (for protected endpoints).
 func serveAuth(t *testing.T, repo *mocks.MockFacilityRepository, briefs *mocks.MockBriefGenerator, method, target string) *httptest.ResponseRecorder {
 	t.Helper()

@@ -3,6 +3,7 @@ package signal
 import (
 	"fmt"
 
+	"github.com/xcreativs/gigmann/internal/core/money"
 	"github.com/xcreativs/gigmann/internal/core/severity"
 )
 
@@ -29,7 +30,7 @@ func (d LeakageDetector) Detect(in Input) []Signal {
 		}
 		out = append(out, Signal{
 			Type: "revenue_leakage", FacilityID: fid, Severity: sev, Magnitude: float64(unbilled),
-			Headline:          fmt.Sprintf("GH₵ %d delivered but unbilled", unbilled/100),
+			Headline:          fmt.Sprintf("%s delivered but unbilled", money.FromPesewas(unbilled)),
 			SupportingFigures: map[string]any{"unbilled_pesewas": unbilled},
 		})
 	}

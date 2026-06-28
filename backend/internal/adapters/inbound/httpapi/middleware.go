@@ -121,11 +121,12 @@ func readyHandler(check func(context.Context) error) http.HandlerFunc {
 // rateLimiter is a simple in-memory fixed-window per-key request limiter. It is
 // per-process (fine for the demo); a clustered deploy would back this with Redis.
 type rateLimiter struct {
-	mu     sync.Mutex
-	limit  int
-	window time.Duration
-	now    func() time.Time
-	counts map[string]*windowCount
+	mu        sync.Mutex
+	limit     int
+	window    time.Duration
+	now       func() time.Time
+	counts    map[string]*windowCount
+	lastSweep time.Time
 }
 
 type windowCount struct {
@@ -164,6 +165,7 @@ func (l *rateLimiter) allow(key string) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := l.now()
+	l.sweep(now)
 	wc := l.counts[key]
 	if wc == nil || now.After(wc.resetAt) {
 		l.counts[key] = &windowCount{count: 1, resetAt: now.Add(l.window)}
@@ -174,6 +176,21 @@ func (l *rateLimiter) allow(key string) bool {
 	}
 	wc.count++
 	return true
+}
+
+// sweep evicts expired windows, at most once per window, so the counts map cannot
+// grow unbounded with one entry per distinct client/principal seen over time.
+// Caller must hold l.mu.
+func (l *rateLimiter) sweep(now time.Time) {
+	if !now.After(l.lastSweep.Add(l.window)) {
+		return
+	}
+	for k, wc := range l.counts {
+		if now.After(wc.resetAt) {
+			delete(l.counts, k)
+		}
+	}
+	l.lastSweep = now
 }
 
 // clientIP extracts the caller IP, honouring X-Forwarded-For behind a proxy.

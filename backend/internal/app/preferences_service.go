@@ -11,8 +11,12 @@ import (
 )
 
 // maxPrefEntries caps watched-metrics and thresholds so a request cannot bloat
-// the stored preferences blob.
-const maxPrefEntries = 24
+// the stored preferences blob. maxPrefKeyLen bounds each metric/threshold key
+// (these are short identifiers) so a single over-long string can't bloat it either.
+const (
+	maxPrefEntries = 24
+	maxPrefKeyLen  = 64
+)
 
 // PreferencesService is the personalisation use case: read and update the
 // current user's watched metrics and thresholds (spec §5.12).
@@ -55,7 +59,7 @@ func sanitizePreferences(p user.Preferences) user.Preferences {
 	seen := make(map[string]bool, len(p.WatchedMetrics))
 	for _, m := range p.WatchedMetrics {
 		m = strings.TrimSpace(m)
-		if m == "" || seen[m] {
+		if m == "" || len(m) > maxPrefKeyLen || seen[m] {
 			continue
 		}
 		seen[m] = true
@@ -67,7 +71,7 @@ func sanitizePreferences(p user.Preferences) user.Preferences {
 	thresholds := make(map[string]float64, len(p.Thresholds))
 	for k, v := range p.Thresholds {
 		k = strings.TrimSpace(k)
-		if k == "" || math.IsNaN(v) || math.IsInf(v, 0) || len(thresholds) >= maxPrefEntries {
+		if k == "" || len(k) > maxPrefKeyLen || math.IsNaN(v) || math.IsInf(v, 0) || len(thresholds) >= maxPrefEntries {
 			continue
 		}
 		thresholds[k] = v

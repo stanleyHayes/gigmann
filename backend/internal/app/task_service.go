@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/task"
 	"github.com/xcreativs/gigmann/internal/ports"
 )
@@ -55,8 +56,12 @@ func (s *TaskService) UpdateStatus(ctx context.Context, id string, status task.S
 }
 
 // Create makes a new "My Day" task (status todo). The source records where it came
-// from (manual/brief/alert) for traceability.
-func (s *TaskService) Create(ctx context.Context, in NewTaskInput) (task.Task, error) {
+// from (manual/brief/alert) for traceability. A facility manager may only create
+// tasks scoped to their own facility (ErrForbidden otherwise).
+func (s *TaskService) Create(ctx context.Context, p auth.Principal, in NewTaskInput) (task.Task, error) {
+	if in.FacilityID != "" && !p.CanAccessFacility(in.FacilityID) {
+		return task.Task{}, ErrForbidden
+	}
 	id, err := newTaskID()
 	if err != nil {
 		return task.Task{}, err

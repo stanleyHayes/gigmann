@@ -24,7 +24,7 @@ func TestDraftServiceBuildsGroundedPrompt(t *testing.T) {
 		})
 
 	svc := app.NewDraftService(answerer)
-	out, err := svc.Draft(context.Background(), "message", "kasoa", "the NHIS denial spike")
+	out, err := svc.Draft(context.Background(), execPrincipal(), "message", "kasoa", "the NHIS denial spike")
 	require.NoError(t, err)
 	assert.Equal(t, "Dear manager, regarding the denial spike...", out)
 	assert.Contains(t, prompt, "kasoa")
@@ -36,7 +36,19 @@ func TestDraftServiceEmptyInstruction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	answerer := mocks.NewMockQuestionAnswerer(ctrl) // no call expected
 	svc := app.NewDraftService(answerer)
-	out, err := svc.Draft(context.Background(), "message", "", "   ")
+	out, err := svc.Draft(context.Background(), execPrincipal(), "message", "", "   ")
 	require.NoError(t, err)
 	assert.Empty(t, out)
+}
+
+func TestDraftServiceScopesManager(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	answerer := mocks.NewMockQuestionAnswerer(ctrl) // no Answer expected: authz fails first
+	svc := app.NewDraftService(answerer)
+
+	_, err := svc.Draft(context.Background(), managerPrincipal("kasoa"), "message", "nima", "x")
+	require.ErrorIs(t, err, app.ErrForbidden, "manager cannot draft for another facility")
+
+	_, err = svc.Draft(context.Background(), managerPrincipal("kasoa"), "summary", "", "x")
+	require.ErrorIs(t, err, app.ErrForbidden, "manager cannot make a network-wide draft")
 }
