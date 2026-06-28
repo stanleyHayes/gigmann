@@ -1,0 +1,31 @@
+name: DR Restore Drill
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 1 * *" # 03:00 on the 1st of each month
+permissions:
+  contents: read
+jobs:
+  drill:
+    name: Restore drill
+    runs-on: ubuntu-latest
+    # Gated on a secret: skips (green) until a source DB is configured, then runs
+    # the verified scripts/restore-drill.sh against it (see docs/backups-and-dr.md).
+    env:
+      DR_SOURCE_DATABASE_URL: ${{ secrets.DR_SOURCE_DATABASE_URL }}
+      DR_SCRATCH_DATABASE_URL: ${{ secrets.DR_SCRATCH_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skipped (no DR_SOURCE_DATABASE_URL configured)
+        if: ${{ env.DR_SOURCE_DATABASE_URL == '' }}
+        run: echo "DR drill skipped — set DR_SOURCE_DATABASE_URL (a backup/replica) to enable; optionally DR_SCRATCH_DATABASE_URL."
+      - name: Install Postgres client 18
+        if: ${{ env.DR_SOURCE_DATABASE_URL != '' }}
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18
+      - name: Run restore drill
+        if: ${{ env.DR_SOURCE_DATABASE_URL != '' }}
+        run: scripts/restore-drill.sh "$DR_SOURCE_DATABASE_URL" "${DR_SCRATCH_DATABASE_URL:-}"

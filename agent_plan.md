@@ -1338,7 +1338,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-91.
 
 #### ☑ GEC-95 — Backups & disaster recovery · 5 SP · Phase: Staging
-> **Done 2026-06-28:** Backups documented (Render managed Postgres daily backups + PITR; optional off-platform `pg_dump`), RPO≤24h/RTO≤1h stated, and a **tested, scripted restore drill**: `scripts/restore-drill.sh` dumps a source DB, restores into a throwaway scratch DB, and verifies faithful restore (identical tables + row counts). **Verified** against real Postgres 18 seeded by the API — 14 tables / 207 rows restored with matching counts; empty-source and count-mismatch paths fail as expected. _Schedule it against the live Render backup as periodic ops once provisioned._
+> **Done 2026-06-28:** Backups documented (Render managed Postgres daily backups + PITR; optional off-platform `pg_dump`), RPO≤24h/RTO≤1h stated, and a **tested, scripted restore drill**: `scripts/restore-drill.sh` dumps a source DB, restores into a throwaway scratch DB, and verifies faithful restore (identical tables + row counts). **Verified** against real Postgres 18 seeded by the API — 14 tables / 207 rows restored with matching counts; empty-source and count-mismatch paths fail as expected. _Schedule it against the live Render backup as periodic ops once provisioned._ The drill is also wired as a **gated scheduled workflow** (`.github/workflows/dr-drill.yml`, monthly + on-demand) that runs against `DR_SOURCE_DATABASE_URL` when that secret is set (skips green otherwise).
 - User story: As the business, I want backups and a tested restore, so that data loss is recoverable.
 - Business value: Production must-have.
 - Acceptance criteria:
