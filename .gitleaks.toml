@@ -1,0 +1,17 @@
+# gitleaks configuration. Extends the default ruleset and allowlists GENERATED
+# code, whose embedded artifacts are high-entropy and can trip the generic-api-key
+# heuristic but contain no secrets — notably the base64-gzipped OpenAPI spec that
+# oapi-codegen embeds in openapi_gen.go. Hand-written code is still fully scanned.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated code + deterministic MFA test seeds (no real secrets)"
+paths = [
+  '''.*_gen\.go$''',
+  '''backend/internal/adapters/outbound/postgres/sqlcgen/.*''',
+  '''frontend/src/api/schema\.d\.ts$''',
+  # Test files whose TOTP/MFA fixtures are high-entropy but are not real secrets.
+  '''backend/internal/app/auth_service_test\.go$''',
+  '''backend/internal/core/mfa/mfa_test\.go$''',
+]
