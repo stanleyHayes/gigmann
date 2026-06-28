@@ -1337,8 +1337,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-91.
 
-#### ◐ GEC-95 — Backups & disaster recovery · 5 SP · Phase: Staging
-> **Status 2026-06-27:** Backup/restore runbook + targets (RPO≤24h/RTO≤1h) shipped ([docs/backups-and-dr.md](docs/backups-and-dr.md)); Render automated Postgres backups + PITR. _A tested restore drill needs the live DB._
+#### ☑ GEC-95 — Backups & disaster recovery · 5 SP · Phase: Staging
+> **Done 2026-06-28:** Backups documented (Render managed Postgres daily backups + PITR; optional off-platform `pg_dump`), RPO≤24h/RTO≤1h stated, and a **tested, scripted restore drill**: `scripts/restore-drill.sh` dumps a source DB, restores into a throwaway scratch DB, and verifies faithful restore (identical tables + row counts). **Verified** against real Postgres 18 seeded by the API — 14 tables / 207 rows restored with matching counts; empty-source and count-mismatch paths fail as expected. _Schedule it against the live Render backup as periodic ops once provisioned._
 - User story: As the business, I want backups and a tested restore, so that data loss is recoverable.
 - Business value: Production must-have.
 - Acceptance criteria:
@@ -1718,3 +1718,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **CI green + deterministic.** Root-caused the recurring red CI: floating `golangci-lint@latest` (newer than local, flagged gosec G706/G115/G118 + goconst/noctx), `node@26 check-latest` (experimental global localStorage broke jsdom → AuthProvider tests), and an invalid `trivy-action@0.28.0` tag. Fixed the real gosec findings (validated worker job names; `binary.LittleEndian` byte write; justified detached-context nolints), disabled high-noise `goconst` + excluded `noctx` in tests, pinned golangci-lint→v2.12.2 / node→20 / trivy→v0.33.0, and added an in-memory localStorage shim. Verified the full CI suite locally before pushing (golangci-lint v2.12.2: 0 issues; backend cover 86.3%; frontend 90/90). | Claude |
 | 2026-06-27 | **Trivy DAST + dep patch.** Replaced Trivy's flaky self-install with the pinned `aquasec/trivy:0.65.0` image; the now-working scan caught 9 real HIGH CVEs in `golang.org/x/crypto` v0.51.0 (SSH) — bumped to v0.52.0. Gated the SonarQube job on `SONAR_TOKEN` (skips green when unset, enforced when set; action→v6). | Claude |
 | 2026-06-28 | **GEC-69 — Web Push (critical-only).** VAPID-gated push: subscription store + sender port + `PushService` (open-critical-only, per-device dedup, fanout off brief-refresh) + principal-scoped endpoints; frontend SW handler + `usePush` hook + Settings opt-in. No-op without VAPID keys. Verified locally (golangci-lint v2.12.2 0 issues; backend cover 85.8%; frontend 94/94). | Claude |
+| 2026-06-28 | **GEC-95 — Tested restore drill.** `scripts/restore-drill.sh` (dump→restore-to-scratch→verify row-count parity), verified against PG18 seeded by the API (14 tables/207 rows; failure paths exercised). Runbook updated. | Claude |
