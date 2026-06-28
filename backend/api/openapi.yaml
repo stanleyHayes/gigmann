@@ -509,6 +509,63 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/push/key:
+    get:
+      operationId: getPushKey
+      summary: VAPID public key for Web Push (empty string when push is not configured)
+      tags: [push]
+      responses:
+        '200':
+          description: VAPID public key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushKey'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/push/subscribe:
+    post:
+      operationId: postPushSubscribe
+      summary: Register a Web Push subscription for the current user (critical alerts only)
+      tags: [push]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushSubscriptionInput'
+      responses:
+        '204':
+          description: Subscribed
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/push/unsubscribe:
+    post:
+      operationId: postPushUnsubscribe
+      summary: Remove a Web Push subscription for the current user
+      tags: [push]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushUnsubscribeInput'
+      responses:
+        '204':
+          description: Unsubscribed
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   schemas:
     Health:
@@ -587,6 +644,33 @@ components:
           additionalProperties:
             type: number
             format: double
+
+    PushKey:
+      type: object
+      required: [public_key]
+      properties:
+        public_key:
+          type: string
+    PushSubscriptionInput:
+      type: object
+      required: [endpoint, keys]
+      properties:
+        endpoint:
+          type: string
+        keys:
+          type: object
+          required: [p256dh, auth]
+          properties:
+            p256dh:
+              type: string
+            auth:
+              type: string
+    PushUnsubscribeInput:
+      type: object
+      required: [endpoint]
+      properties:
+        endpoint:
+          type: string
 
     AlertFeed:
       type: object

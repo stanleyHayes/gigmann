@@ -172,3 +172,28 @@ type AuditLogger interface {
 type Notifier interface {
 	Notify(event string)
 }
+
+// PushSubscription is a browser Web Push subscription (W3C Push API / RFC 8030).
+type PushSubscription struct {
+	Endpoint string
+	P256dh   string // client public key (base64url)
+	Auth     string // client auth secret (base64url)
+}
+
+// PushSubscriptionStore persists Web Push subscriptions per user (driven port).
+// Implementations dedupe by (userID, endpoint).
+type PushSubscriptionStore interface {
+	Save(ctx context.Context, userID string, sub PushSubscription) error
+	Delete(ctx context.Context, userID, endpoint string) error
+	ListByUser(ctx context.Context, userID string) ([]PushSubscription, error)
+	All(ctx context.Context) (map[string][]PushSubscription, error)
+}
+
+// PushSender delivers an encrypted Web Push payload to a single subscription
+// (driven port). When VAPID keys are not configured the sender is disabled and
+// every Send is a no-op, so the feature degrades to off without keys.
+type PushSender interface {
+	Enabled() bool
+	PublicKey() string
+	Send(ctx context.Context, sub PushSubscription, payload []byte) error
+}

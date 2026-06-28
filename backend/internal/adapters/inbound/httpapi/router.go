@@ -61,6 +61,7 @@ type Deps struct {
 	Drafts         *app.DraftService
 	Search         *app.FacilitySearchService
 	Preferences    *app.PreferencesService
+	Push           *app.PushService
 	Tokens         ports.TokenService
 	Logger         *slog.Logger
 	CORSOrigins    []string
@@ -83,6 +84,7 @@ type Server struct {
 	drafts         *app.DraftService
 	search         *app.FacilitySearchService
 	preferences    *app.PreferencesService
+	push           *app.PushService
 }
 
 // Compile-time guarantee that Server satisfies the generated contract.
@@ -115,7 +117,7 @@ func NewRouter(d Deps) http.Handler {
 	}
 	r.Get("/docs", redocHandler())
 
-	srv := &Server{facilities: d.Facilities, facilityDetail: d.FacilityDetail, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask, alerts: d.Alerts, drafts: d.Drafts, search: d.Search, preferences: d.Preferences}
+	srv := &Server{facilities: d.Facilities, facilityDetail: d.FacilityDetail, metrics: d.Metrics, briefs: d.Briefs, auth: d.Auth, approvals: d.Approvals, tasks: d.Tasks, ask: d.Ask, alerts: d.Alerts, drafts: d.Drafts, search: d.Search, preferences: d.Preferences, push: d.Push}
 	return HandlerFromMux(NewStrictHandler(srv, []StrictMiddlewareFunc{requireAuth()}), r)
 }
 
@@ -466,6 +468,57 @@ func toAPIPreferences(p user.Preferences) Preferences {
 
 func fromAPIPreferences(in Preferences) user.Preferences {
 	return user.Preferences{WatchedMetrics: in.WatchedMetrics, Thresholds: in.Thresholds}
+}
+
+// GetPushKey returns the VAPID public key clients need to subscribe, or "" when
+// push is not configured (so the client can hide the opt-in).
+func (s *Server) GetPushKey(_ context.Context, _ GetPushKeyRequestObject) (GetPushKeyResponseObject, error) {
+	if s.push == nil {
+		return GetPushKey200JSONResponse{PublicKey: ""}, nil
+	}
+	return GetPushKey200JSONResponse{PublicKey: s.push.PublicKey()}, nil
+}
+
+// PostPushSubscribe registers a Web Push subscription for the authenticated user
+// (scoped to their principal — no IDOR). The app layer validates the input.
+func (s *Server) PostPushSubscribe(ctx context.Context, request PostPushSubscribeRequestObject) (PostPushSubscribeResponseObject, error) {
+	p, ok := principalFrom(ctx)
+	if !ok {
+		return PostPushSubscribe401JSONResponse{UnauthorizedJSONResponse{Error: "unauthorized"}}, nil
+	}
+	if s.push == nil || request.Body == nil {
+		return PostPushSubscribe400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
+	}
+	sub := ports.PushSubscription{
+		Endpoint: request.Body.Endpoint,
+		P256dh:   request.Body.Keys.P256dh,
+		Auth:     request.Body.Keys.Auth,
+	}
+	if err := s.push.Subscribe(ctx, p.UserID, sub); err != nil {
+		if errors.Is(err, app.ErrInvalidPushSubscription) {
+			return PostPushSubscribe400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
+		}
+		return PostPushSubscribe500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil
+	}
+	return PostPushSubscribe204Response{}, nil
+}
+
+// PostPushUnsubscribe removes a Web Push subscription for the authenticated user.
+func (s *Server) PostPushUnsubscribe(ctx context.Context, request PostPushUnsubscribeRequestObject) (PostPushUnsubscribeResponseObject, error) {
+	p, ok := principalFrom(ctx)
+	if !ok {
+		return PostPushUnsubscribe401JSONResponse{UnauthorizedJSONResponse{Error: "unauthorized"}}, nil
+	}
+	if s.push == nil || request.Body == nil {
+		return PostPushUnsubscribe400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
+	}
+	if err := s.push.Unsubscribe(ctx, p.UserID, request.Body.Endpoint); err != nil {
+		if errors.Is(err, app.ErrInvalidPushSubscription) {
+			return PostPushUnsubscribe400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
+		}
+		return PostPushUnsubscribe500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil
+	}
+	return PostPushUnsubscribe204Response{}, nil
 }
 
 // ListApprovals returns the approvals routed to the executive.

@@ -3,6 +3,7 @@ module github.com/xcreativs/gigmann
 go 1.25.0
 
 require (
+	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/anthropics/anthropic-sdk-go v1.52.0
 	github.com/coder/websocket v1.8.15
 	github.com/getkin/kin-openapi v0.135.0

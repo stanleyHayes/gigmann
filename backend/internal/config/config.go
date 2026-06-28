@@ -34,6 +34,9 @@ type Config struct {
 	SentryDSN          string
 	JWTSecret          string
 	CORSAllowedOrigins []string
+	VAPIDPublicKey     string // Web Push (GEC-69); push is disabled when unset
+	VAPIDPrivateKey    string
+	VAPIDSubject       string
 	Flags              Flags
 }
 
@@ -56,6 +59,9 @@ func Load() (Config, error) {
 		VoyageAPIKey:    os.Getenv("VOYAGE_API_KEY"),
 		VoyageModel:     getEnv("VOYAGE_MODEL", "voyage-3.5-lite"),
 		SentryDSN:       os.Getenv("SENTRY_DSN"),
+		VAPIDPublicKey:  os.Getenv("VAPID_PUBLIC_KEY"),
+		VAPIDPrivateKey: os.Getenv("VAPID_PRIVATE_KEY"),
+		VAPIDSubject:    os.Getenv("VAPID_SUBJECT"),
 	}
 
 	port, err := strconv.Atoi(getEnv("HTTP_PORT", "8080"))

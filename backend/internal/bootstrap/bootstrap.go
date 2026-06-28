@@ -27,6 +27,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/postgres"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/token"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/voyage"
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/webpush"
 	"github.com/xcreativs/gigmann/internal/app"
 	"github.com/xcreativs/gigmann/internal/config"
 	signalengine "github.com/xcreativs/gigmann/internal/core/signal"
@@ -177,7 +178,6 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 	}
 	briefs := app.NewCachedBrief(app.NewStaticBrief(briefSvc, input), briefCacheTTL)
 	hub := realtime.New()
-	briefs.SetNotifier(hub)
 	go func() { //nolint:contextcheck,gosec // G118: startup cache warm runs detached from any request
 		if _, err := briefs.Generate(context.Background()); err != nil {
 			logger.Warn("brief cache warm failed", "err", err)
@@ -194,8 +194,18 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 	authSvc := app.NewAuthService(r.users, hasher, tokens, r.refresh, refreshTokenTTL, auditLog)
 	approvalSvc := app.NewApprovalService(r.approvals, auditLog)
 	taskSvc := app.NewTaskService(r.tasks)
-	alertSvc := app.NewAlertService(memory.NewAlertRepo(net.Alerts...))
+	alertRepo := memory.NewAlertRepo(net.Alerts...)
+	alertSvc := app.NewAlertService(alertRepo)
 	draftSvc := app.NewDraftService(askSvc)
+
+	// Web Push (GEC-69): a no-op unless VAPID keys are configured. The critical-
+	// only sweep hangs off the same brief-refresh signal as the realtime hub.
+	pushSender := webpush.New(cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey, cfg.VAPIDSubject)
+	pushSvc := app.NewPushService(memory.NewPushRepo(), pushSender, alertRepo)
+	briefs.SetNotifier(app.FanoutNotifier(hub, pushSvc))
+	if pushSender.Enabled() {
+		logger.Info("web push enabled (critical-only)")
+	}
 
 	return httpapi.NewRouter(httpapi.Deps{
 		Facilities:     app.NewFacilityService(r.facilities),
@@ -210,6 +220,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		Drafts:         draftSvc,
 		Search:         searchSvc,
 		Preferences:    preferencesSvc,
+		Push:           pushSvc,
 		Tokens:         tokens,
 		Logger:         logger,
 		CORSOrigins:    cfg.CORSAllowedOrigins,

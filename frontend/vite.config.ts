@@ -27,6 +27,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Web Push handlers (GEC-69) are layered onto the generated SW so the
+        // offline/caching config below is untouched.
+        importScripts: ['push-sw.js'],
         navigateFallback: 'index.html',
         // Live data must never come from the SW cache. Navigations to /api or
         // /healthz skip the SPA fallback...

@@ -7,11 +7,13 @@ import Checkbox from '@mui/material/Checkbox'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import FormGroup from '@mui/material/FormGroup'
 import Stack from '@mui/material/Stack'
+import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 
 import { useMfaConfirm, useMfaEnroll } from '../api/useMfa'
 import { usePreferences, useSavePreferences } from '../api/usePreferences'
+import { usePush } from '../api/usePush'
 import { ButtonLoadingDots } from '../components/ButtonLoadingDots'
 import { monoFont } from '../theme'
 
@@ -29,6 +31,7 @@ export function SettingsScreen() {
   const [code, setCode] = useState('')
   const secret = enroll.data?.secret
 
+  const push = usePush()
   const prefs = usePreferences()
   const savePrefs = useSavePreferences()
   const [watched, setWatched] = useState<string[]>([])
@@ -122,6 +125,39 @@ export function SettingsScreen() {
               {savePrefs.isPending ? <ButtonLoadingDots /> : null}
               Save preferences
             </Button>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Card variant="outlined">
+        <CardContent>
+          <Stack spacing={2}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Critical alerts
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Quiet by default: get a push notification only for things that genuinely need you — an
+              imminent stock-out, a sharp revenue drop, or an approval waiting.
+            </Typography>
+            {!push.supported ? (
+              <Alert severity="info">This browser doesn&apos;t support push notifications.</Alert>
+            ) : !push.available ? (
+              <Alert severity="info">Push notifications aren&apos;t configured on the server yet.</Alert>
+            ) : (
+              <>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={push.enabled}
+                      disabled={push.busy}
+                      onChange={() => (push.enabled ? void push.disable() : void push.enable())}
+                    />
+                  }
+                  label="Send critical push notifications to this device"
+                />
+                {push.error ? <Alert severity="error">{push.error}</Alert> : null}
+              </>
+            )}
           </Stack>
         </CardContent>
       </Card>

@@ -574,6 +574,25 @@ type Preferences struct {
 	WatchedMetrics []string           `json:"watched_metrics"`
 }
 
+// PushKey defines model for PushKey.
+type PushKey struct {
+	PublicKey string `json:"public_key"`
+}
+
+// PushSubscriptionInput defines model for PushSubscriptionInput.
+type PushSubscriptionInput struct {
+	Endpoint string `json:"endpoint"`
+	Keys     struct {
+		Auth   string `json:"auth"`
+		P256dh string `json:"p256dh"`
+	} `json:"keys"`
+}
+
+// PushUnsubscribeInput defines model for PushUnsubscribeInput.
+type PushUnsubscribeInput struct {
+	Endpoint string `json:"endpoint"`
+}
+
 // RefreshRequest defines model for RefreshRequest.
 type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
@@ -699,6 +718,12 @@ type CreateDraftJSONRequestBody = DraftRequest
 // UpdateMePreferencesJSONRequestBody defines body for UpdateMePreferences for application/json ContentType.
 type UpdateMePreferencesJSONRequestBody = Preferences
 
+// PostPushSubscribeJSONRequestBody defines body for PostPushSubscribe for application/json ContentType.
+type PostPushSubscribeJSONRequestBody = PushSubscriptionInput
+
+// PostPushUnsubscribeJSONRequestBody defines body for PostPushUnsubscribe for application/json ContentType.
+type PostPushUnsubscribeJSONRequestBody = PushUnsubscribeInput
+
 // CreateTaskJSONRequestBody defines body for CreateTask for application/json ContentType.
 type CreateTaskJSONRequestBody = TaskCreate
 
@@ -764,6 +789,15 @@ type ServerInterface interface {
 	// Deterministic network KPIs and weekly trends
 	// (GET /api/v1/metrics)
 	GetMetrics(w http.ResponseWriter, r *http.Request)
+	// VAPID public key for Web Push (empty string when push is not configured)
+	// (GET /api/v1/push/key)
+	GetPushKey(w http.ResponseWriter, r *http.Request)
+	// Register a Web Push subscription for the current user (critical alerts only)
+	// (POST /api/v1/push/subscribe)
+	PostPushSubscribe(w http.ResponseWriter, r *http.Request)
+	// Remove a Web Push subscription for the current user
+	// (POST /api/v1/push/unsubscribe)
+	PostPushUnsubscribe(w http.ResponseWriter, r *http.Request)
 	// The executive's "My Day" tasks
 	// (GET /api/v1/tasks)
 	ListTasks(w http.ResponseWriter, r *http.Request)
@@ -893,6 +927,24 @@ func (_ Unimplemented) UpdateMePreferences(w http.ResponseWriter, r *http.Reques
 // Deterministic network KPIs and weekly trends
 // (GET /api/v1/metrics)
 func (_ Unimplemented) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// VAPID public key for Web Push (empty string when push is not configured)
+// (GET /api/v1/push/key)
+func (_ Unimplemented) GetPushKey(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Register a Web Push subscription for the current user (critical alerts only)
+// (POST /api/v1/push/subscribe)
+func (_ Unimplemented) PostPushSubscribe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove a Web Push subscription for the current user
+// (POST /api/v1/push/unsubscribe)
+func (_ Unimplemented) PostPushUnsubscribe(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1295,6 +1347,48 @@ func (siw *ServerInterfaceWrapper) GetMetrics(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// GetPushKey operation middleware
+func (siw *ServerInterfaceWrapper) GetPushKey(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPushKey(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostPushSubscribe operation middleware
+func (siw *ServerInterfaceWrapper) PostPushSubscribe(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostPushSubscribe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostPushUnsubscribe operation middleware
+func (siw *ServerInterfaceWrapper) PostPushUnsubscribe(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostPushUnsubscribe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListTasks operation middleware
 func (siw *ServerInterfaceWrapper) ListTasks(w http.ResponseWriter, r *http.Request) {
 
@@ -1532,6 +1626,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/metrics", wrapper.GetMetrics)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/push/key", wrapper.GetPushKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/push/subscribe", wrapper.PostPushSubscribe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/push/unsubscribe", wrapper.PostPushUnsubscribe)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/tasks", wrapper.ListTasks)
@@ -2494,6 +2597,157 @@ func (response GetMetrics500JSONResponse) VisitGetMetricsResponse(w http.Respons
 	return err
 }
 
+type GetPushKeyRequestObject struct {
+}
+
+type GetPushKeyResponseObject interface {
+	VisitGetPushKeyResponse(w http.ResponseWriter) error
+}
+
+type GetPushKey200JSONResponse PushKey
+
+func (response GetPushKey200JSONResponse) VisitGetPushKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPushKey401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetPushKey401JSONResponse) VisitGetPushKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostPushSubscribeRequestObject struct {
+	Body *PostPushSubscribeJSONRequestBody
+}
+
+type PostPushSubscribeResponseObject interface {
+	VisitPostPushSubscribeResponse(w http.ResponseWriter) error
+}
+
+type PostPushSubscribe204Response struct {
+}
+
+func (response PostPushSubscribe204Response) VisitPostPushSubscribeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PostPushSubscribe400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostPushSubscribe400JSONResponse) VisitPostPushSubscribeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostPushSubscribe401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostPushSubscribe401JSONResponse) VisitPostPushSubscribeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostPushSubscribe500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response PostPushSubscribe500JSONResponse) VisitPostPushSubscribeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostPushUnsubscribeRequestObject struct {
+	Body *PostPushUnsubscribeJSONRequestBody
+}
+
+type PostPushUnsubscribeResponseObject interface {
+	VisitPostPushUnsubscribeResponse(w http.ResponseWriter) error
+}
+
+type PostPushUnsubscribe204Response struct {
+}
+
+func (response PostPushUnsubscribe204Response) VisitPostPushUnsubscribeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PostPushUnsubscribe400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostPushUnsubscribe400JSONResponse) VisitPostPushUnsubscribeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostPushUnsubscribe401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostPushUnsubscribe401JSONResponse) VisitPostPushUnsubscribeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostPushUnsubscribe500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response PostPushUnsubscribe500JSONResponse) VisitPostPushUnsubscribeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListTasksRequestObject struct {
 }
 
@@ -2752,6 +3006,15 @@ type StrictServerInterface interface {
 	// Deterministic network KPIs and weekly trends
 	// (GET /api/v1/metrics)
 	GetMetrics(ctx context.Context, request GetMetricsRequestObject) (GetMetricsResponseObject, error)
+	// VAPID public key for Web Push (empty string when push is not configured)
+	// (GET /api/v1/push/key)
+	GetPushKey(ctx context.Context, request GetPushKeyRequestObject) (GetPushKeyResponseObject, error)
+	// Register a Web Push subscription for the current user (critical alerts only)
+	// (POST /api/v1/push/subscribe)
+	PostPushSubscribe(ctx context.Context, request PostPushSubscribeRequestObject) (PostPushSubscribeResponseObject, error)
+	// Remove a Web Push subscription for the current user
+	// (POST /api/v1/push/unsubscribe)
+	PostPushUnsubscribe(ctx context.Context, request PostPushUnsubscribeRequestObject) (PostPushUnsubscribeResponseObject, error)
 	// The executive's "My Day" tasks
 	// (GET /api/v1/tasks)
 	ListTasks(ctx context.Context, request ListTasksRequestObject) (ListTasksResponseObject, error)
@@ -3324,6 +3587,92 @@ func (sh *strictHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetPushKey operation middleware
+func (sh *strictHandler) GetPushKey(w http.ResponseWriter, r *http.Request) {
+	var request GetPushKeyRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPushKey(ctx, request.(GetPushKeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPushKey")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPushKeyResponseObject); ok {
+		if err := validResponse.VisitGetPushKeyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostPushSubscribe operation middleware
+func (sh *strictHandler) PostPushSubscribe(w http.ResponseWriter, r *http.Request) {
+	var request PostPushSubscribeRequestObject
+
+	var body PostPushSubscribeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostPushSubscribe(ctx, request.(PostPushSubscribeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostPushSubscribe")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostPushSubscribeResponseObject); ok {
+		if err := validResponse.VisitPostPushSubscribeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostPushUnsubscribe operation middleware
+func (sh *strictHandler) PostPushUnsubscribe(w http.ResponseWriter, r *http.Request) {
+	var request PostPushUnsubscribeRequestObject
+
+	var body PostPushUnsubscribeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostPushUnsubscribe(ctx, request.(PostPushUnsubscribeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostPushUnsubscribe")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostPushUnsubscribeResponseObject); ok {
+		if err := validResponse.VisitPostPushUnsubscribeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListTasks operation middleware
 func (sh *strictHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
 	var request ListTasksRequestObject
@@ -3441,65 +3790,69 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -22,6 +22,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/memory"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/passwordhash"
 	"github.com/xcreativs/gigmann/internal/adapters/outbound/token"
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/webpush"
 	"github.com/xcreativs/gigmann/internal/app"
 	"github.com/xcreativs/gigmann/internal/core/approval"
 	"github.com/xcreativs/gigmann/internal/core/auth"
@@ -103,6 +104,7 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 		Drafts:         draftSvc,
 		Search:         searchSvc,
 		Preferences:    preferencesSvc,
+		Push:           app.NewPushService(memory.NewPushRepo(), webpush.New("", "", ""), memory.NewAlertRepo(net.Alerts...)),
 		Tokens:         tokens,
 		CORSOrigins:    []string{"http://localhost:5173"},
 	})
@@ -580,6 +582,42 @@ func TestMePreferencesRoundTrip(t *testing.T) {
 	require.NoError(t, json.Unmarshal(get2.Body.Bytes(), &got))
 	assert.Equal(t, []string{"revenue"}, got.WatchedMetrics)
 	assert.InDelta(t, 0.15, got.Thresholds["denial_rate"], 1e-9)
+}
+
+func TestPushSubscribeLifecycle(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	router := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+
+	// Push is unconfigured in tests: the VAPID key is empty (client hides opt-in).
+	key := authedRequest(t, router, http.MethodGet, "/api/v1/push/key", "")
+	require.Equal(t, http.StatusOK, key.Code)
+	var pk httpapi.PushKey
+	require.NoError(t, json.Unmarshal(key.Body.Bytes(), &pk))
+	assert.Empty(t, pk.PublicKey)
+
+	// A valid subscription is accepted (stored; the sweep is a no-op when disabled).
+	ok := authedRequest(t, router, http.MethodPost, "/api/v1/push/subscribe",
+		`{"endpoint":"https://push.example.com/abc","keys":{"p256dh":"k","auth":"a"}}`)
+	require.Equal(t, http.StatusNoContent, ok.Code)
+
+	// A malformed subscription (non-https) is rejected.
+	bad := authedRequest(t, router, http.MethodPost, "/api/v1/push/subscribe",
+		`{"endpoint":"http://insecure","keys":{"p256dh":"k","auth":"a"}}`)
+	require.Equal(t, http.StatusBadRequest, bad.Code)
+
+	// Unsubscribe is accepted.
+	del := authedRequest(t, router, http.MethodPost, "/api/v1/push/unsubscribe",
+		`{"endpoint":"https://push.example.com/abc"}`)
+	require.Equal(t, http.StatusNoContent, del.Code)
+}
+
+func TestPushSubscribeRequiresAuth(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	router := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+	// Valid body so request binding succeeds; the missing Bearer token is what rejects.
+	rec := postJSON(t, router, "/api/v1/push/subscribe",
+		`{"endpoint":"https://push.example.com/abc","keys":{"p256dh":"k","auth":"a"}}`)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
 func TestGetMePreferencesRequiresAuth(t *testing.T) {
