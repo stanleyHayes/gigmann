@@ -73,9 +73,25 @@ type NetworkDailyRow struct {
 }
 
 // RefreshNetworkDaily recomputes the network_daily_metrics materialized view.
-// (The cron worker, GEC-71, will call this on a schedule.)
+// (The cron worker, GEC-71, calls this on a schedule.)
+//
+// CONCURRENTLY (enabled by the unique index on metric_date) keeps chart reads
+// available during the rebuild instead of holding an exclusive lock. But it
+// requires the view to be populated already — and the view is created WITH NO
+// DATA — so the first refresh runs as a plain (blocking) REFRESH to populate it,
+// and every refresh after that runs CONCURRENTLY.
 func (r *MetricsRepo) RefreshNetworkDaily(ctx context.Context) error {
-	if _, err := r.pool.Exec(ctx, `REFRESH MATERIALIZED VIEW network_daily_metrics`); err != nil {
+	var populated bool
+	if err := r.pool.QueryRow(ctx,
+		`SELECT relispopulated FROM pg_class WHERE oid = 'network_daily_metrics'::regclass`,
+	).Scan(&populated); err != nil {
+		return fmt.Errorf("postgres: check network_daily_metrics: %w", err)
+	}
+	stmt := `REFRESH MATERIALIZED VIEW CONCURRENTLY network_daily_metrics`
+	if !populated {
+		stmt = `REFRESH MATERIALIZED VIEW network_daily_metrics`
+	}
+	if _, err := r.pool.Exec(ctx, stmt); err != nil {
 		return fmt.Errorf("postgres: refresh network_daily_metrics: %w", err)
 	}
 	return nil

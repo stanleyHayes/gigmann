@@ -395,6 +395,14 @@ func TestMetricsRepoIntegration(t *testing.T) {
 	assert.Equal(t, 150, daily[0].PatientsSeen) // 80 + 70
 	// d2 rollup = kasoa(6000) only.
 	assert.Equal(t, int64(600000), daily[1].Revenue.Pesewas())
+
+	// A second refresh runs CONCURRENTLY (the view is now populated) — it must not
+	// error and must keep the rollup consistent (no blocking, no first-refresh trap).
+	require.NoError(t, repo.RefreshNetworkDaily(ctx))
+	daily2, err := repo.NetworkDaily(ctx)
+	require.NoError(t, err)
+	require.Len(t, daily2, 2)
+	assert.Equal(t, int64(900000), daily2[0].Revenue.Pesewas())
 }
 
 func TestFacilityEmbeddingRepoIntegration(t *testing.T) {
