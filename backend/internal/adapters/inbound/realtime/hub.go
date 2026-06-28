@@ -12,7 +12,10 @@ import (
 	"github.com/xcreativs/gigmann/internal/ports"
 )
 
-const sendBuffer = 16
+const (
+	sendBuffer = 16
+	maxClients = 256 // cap concurrent connections so they can't exhaust resources
+)
 
 type client struct{ send chan string }
 
@@ -55,7 +58,10 @@ func (h *Hub) Handler(tokens ports.TokenService, allowedOrigins []string) http.H
 		defer func() { _ = conn.CloseNow() }()
 
 		c := &client{send: make(chan string, sendBuffer)}
-		h.add(c)
+		if !h.add(c) {
+			_ = conn.Close(websocket.StatusTryAgainLater, "server at capacity")
+			return
+		}
 		defer h.remove(c)
 
 		ctx := conn.CloseRead(r.Context()) // push-only; CloseRead handles pings/closes
@@ -72,10 +78,15 @@ func (h *Hub) Handler(tokens ports.TokenService, allowedOrigins []string) http.H
 	}
 }
 
-func (h *Hub) add(c *client) {
+// add registers the client, returning false if the hub is at capacity.
+func (h *Hub) add(c *client) bool {
 	h.mu.Lock()
+	defer h.mu.Unlock()
+	if len(h.clients) >= maxClients {
+		return false
+	}
 	h.clients[c] = struct{}{}
-	h.mu.Unlock()
+	return true
 }
 
 func (h *Hub) remove(c *client) {

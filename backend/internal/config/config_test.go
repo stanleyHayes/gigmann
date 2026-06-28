@@ -55,6 +55,15 @@ func TestLoadProductionRequiresJWTSecret(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsDevPlaceholderSecretOutsideDev(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("HTTP_PORT", "8080")
+	t.Setenv("JWT_SECRET", "dev-insecure-change-me") // the well-known dev placeholder
+	if _, err := config.Load(); err == nil {
+		t.Fatal("expected production to reject the development placeholder JWT secret")
+	}
+}
+
 func TestLoadProductionMinimal(t *testing.T) {
 	// JWT_SECRET alone suffices outside dev; DATABASE_URL and ANTHROPIC_API_KEY
 	// are optional (in-memory + local-narrator fallbacks).

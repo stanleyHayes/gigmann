@@ -226,6 +226,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		CORSOrigins:    cfg.CORSAllowedOrigins,
 		Realtime:       hub.Handler(tokens, cfg.CORSAllowedOrigins),
 		HSTS:           cfg.IsProduction(),
+		TrustProxy:     cfg.TrustProxy,
 		Ready:          r.ready,
 	}), cleanup, nil
 }

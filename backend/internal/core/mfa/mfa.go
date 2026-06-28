@@ -36,20 +36,30 @@ func Code(secretB32 string, t time.Time) (string, error) {
 	return codeForCounter(secretB32, counter(t))
 }
 
-// Validate reports whether code is valid for the secret at time t (±1 step skew),
-// using a constant-time comparison.
-func Validate(secretB32, code string, t time.Time) bool {
+// ValidateAt reports whether code is valid for the secret at time t (±1 step
+// skew, constant-time compare) and, when valid, returns the matching step
+// counter. Callers enforce single-use (replay protection) by recording the
+// returned counter and rejecting any code whose counter is not strictly greater
+// than the last one already consumed for that user.
+func ValidateAt(secretB32, code string, t time.Time) (uint64, bool) {
 	c := counter(t)
 	for skew := int64(-skewWindow); skew <= skewWindow; skew++ {
-		want, err := codeForCounter(secretB32, uint64(int64(c)+skew)) //nolint:gosec // counter is a small positive step index
+		step := uint64(int64(c) + skew) //nolint:gosec // small positive step index
+		want, err := codeForCounter(secretB32, step)
 		if err != nil {
-			return false
+			return 0, false
 		}
 		if subtle.ConstantTimeCompare([]byte(want), []byte(code)) == 1 {
-			return true
+			return step, true
 		}
 	}
-	return false
+	return 0, false
+}
+
+// Validate reports whether code is valid for the secret at time t (±1 step skew).
+func Validate(secretB32, code string, t time.Time) bool {
+	_, ok := ValidateAt(secretB32, code, t)
+	return ok
 }
 
 // OTPAuthURI builds the otpauth:// URI an authenticator app scans.

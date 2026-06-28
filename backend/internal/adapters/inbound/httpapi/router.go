@@ -41,8 +41,9 @@ const (
 	askRateWindow  = time.Minute
 )
 
-// authRateLimitedPaths are the brute-force-sensitive auth endpoints.
-var authRateLimitedPaths = []string{"/api/v1/auth/login", "/api/v1/auth/refresh"}
+// authRateLimitedPaths are the brute-force-sensitive auth endpoints (login,
+// refresh, and the MFA confirm step where a 6-digit TOTP is checked).
+var authRateLimitedPaths = []string{"/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/mfa/confirm"}
 
 // askRateLimitedPaths bound AI cost/abuse per principal (GEC-48).
 var askRateLimitedPaths = []string{"/api/v1/ask", "/api/v1/drafts"}
@@ -67,6 +68,7 @@ type Deps struct {
 	CORSOrigins    []string
 	Realtime       http.HandlerFunc
 	HSTS           bool
+	TrustProxy     bool
 	Ready          func(context.Context) error
 }
 
@@ -105,10 +107,10 @@ func NewRouter(d Deps) http.Handler {
 	r.Use(metrics.middleware())
 	r.Use(securityHeaders(d.HSTS))
 	r.Use(corsMiddleware(d.CORSOrigins))
-	r.Use(rateLimit(newRateLimiter(authRateLimit, authRateWindow), authRateLimitedPaths))
+	r.Use(rateLimit(newRateLimiter(authRateLimit, authRateWindow), authRateLimitedPaths, d.TrustProxy))
 	r.Use(middleware.Timeout(requestTimeout))
 	r.Use(authMiddleware(d.Tokens))
-	r.Use(rateLimitPrincipal(newRateLimiter(askRateLimit, askRateWindow), askRateLimitedPaths))
+	r.Use(rateLimitPrincipal(newRateLimiter(askRateLimit, askRateWindow), askRateLimitedPaths, d.TrustProxy))
 	r.Get("/readyz", readyHandler(d.Ready))
 	r.Handle("/metrics", metricsHandler(metricsReg))
 	r.Get("/openapi.json", openAPIHandler(logger))

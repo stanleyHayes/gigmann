@@ -34,6 +34,7 @@ type Config struct {
 	SentryDSN          string
 	JWTSecret          string
 	CORSAllowedOrigins []string
+	TrustProxy         bool   // trust X-Forwarded-For for the client IP (set only behind a trusted proxy, e.g. Render)
 	VAPIDPublicKey     string // Web Push (GEC-69); push is disabled when unset
 	VAPIDPrivateKey    string
 	VAPIDSubject       string
@@ -72,6 +73,7 @@ func Load() (Config, error) {
 
 	cfg.JWTSecret = os.Getenv("JWT_SECRET")
 	cfg.CORSAllowedOrigins = splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173"))
+	cfg.TrustProxy = getBool("TRUST_PROXY", false)
 	cfg.Flags = Flags{
 		AINarration:    getBool("FEATURE_AI_NARRATION", true),
 		FacilitySearch: getBool("FEATURE_FACILITY_SEARCH", true),
@@ -107,6 +109,11 @@ func (c Config) validate() error {
 	// deterministic local narrator when they are absent.
 	if c.AppEnv != EnvDevelopment && c.JWTSecret == "" {
 		return errors.New("config: JWT_SECRET is required outside development")
+	}
+	// Defence in depth: never let the well-known development placeholder sign
+	// tokens in staging/production even if it is set explicitly.
+	if c.AppEnv != EnvDevelopment && c.JWTSecret == devJWTSecret {
+		return errors.New("config: JWT_SECRET must not be the development placeholder outside development")
 	}
 	return nil
 }

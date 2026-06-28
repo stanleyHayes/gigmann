@@ -141,11 +141,11 @@ func newRateLimiter(limit int, window time.Duration) *rateLimiter { //nolint:unp
 // rateLimitPrincipal limits the given paths per authenticated principal (falling
 // back to client IP for unauthenticated calls). It must run AFTER authMiddleware
 // so the principal is in context. Used to bound AI cost/abuse on the Ask endpoint.
-func rateLimitPrincipal(l *rateLimiter, prefixes []string) func(http.Handler) http.Handler {
+func rateLimitPrincipal(l *rateLimiter, prefixes []string, trustProxy bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if pathLimited(r.URL.Path, prefixes) {
-				key := "ip:" + clientIP(r)
+				key := "ip:" + clientIP(r, trustProxy)
 				if p, ok := principalFrom(r.Context()); ok && p.UserID != "" {
 					key = "user:" + p.UserID
 				}
@@ -193,11 +193,19 @@ func (l *rateLimiter) sweep(now time.Time) {
 	l.lastSweep = now
 }
 
-// clientIP extracts the caller IP, honouring X-Forwarded-For behind a proxy.
-func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		first, _, _ := strings.Cut(xff, ",")
-		return strings.TrimSpace(first)
+// clientIP extracts the caller IP for rate limiting. X-Forwarded-For is honoured
+// ONLY when trustProxy is set (the deployment is behind a trusted proxy such as
+// Render); otherwise a client could spoof X-Forwarded-For to bypass the per-IP
+// limit. When trusted, the rightmost entry is used — it is the address the proxy
+// actually observed, whereas any leftmost entries are client-supplied.
+func clientIP(r *http.Request, trustProxy bool) string {
+	if trustProxy {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			parts := strings.Split(xff, ",")
+			if ip := strings.TrimSpace(parts[len(parts)-1]); ip != "" {
+				return ip
+			}
+		}
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -217,10 +225,10 @@ func pathLimited(path string, prefixes []string) bool {
 
 // rateLimit throttles per-IP requests to the given path prefixes (brute-force
 // protection for auth); other paths pass freely.
-func rateLimit(l *rateLimiter, prefixes []string) func(http.Handler) http.Handler {
+func rateLimit(l *rateLimiter, prefixes []string, trustProxy bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if pathLimited(r.URL.Path, prefixes) && !l.allow(clientIP(r)) {
+			if pathLimited(r.URL.Path, prefixes) && !l.allow(clientIP(r, trustProxy)) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
 				_, _ = w.Write([]byte(`{"error":"rate_limited"}`))

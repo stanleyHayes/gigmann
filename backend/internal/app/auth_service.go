@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/xcreativs/gigmann/internal/core/auth"
@@ -30,6 +31,9 @@ type AuthService struct {
 	refresh    ports.RefreshTokenStore
 	refreshTTL time.Duration
 	audit      ports.AuditLogger
+
+	mfaMu   sync.Mutex
+	mfaUsed map[string]uint64 // userID -> last consumed TOTP step (single-use / anti-replay)
 }
 
 // NewAuthService wires the authentication use case to its ports.
@@ -41,7 +45,10 @@ func NewAuthService(
 	refreshTTL time.Duration,
 	audit ports.AuditLogger,
 ) *AuthService {
-	return &AuthService{users: users, hasher: hasher, tokens: tokens, refresh: refresh, refreshTTL: refreshTTL, audit: audit}
+	return &AuthService{
+		users: users, hasher: hasher, tokens: tokens, refresh: refresh,
+		refreshTTL: refreshTTL, audit: audit, mfaUsed: map[string]uint64{},
+	}
 }
 
 // Login verifies the email/password and returns an access token, a refresh
@@ -57,7 +64,7 @@ func (s *AuthService) Login(ctx context.Context, email, password, code string) (
 		s.audit.Record(ctx, ports.AuditEvent{Actor: email, Action: "auth.login", Outcome: "failure"})
 		return "", "", auth.Principal{}, ErrInvalidCredentials
 	}
-	if acct.MFASecret != "" && !mfa.Validate(acct.MFASecret, code, time.Now()) {
+	if acct.MFASecret != "" && !s.checkMFA(acct.User.ID, acct.MFASecret, code, time.Now()) {
 		s.audit.Record(ctx, ports.AuditEvent{Actor: acct.User.ID, Action: "auth.login", Outcome: "mfa_required"})
 		return "", "", auth.Principal{}, ErrMFARequired
 	}
@@ -113,7 +120,7 @@ func (s *AuthService) BeginMFAEnrollment(_ context.Context, p auth.Principal) (s
 // ConfirmMFAEnrollment validates a code against the secret and, on success,
 // persists the secret on the principal's account (activating MFA).
 func (s *AuthService) ConfirmMFAEnrollment(ctx context.Context, p auth.Principal, secret, code string) error {
-	if !mfa.Validate(secret, code, time.Now()) {
+	if !s.checkMFA(p.UserID, secret, code, time.Now()) {
 		return ErrInvalidMFACode
 	}
 	acct, err := s.users.FindByID(ctx, p.UserID)
@@ -126,6 +133,23 @@ func (s *AuthService) ConfirmMFAEnrollment(ctx context.Context, p auth.Principal
 	}
 	s.audit.Record(ctx, ports.AuditEvent{Actor: p.UserID, Action: "auth.mfa.enroll", Outcome: "success"})
 	return nil
+}
+
+// checkMFA validates a TOTP code and enforces single-use: a given time-step
+// counter is accepted at most once per user, so a captured code cannot be
+// replayed within its ±1-step validity window.
+func (s *AuthService) checkMFA(userID, secret, code string, now time.Time) bool {
+	step, ok := mfa.ValidateAt(secret, code, now)
+	if !ok {
+		return false
+	}
+	s.mfaMu.Lock()
+	defer s.mfaMu.Unlock()
+	if step <= s.mfaUsed[userID] {
+		return false // this code (or a newer one) has already been consumed — replay
+	}
+	s.mfaUsed[userID] = step
+	return true
 }
 
 func (s *AuthService) issue(ctx context.Context, p auth.Principal) (string, string, auth.Principal, error) {

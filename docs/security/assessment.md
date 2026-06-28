@@ -15,8 +15,9 @@
    - Secrets: **gitleaks** (`.gitleaks.toml` allowlists only generated code + test fixtures)
    - Container: **Trivy** image scan (HIGH/CRITICAL, fixable) on the distroless image
    - DAST: **OWASP ZAP** baseline (`.github/workflows/dast.yml`) against the running API
-3. **Adversarial multi-agent code audits** — four independent review passes
-   (backend app/adapters, frontend, signal-engine math, Postgres/SQL), each finding
+3. **Adversarial multi-agent code audits** — five independent review passes
+   (backend app/adapters, frontend, signal-engine math, Postgres/SQL, and the auth
+   core: JWT/refresh/MFA/websocket/secrets), each finding
    cross-verified by independent skeptics that default to "refuted" when uncertain.
    False-positive rate was high by design (≈40–55% of raw findings rejected),
    so what remained was actioned.
@@ -39,6 +40,11 @@ All confirmed findings were fixed and shipped; CI is green on every commit.
 | Correctness | Brief-ranking magnitude not normalised — large-currency signals outranked higher-severity ratio signals within a tier. | High | `918c5d0` |
 | Correctness | Licence-expiry boundary off-by-one (exact-day expiry not flagged). | Med | `918c5d0` |
 | Availability | Materialized-view refresh held an exclusive lock, blocking chart reads during the cron rebuild (now `CONCURRENTLY`, populate-guarded). | High | `55a1bbd` |
+| **Auth — rate limiting** | `X-Forwarded-For` was trusted unconditionally, so a spoofed header bypassed the per-IP login/refresh rate limit. Now XFF is honoured only behind a trusted proxy (`TRUST_PROXY`), using the proxy-observed (rightmost) entry. | High | _this commit_ |
+| **Auth — MFA** | TOTP codes had no single-use enforcement → a captured code was replayable within its ±1-step window. Now each time-step counter is consumed at most once per user. | High | _this commit_ |
+| Auth — MFA | The MFA-confirm endpoint (6-digit TOTP) was not rate-limited; added to the brute-force-sensitive path set. | Med | _this commit_ |
+| Auth — config | Defence in depth: the well-known dev placeholder secret is now rejected outside development (the empty-secret guard already existed). | Med | _this commit_ |
+| Availability — ws | WebSocket connections were uncapped; added a concurrent-connection limit. | Med | _this commit_ |
 | CI integrity | Non-deterministic tool/action pins; secret-scan false positive on generated code. | — | `73dfbb0`, `71ea8f9`, `94580e5` |
 
 ### Explicitly assessed and **not** changed (with rationale)
@@ -50,6 +56,11 @@ All confirmed findings were fixed and shipped; CI is green on every commit.
 - **KPI `deltaPct` at `previous = 0`** — returns `0` (undefined ratio); fabricating
   "+100%" would invent a figure, against the product's core principle. The
   `direction` field conveys the trend.
+- **WebSocket token in `?token=`** — the browser WebSocket API cannot set an
+  `Authorization` header, so the short-lived access token is passed as a query
+  param. Verified that our `requestLogger` logs only the path (never the query), so
+  the token does not leak via our logs; the residual is the inherent browser-WS
+  limitation (proxy/history). Future hardening: mint short-lived WS-specific tokens.
 
 ## Controls in place
 - AuthN: HS256 JWT (short-lived) + single-use **rotating** refresh tokens (hashed at rest); argon2id password hashing.

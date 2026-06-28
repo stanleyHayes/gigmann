@@ -537,11 +537,15 @@ func TestMFAEnrollAndStepUp(t *testing.T) {
 	noCode := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234"}`)
 	require.Equal(t, http.StatusUnauthorized, noCode.Code)
 
-	// login with a valid code succeeds
-	code2, err := mfa.Code(enr.Secret, time.Now())
+	// login with a fresh code (next step) succeeds — the confirm code was single-use
+	code2, err := mfa.Code(enr.Secret, time.Now().Add(31*time.Second))
 	require.NoError(t, err)
 	withCode := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234","code":"`+code2+`"}`)
 	require.Equal(t, http.StatusOK, withCode.Code)
+
+	// replaying the same code is rejected (single-use / anti-replay)
+	replay := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234","code":"`+code2+`"}`)
+	require.Equal(t, http.StatusUnauthorized, replay.Code)
 }
 
 func TestMetricsEndpoint(t *testing.T) {

@@ -90,7 +90,7 @@ func TestReadyHandler(t *testing.T) {
 func TestRateLimitBlocksAfterLimit(t *testing.T) {
 	rl := newRateLimiter(2, time.Minute)
 	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
-	h := rateLimit(rl, []string{"/api/v1/auth/login"})(ok)
+	h := rateLimit(rl, []string{"/api/v1/auth/login"}, false)(ok)
 
 	for i, want := range []int{http.StatusOK, http.StatusOK, http.StatusTooManyRequests} {
 		rec := httptest.NewRecorder()
@@ -142,15 +142,19 @@ func TestRateLimiterEvictsExpiredEntries(t *testing.T) {
 func TestClientIP(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.RemoteAddr = "1.2.3.4:55"
-	assert.Equal(t, "1.2.3.4", clientIP(r))
+	// Without a trusted proxy, X-Forwarded-For is ignored (it is client-spoofable).
+	assert.Equal(t, "1.2.3.4", clientIP(r, false))
 	r.Header.Set("X-Forwarded-For", "8.8.8.8, 1.1.1.1")
-	assert.Equal(t, "8.8.8.8", clientIP(r))
+	assert.Equal(t, "1.2.3.4", clientIP(r, false), "XFF ignored when not behind a trusted proxy")
+	// Behind a trusted proxy, the rightmost (proxy-observed) entry is used; the
+	// spoofable leftmost 8.8.8.8 is not trusted.
+	assert.Equal(t, "1.1.1.1", clientIP(r, true))
 }
 
 func TestRateLimitPrincipal(t *testing.T) {
 	rl := newRateLimiter(2, time.Minute)
 	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
-	h := rateLimitPrincipal(rl, []string{"/api/v1/ask"})(ok)
+	h := rateLimitPrincipal(rl, []string{"/api/v1/ask"}, false)(ok)
 
 	do := func(userID string) int {
 		ctx := withPrincipal(context.Background(), auth.Principal{UserID: userID})
@@ -169,7 +173,7 @@ func TestRateLimitPrincipal(t *testing.T) {
 func TestRateLimitPrincipalIgnoresOtherPaths(t *testing.T) {
 	rl := newRateLimiter(1, time.Minute)
 	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
-	h := rateLimitPrincipal(rl, []string{"/api/v1/ask"})(ok)
+	h := rateLimitPrincipal(rl, []string{"/api/v1/ask"}, false)(ok)
 	for range 3 {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/brief", nil)
