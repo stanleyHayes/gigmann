@@ -50,10 +50,11 @@ func New(m Member) (Member, error) {
 	return m, nil
 }
 
-// LicenceExpiringWithin reports whether the licence expires within days of asOf.
+// LicenceExpiringWithin reports whether the licence expires within days of asOf
+// (inclusive of the boundary — a licence expiring exactly N days out counts).
 func (m Member) LicenceExpiringWithin(asOf time.Time, days int) bool {
 	if m.LicenceExpiry.IsZero() {
 		return false
 	}
-	return m.LicenceExpiry.Before(asOf.AddDate(0, 0, days))
+	return !m.LicenceExpiry.After(asOf.AddDate(0, 0, days))
 }

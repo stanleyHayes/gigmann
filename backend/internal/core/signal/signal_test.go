@@ -125,6 +125,9 @@ func TestLeakageDetector(t *testing.T) {
 	crit := d.Detect(signal.Input{Metrics: series(t, 1000, 1000, 100, 100, 60, 60, 0, 500_000)})
 	require.Len(t, crit, 1)
 	assert.Equal(t, severity.Critical, crit[0].Severity)
+	// Magnitude is normalised to the critical threshold (≈1.17 here), not raw pesewas,
+	// so it ranks comparably against ratio-based signals within a severity.
+	assert.InDelta(t, 7_000_000.0/6_000_000.0, crit[0].Magnitude, 1e-6)
 
 	// 14 * 250_000 = 3_500_000 (GH₵35k) → watch
 	watch := d.Detect(signal.Input{Metrics: series(t, 1000, 1000, 100, 100, 60, 60, 0, 250_000)})
@@ -150,6 +153,8 @@ func TestStockOutDetector(t *testing.T) {
 	crit := d.Detect(signal.Input{Inventory: []inventory.Item{mkItem(10, 10, 7)}})
 	require.Len(t, crit, 1)
 	assert.Equal(t, severity.Critical, crit[0].Severity)
+	// 1 day of stock vs 7-day lead time → normalised intensity (7-1)/7, not raw days.
+	assert.InDelta(t, 6.0/7.0, crit[0].Magnitude, 1e-6)
 	// well stocked → none
 	assert.Empty(t, d.Detect(signal.Input{Inventory: []inventory.Item{mkItem(1000, 10, 7)}}))
 }

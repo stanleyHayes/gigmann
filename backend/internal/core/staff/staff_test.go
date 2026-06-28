@@ -51,6 +51,13 @@ func TestLicenceExpiringWithin(t *testing.T) {
 	m := valid()
 	assert.True(t, m.LicenceExpiringWithin(asOf, 30))
 	assert.False(t, m.LicenceExpiringWithin(asOf, 5))
+
+	// A licence expiring exactly N days out is within N days (inclusive boundary).
+	boundary := valid()
+	boundary.LicenceExpiry = asOf.AddDate(0, 0, 30)
+	assert.True(t, boundary.LicenceExpiringWithin(asOf, 30), "exact boundary counts")
+	assert.False(t, boundary.LicenceExpiringWithin(asOf, 29), "one day short does not")
+
 	m.LicenceExpiry = time.Time{}
 	assert.False(t, m.LicenceExpiringWithin(asOf, 365))
 }
