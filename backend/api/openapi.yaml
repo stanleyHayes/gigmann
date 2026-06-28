@@ -714,6 +714,7 @@ components:
         instruction:
           type: string
           minLength: 1
+          maxLength: 1000
     Draft:
       type: object
       required: [kind, draft]
@@ -989,6 +990,7 @@ components:
         question:
           type: string
           minLength: 1
+          maxLength: 1000
 
     Answer:
       type: object

@@ -47,5 +47,7 @@ func (s *AskService) Answer(ctx context.Context, question string) (intel.Answer,
 	if err != nil {
 		return intel.Answer{}, fmt.Errorf("app: answer question: %w", err)
 	}
+	// Grounding guardrail: drop any citation the model invented (not a real facility).
+	answer.Citations = groundCitations(answer.Citations, knownFacilityIDs(s.input.Facilities))
 	return answer, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/ports"
@@ -29,6 +30,11 @@ func (s *DraftService) Draft(ctx context.Context, p auth.Principal, kind, facili
 	instruction = strings.TrimSpace(instruction)
 	if instruction == "" {
 		return "", nil
+	}
+	// Bound the instruction (same cap as Ask) — input validation + AI-cost control,
+	// and to limit prompt-injection payload size.
+	if utf8.RuneCountInString(instruction) > maxQuestionLen {
+		instruction = string([]rune(instruction)[:maxQuestionLen])
 	}
 	if facilityID == "" {
 		if !p.IsExecutive() {

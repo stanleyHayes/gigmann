@@ -15,9 +15,9 @@
    - Secrets: **gitleaks** (`.gitleaks.toml` allowlists only generated code + test fixtures)
    - Container: **Trivy** image scan (HIGH/CRITICAL, fixable) on the distroless image
    - DAST: **OWASP ZAP** baseline (`.github/workflows/dast.yml`) against the running API
-3. **Adversarial multi-agent code audits** — five independent review passes
-   (backend app/adapters, frontend, signal-engine math, Postgres/SQL, and the auth
-   core: JWT/refresh/MFA/websocket/secrets), each finding
+3. **Adversarial multi-agent code audits** — six independent review passes
+   (backend app/adapters, frontend, signal-engine math, Postgres/SQL, the auth
+   core, and AI grounding / prompt-injection / AI-side-effects), each finding
    cross-verified by independent skeptics that default to "refuted" when uncertain.
    False-positive rate was high by design (≈40–55% of raw findings rejected),
    so what remained was actioned.
@@ -45,6 +45,8 @@ All confirmed findings were fixed and shipped; CI is green on every commit.
 | Auth — MFA | The MFA-confirm endpoint (6-digit TOTP) was not rate-limited; added to the brute-force-sensitive path set. | Med | _this commit_ |
 | Auth — config | Defence in depth: the well-known dev placeholder secret is now rejected outside development (the empty-secret guard already existed). | Med | _this commit_ |
 | Availability — ws | WebSocket connections were uncapped; added a concurrent-connection limit. | Med | _this commit_ |
+| **AI grounding** | The narrated Brief / Ask answer could reference a facility id the model invented (no code-level guard). Now brief items and answer citations are validated against the engine's facility set — invented references are dropped (the AI never invents a facility). | Med | _this commit_ |
+| **AI input** | The Draft `instruction` was unbounded (the Ask `question` was capped at 1000 runes; Draft was not) — a large prompt-injection/cost payload. Now capped to 1000 runes; both bounds declared in the OpenAPI (`maxLength`). | High | _this commit_ |
 | CI integrity | Non-deterministic tool/action pins; secret-scan false positive on generated code. | — | `73dfbb0`, `71ea8f9`, `94580e5` |
 
 ### Explicitly assessed and **not** changed (with rationale)
@@ -61,6 +63,13 @@ All confirmed findings were fixed and shipped; CI is green on every commit.
   param. Verified that our `requestLogger` logs only the path (never the query), so
   the token does not leak via our logs; the residual is the inherent browser-WS
   limitation (proxy/history). Future hardening: mint short-lived WS-specific tokens.
+- **Numeric-claim grounding in free text** — figures are computed by the engine and
+  supplied to the model, which is instructed never to invent one; brief items and
+  citations are now validated against the facility set, but individual numbers in
+  the narrated prose are not re-extracted and checked against the figures map. Full
+  numeric validation is an inherent model-trust boundary (a research-grade problem);
+  it is mitigated by the constrained tool schema, the supplied `SupportingFigures`,
+  the deterministic local-narrator fallback, and the brief-quality fidelity tests.
 
 ## Controls in place
 - AuthN: HS256 JWT (short-lived) + single-use **rotating** refresh tokens (hashed at rest); argon2id password hashing.

@@ -36,7 +36,10 @@ func (s *BriefService) Generate(ctx context.Context, in signal.Input) (brief.Bri
 		return brief.Brief{}, fmt.Errorf("app: narrate brief: %w", err)
 	}
 
-	// Re-validate the narrated brief against domain invariants (grounding guardrail).
+	// Grounding guardrail: drop any item the model attached to an invented facility.
+	b.Items = groundBriefItems(b.Items, knownFacilityIDs(in.Facilities))
+
+	// Re-validate the narrated brief against domain invariants.
 	validated, err := brief.New(b)
 	if err != nil {
 		return brief.Brief{}, fmt.Errorf("app: invalid narrated brief: %w", err)
