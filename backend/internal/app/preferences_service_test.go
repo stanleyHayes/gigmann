@@ -3,6 +3,7 @@ package app_test
 import (
 	"context"
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -59,6 +60,21 @@ func TestPreferencesUpdateSanitizes(t *testing.T) {
 	assert.NotContains(t, updated.Thresholds, "x", "non-finite dropped")
 	assert.NotContains(t, updated.Thresholds, " ", "blank key dropped")
 	assert.InDelta(t, 0.2, updated.Thresholds["y"], 1e-9)
+}
+
+func TestPreferencesUpdateCapsKeyLength(t *testing.T) {
+	repo := memory.NewUserRepo(prefAccount(t))
+	svc := app.NewPreferencesService(repo)
+	long := strings.Repeat("x", 65) // exceeds the 64-char key cap
+
+	updated, err := svc.Update(context.Background(), "u1", user.Preferences{
+		WatchedMetrics: []string{long, "revenue"},
+		Thresholds:     map[string]float64{long: 0.5, "denial_rate": 0.1},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"revenue"}, updated.WatchedMetrics, "over-long metric key dropped")
+	assert.NotContains(t, updated.Thresholds, long, "over-long threshold key dropped")
+	assert.InDelta(t, 0.1, updated.Thresholds["denial_rate"], 1e-9)
 }
 
 func TestPreferencesUnknownUser(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -112,6 +113,30 @@ func TestRateLimitBlocksAfterLimit(t *testing.T) {
 	freq.RemoteAddr = "1.2.3.4:5555"
 	h.ServeHTTP(free, freq)
 	assert.Equal(t, http.StatusOK, free.Code)
+}
+
+func TestRateLimiterEvictsExpiredEntries(t *testing.T) {
+	base := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	cur := base
+	rl := newRateLimiter(5, time.Minute)
+	rl.now = func() time.Time { return cur }
+
+	for i := range 10 {
+		rl.allow("key-" + strconv.Itoa(i))
+	}
+	rl.mu.Lock()
+	filled := len(rl.counts)
+	rl.mu.Unlock()
+	require.Equal(t, 10, filled, "one window entry per distinct key")
+
+	// Past the window + the once-per-window sweep interval: the next call evicts
+	// every now-expired window so the map cannot grow unbounded.
+	cur = base.Add(3 * time.Minute)
+	rl.allow("fresh")
+	rl.mu.Lock()
+	after := len(rl.counts)
+	rl.mu.Unlock()
+	assert.Equal(t, 1, after, "expired windows evicted; only the fresh key remains")
 }
 
 func TestClientIP(t *testing.T) {
