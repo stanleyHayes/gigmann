@@ -577,7 +577,8 @@ func (s *Server) DecideApproval(ctx context.Context, request DecideApprovalReque
 
 // ListTasks returns the executive's "My Day" tasks.
 func (s *Server) ListTasks(ctx context.Context, _ ListTasksRequestObject) (ListTasksResponseObject, error) {
-	items, err := s.tasks.List(ctx)
+	p, _ := principalFrom(ctx)
+	items, err := s.tasks.List(ctx, p)
 	if err != nil {
 		return ListTasks500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
 	}
@@ -593,8 +594,11 @@ func (s *Server) UpdateTaskStatus(ctx context.Context, request UpdateTaskStatusR
 	if request.Body == nil {
 		return UpdateTaskStatus404JSONResponse{NotFoundJSONResponse{Error: "not_found"}}, nil
 	}
-	t, err := s.tasks.UpdateStatus(ctx, request.TaskId, task.Status(request.Body.Status))
+	p, _ := principalFrom(ctx)
+	t, err := s.tasks.UpdateStatus(ctx, p, request.TaskId, task.Status(request.Body.Status))
 	switch {
+	case errors.Is(err, app.ErrForbidden):
+		return UpdateTaskStatus403JSONResponse{ForbiddenJSONResponse{Error: "forbidden"}}, nil
 	case errors.Is(err, ports.ErrTaskNotFound):
 		return UpdateTaskStatus404JSONResponse{NotFoundJSONResponse{Error: "not_found"}}, nil
 	case err != nil:

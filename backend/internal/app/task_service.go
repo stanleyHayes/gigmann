@@ -33,20 +33,34 @@ func NewTaskService(repo ports.TaskRepository) *TaskService {
 	return &TaskService{repo: repo}
 }
 
-// List returns the current tasks.
-func (s *TaskService) List(ctx context.Context) ([]task.Task, error) {
+// List returns the tasks the principal may see: executives see all; a facility
+// manager sees only their own facility's tasks (no IDOR).
+func (s *TaskService) List(ctx context.Context, p auth.Principal) ([]task.Task, error) {
 	items, err := s.repo.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("app: list tasks: %w", err)
 	}
-	return items, nil
+	if p.IsExecutive() {
+		return items, nil
+	}
+	scoped := make([]task.Task, 0, len(items))
+	for _, t := range items {
+		if p.CanAccessFacility(t.FacilityID) {
+			scoped = append(scoped, t)
+		}
+	}
+	return scoped, nil
 }
 
-// UpdateStatus moves a task to a new status (todo/in_progress/done).
-func (s *TaskService) UpdateStatus(ctx context.Context, id string, status task.Status) (task.Task, error) {
+// UpdateStatus moves a task to a new status (todo/in_progress/done). A facility
+// manager may only update their own facility's tasks (ErrForbidden otherwise).
+func (s *TaskService) UpdateStatus(ctx context.Context, p auth.Principal, id string, status task.Status) (task.Task, error) {
 	current, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return task.Task{}, err
+	}
+	if !p.CanAccessFacility(current.FacilityID) {
+		return task.Task{}, ErrForbidden
 	}
 	current.Status = status
 	if err := s.repo.Save(ctx, current); err != nil {

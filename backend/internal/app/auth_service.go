@@ -114,6 +114,11 @@ func (s *AuthService) BeginMFAEnrollment(_ context.Context, p auth.Principal) (s
 	if err != nil {
 		return "", "", fmt.Errorf("app: begin mfa enrollment: %w", err)
 	}
+	// Reset the single-use step counter for a fresh enrollment, so re-enrolling
+	// (even within the same TOTP window) isn't rejected as a replay.
+	s.mfaMu.Lock()
+	delete(s.mfaUsed, p.UserID)
+	s.mfaMu.Unlock()
 	return secret, mfa.OTPAuthURI(secret, p.Name, "Gigmann"), nil
 }
 

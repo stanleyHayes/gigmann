@@ -24,7 +24,7 @@ func TestTaskList(t *testing.T) {
 	repo := mocks.NewMockTaskRepository(ctrl)
 	repo.EXPECT().List(gomock.Any()).Return([]task.Task{todoTask()}, nil)
 
-	got, err := app.NewTaskService(repo).List(context.Background())
+	got, err := app.NewTaskService(repo).List(context.Background(), execPrincipal())
 	require.NoError(t, err)
 	require.Len(t, got, 1)
 }
@@ -35,7 +35,7 @@ func TestTaskUpdateStatus(t *testing.T) {
 	repo.EXPECT().Get(gomock.Any(), "t1").Return(todoTask(), nil)
 	repo.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
 
-	out, err := app.NewTaskService(repo).UpdateStatus(context.Background(), "t1", task.StatusDone)
+	out, err := app.NewTaskService(repo).UpdateStatus(context.Background(), execPrincipal(), "t1", task.StatusDone)
 	require.NoError(t, err)
 	assert.Equal(t, task.StatusDone, out.Status)
 }
@@ -45,7 +45,7 @@ func TestTaskUpdateStatusNotFound(t *testing.T) {
 	repo := mocks.NewMockTaskRepository(ctrl)
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(task.Task{}, ports.ErrTaskNotFound)
 
-	_, err := app.NewTaskService(repo).UpdateStatus(context.Background(), "missing", task.StatusDone)
+	_, err := app.NewTaskService(repo).UpdateStatus(context.Background(), execPrincipal(), "missing", task.StatusDone)
 	assert.ErrorIs(t, err, ports.ErrTaskNotFound)
 }
 
@@ -61,9 +61,44 @@ func TestTaskServiceCreate(t *testing.T) {
 	assert.Equal(t, task.StatusTodo, created.Status)
 	assert.Equal(t, task.SourceBrief, created.Source)
 
-	list, err := svc.List(context.Background())
+	list, err := svc.List(context.Background(), execPrincipal())
 	require.NoError(t, err)
 	require.Len(t, list, 1)
+}
+
+func TestTaskListScopesManager(t *testing.T) {
+	repo := memory.NewTaskRepo()
+	svc := app.NewTaskService(repo)
+	// Seed one task per facility (created as the executive).
+	_, err := svc.Create(context.Background(), execPrincipal(),
+		app.NewTaskInput{Title: "kasoa task", FacilityID: "kasoa", Priority: task.PriorityMedium, Source: task.SourceManual})
+	require.NoError(t, err)
+	_, err = svc.Create(context.Background(), execPrincipal(),
+		app.NewTaskInput{Title: "nima task", FacilityID: "nima", Priority: task.PriorityMedium, Source: task.SourceManual})
+	require.NoError(t, err)
+
+	mgr, err := svc.List(context.Background(), managerPrincipal("kasoa"))
+	require.NoError(t, err)
+	require.Len(t, mgr, 1, "manager sees only their facility's tasks")
+	assert.Equal(t, "kasoa", mgr[0].FacilityID)
+
+	all, err := svc.List(context.Background(), execPrincipal())
+	require.NoError(t, err)
+	assert.Len(t, all, 2, "executive sees all tasks")
+}
+
+func TestTaskUpdateStatusRejectsCrossFacility(t *testing.T) {
+	repo := memory.NewTaskRepo()
+	svc := app.NewTaskService(repo)
+	created, err := svc.Create(context.Background(), execPrincipal(),
+		app.NewTaskInput{Title: "nima task", FacilityID: "nima", Priority: task.PriorityMedium, Source: task.SourceManual})
+	require.NoError(t, err)
+
+	_, err = svc.UpdateStatus(context.Background(), managerPrincipal("kasoa"), created.ID, task.StatusDone)
+	require.ErrorIs(t, err, app.ErrForbidden, "a kasoa manager cannot update a nima task (IDOR)")
+
+	_, err = svc.UpdateStatus(context.Background(), managerPrincipal("nima"), created.ID, task.StatusDone)
+	require.NoError(t, err, "the owning facility's manager may update")
 }
 
 func TestTaskServiceCreateEmptyTitle(t *testing.T) {

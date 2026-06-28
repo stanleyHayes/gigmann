@@ -27,7 +27,7 @@ All confirmed findings were fixed and shipped; CI is green on every commit.
 
 | Area | Finding | Severity | Fix (commit) |
 |---|---|---|---|
-| **Authorization (IDOR)** | Facility managers could read/mutate **any** facility (GetFacility, UpdateAlertStatus, CreateDraft, CreateTask) and see all alerts/approvals — the domain had `CanAccessFacility`/`ErrForbidden` but handlers never enforced it. | High | `4397e20` |
+| **Authorization (IDOR)** | Facility managers could read/mutate **any** facility (GetFacility, UpdateAlertStatus, CreateDraft, CreateTask, **ListTasks, UpdateTaskStatus**) and see all alerts/approvals/tasks — the domain had `CanAccessFacility`/`ErrForbidden` but handlers never enforced it. Now enforced across **every** facility-bearing read/write (an independent fix-review caught the two task endpoints missed in the first pass). | High | `4397e20` + fix-review |
 | Dependencies | `golang.org/x/crypto` v0.51.0 — 9 HIGH SSH CVEs. | High | `6a72a9d` |
 | Input handling | Malformed Ask/Draft bodies returned **500** with code `bad_request` (now 400). | Med | `fd14cbf` |
 | Input handling | Preferences keys had no length cap (bloat vector). | Med | `4397e20` |
