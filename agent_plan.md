@@ -1186,7 +1186,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-72.
 
 #### ◐ GEC-82 — Pre-production penetration test · 5 SP · Phase: Staging
-> **Status 2026-06-27:** Prepared: threat model + CI SAST/deps/secret/container scanning. _Needs a deployed staging URL + an engaged pen-test firm (a human/procurement step)._ [docs/deferred.md](docs/deferred.md).
+> **Progressed 2026-06-28:** Shipped an **internal security assessment** ([docs/security/assessment.md](docs/security/assessment.md)) — methodology (threat model + CI SAST/deps/secret/container/DAST scanning + four adversarial multi-agent code audits), the confirmed findings and their fixes (incl. an IDOR cluster, a `x/crypto` CVE bump, and several correctness/availability bugs — all remediated, CI green), accepted-risk decisions with rationale, and the controls in place. _The formal third-party pen test against a deployed staging URL remains the external requirement to close this._
 - User story: As the business, I want a pen-test before GA, so that real-world weaknesses are found and fixed.
 - Business value: Production confidence.
 - Acceptance criteria:
