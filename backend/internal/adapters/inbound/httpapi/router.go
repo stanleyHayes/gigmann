@@ -207,15 +207,35 @@ var publicOperations = map[string]bool{
 	"GetHealthz":      true,
 }
 
+// executiveOperations are network-aggregate views restricted to executives:
+// managers are scoped to their facility, so they must not see network-wide data
+// (the brief, an Ask answer over the whole network, network KPIs, or the full
+// facility roster). Per-facility scoping (vs. this block) is a product decision —
+// see docs/security/assessment.md.
+var executiveOperations = map[string]bool{
+	"GetBrief":       true,
+	"PostAsk":        true,
+	"GetMetrics":     true,
+	"ListFacilities": true,
+}
+
+// forbiddenBody is the fixed 403 payload (matches the Error schema).
+var forbiddenBody = []byte(`{"error":"forbidden"}`)
+
 // requireAuth rejects any non-public operation that lacks an authenticated
-// principal (set by authMiddleware from a valid Bearer token). Enforced at the
+// principal, and restricts executiveOperations to executives. Enforced at the
 // use-case boundary so every business endpoint is protected by default.
 func requireAuth() StrictMiddlewareFunc {
 	return func(next StrictHandlerFunc, operationID string) StrictHandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error) {
 			if !publicOperations[operationID] {
-				if _, ok := principalFrom(ctx); !ok {
+				p, ok := principalFrom(ctx)
+				if !ok {
 					writeUnauthorized(w)
+					return nil, nil
+				}
+				if executiveOperations[operationID] && !p.IsExecutive() {
+					writeForbidden(w)
 					return nil, nil
 				}
 			}
@@ -228,6 +248,12 @@ func writeUnauthorized(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)
 	_, _ = w.Write(unauthorizedBody)
+}
+
+func writeForbidden(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusForbidden)
+	_, _ = w.Write(forbiddenBody)
 }
 
 // GetHealthz implements the liveness probe (also mounted at /readyz upstream).

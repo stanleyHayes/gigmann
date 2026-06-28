@@ -71,6 +71,28 @@ All confirmed findings were fixed and shipped; CI is green on every commit.
   it is mitigated by the constrained tool schema, the supplied `SupportingFigures`,
   the deterministic local-narrator fallback, and the brief-quality fidelity tests.
 
+## Network-aggregate views — executive-only (fail-closed default applied)
+Per-**resource** facility access is fully scoped (facility detail, alerts, tasks,
+approvals all enforce `CanAccessFacility` — verified). The network-**aggregate**
+features build their context from the *whole* network, so a **facility manager**
+authenticating would otherwise see network-wide data:
+
+- `GET /api/v1/brief` (the cached network Daily Brief)
+- `POST /api/v1/ask` (answers grounded in the full network context)
+- `GET /api/v1/metrics` (network-wide KPIs)
+- `GET /api/v1/facilities` (the full facility roster)
+
+**Applied (fail-closed): these are now executive-only** — `requireAuth` rejects a
+non-executive on `executiveOperations` with `403` (test: `TestNetworkAggregateViewsAreExecutiveOnly`).
+This is the secure default and matches the "Executive Cockpit" framing.
+
+**Owner decision — relax if needed:** if facility managers are meant to *use* the
+cockpit with a **facility-scoped** view (Option B) rather than be blocked (Option A,
+applied), filter each manager's brief/ask/metrics to their own facility instead. That
+is a larger change (the brief is cached → per-facility briefs; the `QuestionAnswerer`
+context build would take the principal), so it was not guessed — the safe block is in
+place and trivially relaxed.
+
 ## Controls in place
 - AuthN: HS256 JWT (short-lived) + single-use **rotating** refresh tokens (hashed at rest); argon2id password hashing.
 - AuthZ: enforced in the app layer; managers scoped to their facility (verified, no IDOR).

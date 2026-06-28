@@ -158,6 +158,23 @@ func TestGetFacilityScopesManager(t *testing.T) {
 	require.Equal(t, http.StatusOK, own.Code)
 }
 
+func TestNetworkAggregateViewsAreExecutiveOnly(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	router := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+
+	// A facility manager is rejected at the boundary (no network-wide data leak).
+	for _, path := range []string{"/api/v1/facilities", "/api/v1/brief", "/api/v1/metrics"} {
+		rec := managerRequest(t, router, "kasoa", http.MethodGet, path)
+		assert.Equal(t, http.StatusForbidden, rec.Code, "manager GET %s", path)
+	}
+	askReq := httptest.NewRequest(http.MethodPost, "/api/v1/ask", strings.NewReader(`{"question":"how is the network"}`))
+	askReq.Header.Set("Authorization", "Bearer "+managerBearerToken(t, "kasoa"))
+	askReq.Header.Set("Content-Type", "application/json")
+	askRec := httptest.NewRecorder()
+	router.ServeHTTP(askRec, askReq)
+	assert.Equal(t, http.StatusForbidden, askRec.Code, "manager POST /ask")
+}
+
 // serveAuth issues a request carrying a valid Bearer token (for protected endpoints).
 func serveAuth(t *testing.T, repo *mocks.MockFacilityRepository, briefs *mocks.MockBriefGenerator, method, target string) *httptest.ResponseRecorder {
 	t.Helper()
