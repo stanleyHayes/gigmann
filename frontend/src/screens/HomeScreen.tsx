@@ -71,6 +71,12 @@ export function HomeScreen() {
         onClose={() => setTaskAdded(false)}
         message="Added to My Day"
       />
+      <Snackbar
+        open={createTask.isError}
+        autoHideDuration={4000}
+        onClose={() => createTask.reset()}
+        message="Couldn’t add to My Day. Try again."
+      />
     </Stack>
   )
 }

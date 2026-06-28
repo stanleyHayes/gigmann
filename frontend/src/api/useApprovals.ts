@@ -34,7 +34,13 @@ export function useDecideApproval() {
       }
       return data
     },
-    onSuccess: () => {
+    onSuccess: (_decided, vars) => {
+      // Drop the decided approval from the cache immediately so the card doesn't
+      // linger until the refetch lands (and won't reappear if the refetch fails —
+      // the server has already recorded the decision).
+      queryClient.setQueryData<Approval[]>(['approvals'], (old) =>
+        old ? old.filter((a) => a.id !== vars.id) : old,
+      )
       void queryClient.invalidateQueries({ queryKey: ['approvals'] })
     },
   })

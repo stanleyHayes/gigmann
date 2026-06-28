@@ -139,24 +139,22 @@ export function SettingsScreen() {
               Quiet by default: get a push notification only for things that genuinely need you — an
               imminent stock-out, a sharp revenue drop, or an approval waiting.
             </Typography>
+            {push.error ? <Alert severity="error">{push.error}</Alert> : null}
             {!push.supported ? (
               <Alert severity="info">This browser doesn&apos;t support push notifications.</Alert>
             ) : !push.available ? (
               <Alert severity="info">Push notifications aren&apos;t configured on the server yet.</Alert>
             ) : (
-              <>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={push.enabled}
-                      disabled={push.busy}
-                      onChange={() => (push.enabled ? void push.disable() : void push.enable())}
-                    />
-                  }
-                  label="Send critical push notifications to this device"
-                />
-                {push.error ? <Alert severity="error">{push.error}</Alert> : null}
-              </>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={push.enabled}
+                    disabled={push.busy}
+                    onChange={() => (push.enabled ? void push.disable() : void push.enable())}
+                  />
+                }
+                label="Send critical push notifications to this device"
+              />
             )}
           </Stack>
         </CardContent>

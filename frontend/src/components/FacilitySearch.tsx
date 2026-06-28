@@ -36,7 +36,7 @@ export function FacilitySearch() {
   const [input, setInput] = useState('')
   const debounced = useDebounced(input, 300)
   const navigate = useNavigate()
-  const { data: matches = [], isFetching } = useFacilitySearch(debounced)
+  const { data: matches = [], isFetching, isError } = useFacilitySearch(debounced)
 
   const close = () => {
     setOpen(false)
@@ -90,10 +90,12 @@ export function FacilitySearch() {
             </List>
           ) : (
             <Box sx={{ mt: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                {longEnough && !isFetching
-                  ? `No facilities match “${input.trim()}”.`
-                  : 'Type a name or a natural-language phrase.'}
+              <Typography variant="body2" color={isError ? 'error' : 'text.secondary'}>
+                {isError
+                  ? 'Search is unavailable right now. Try again shortly.'
+                  : longEnough && !isFetching
+                    ? `No facilities match “${input.trim()}”.`
+                    : 'Type a name or a natural-language phrase.'}
               </Typography>
             </Box>
           )}

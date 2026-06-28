@@ -10,6 +10,7 @@ import { useTheme } from '@mui/material/styles'
 import { LineChart } from '@mui/x-charts/LineChart'
 
 import { useMetrics, type Kpi } from '../api/useMetrics'
+import { fmt } from '../i18n/locale'
 import { monoFont, statusColors } from '../theme'
 
 const GRID = {
@@ -33,7 +34,8 @@ function toneOf(kpi: Kpi): Tone {
 function formatValue(unit: Kpi['unit'], value: number): string {
   switch (unit) {
     case 'pesewas':
-      return `GH₵ ${Math.round(value / 100).toLocaleString('en-US')}`
+      // Format from minor units without losing pesewas (the engine owns the figure).
+      return fmt.cedis(value / 100)
     case 'ratio':
       return `${(value * 100).toFixed(1)}%`
     default:

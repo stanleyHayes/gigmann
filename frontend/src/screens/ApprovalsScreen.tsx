@@ -138,6 +138,11 @@ export function ApprovalsScreen() {
             multiline
             minRows={2}
           />
+          {decide.isError ? (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              Couldn&apos;t record your decision. Try again.
+            </Alert>
+          ) : null}
         </DialogContent>
         <DialogActions>
           <Button onClick={close} disabled={decide.isPending}>

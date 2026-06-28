@@ -52,12 +52,20 @@ export function usePush(): PushState {
     if (!supported) return
     let active = true
     void (async () => {
-      const { data } = await api.GET('/api/v1/push/key')
-      if (!active) return
-      setVapidKey(data?.public_key ?? '')
-      const reg = await navigator.serviceWorker.ready
-      const sub = await reg.pushManager.getSubscription()
-      if (active) setEnabled(Boolean(sub))
+      try {
+        const { data, error: apiError } = await api.GET('/api/v1/push/key')
+        if (!active) return
+        if (apiError) {
+          setError('Couldn’t load notification settings.')
+          return
+        }
+        setVapidKey(data?.public_key ?? '')
+        const reg = await navigator.serviceWorker.ready
+        const sub = await reg.pushManager.getSubscription()
+        if (active) setEnabled(Boolean(sub))
+      } catch {
+        if (active) setError('Couldn’t load notification settings.')
+      }
     })()
     return () => {
       active = false

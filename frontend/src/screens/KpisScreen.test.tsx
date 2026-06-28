@@ -40,7 +40,8 @@ const occupancy: Kpi = {
 describe('KpiCard', () => {
   it('formats a money KPI and flags an improvement', () => {
     render(<KpiCard kpi={revenue} reduceMotion={false} />)
-    expect(screen.getByText(/GH₵ 1,143,376/)).toBeInTheDocument()
+    // Pesewas are preserved (no silent truncation of the .12).
+    expect(screen.getByText(/1,143,376\.12/)).toBeInTheDocument()
     expect(screen.getByText(/14%/)).toBeInTheDocument()
     expect(screen.getByLabelText('improved')).toBeInTheDocument()
     expect(screen.getByTestId('line-chart')).toBeInTheDocument()
