@@ -372,7 +372,7 @@ func (s *Server) UpdateAlertStatus(ctx context.Context, request UpdateAlertStatu
 // figures. Read-only: the draft is never sent without an explicit user action.
 func (s *Server) CreateDraft(ctx context.Context, request CreateDraftRequestObject) (CreateDraftResponseObject, error) {
 	if request.Body == nil {
-		return CreateDraft500JSONResponse{InternalErrorJSONResponse{Error: "bad_request"}}, nil
+		return CreateDraft400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
 	}
 	facilityID := ""
 	if request.Body.FacilityId != nil {
@@ -589,7 +589,7 @@ func (s *Server) UpdateTaskStatus(ctx context.Context, request UpdateTaskStatusR
 // PostAsk answers a natural-language question grounded in the network context.
 func (s *Server) PostAsk(ctx context.Context, request PostAskRequestObject) (PostAskResponseObject, error) {
 	if request.Body == nil {
-		return PostAsk500JSONResponse{InternalErrorJSONResponse{Error: "bad_request"}}, nil
+		return PostAsk400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
 	}
 	a, err := s.ask.Answer(ctx, request.Body.Question)
 	if err != nil {

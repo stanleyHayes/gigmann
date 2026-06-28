@@ -1197,6 +1197,7 @@ export interface operations {
                     "application/json": components["schemas"]["Draft"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             500: components["responses"]["InternalError"];
         };
@@ -1223,6 +1224,7 @@ export interface operations {
                     "application/json": components["schemas"]["Answer"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             500: components["responses"]["InternalError"];
         };
