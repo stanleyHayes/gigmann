@@ -1,0 +1,21 @@
+name: Smoke
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL of the deployment to smoke (e.g. https://gigmann-staging.onrender.com)"
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  smoke:
+    name: Post-deploy smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Smoke the deployment
+        env:
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+        run: scripts/smoke.sh "${{ inputs.base_url }}"

@@ -1514,7 +1514,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-6.
 
 #### ◐ GEC-111 — Staging smoke + UAT + beta gates · 5 SP · Phase: UAT/Beta
-> **Status 2026-06-27:** Staging smoke = the e2e demo spec + the full CI gate; a UAT/beta checklist with per-persona scenarios + entry/exit gates ([docs/uat-checklist.md](docs/uat-checklist.md)). _UAT + beta sign-off are human gates on a deployed staging URL._
+> **Progressed 2026-06-28:** **Automated post-deploy smoke shipped** — `scripts/smoke.sh` (health → ready → login → grounded Daily Brief → metrics over HTTP) + a `Smoke` workflow (`workflow_dispatch` with a `base_url` input). **Verified PASS** against the running API; shellcheck-clean. The browser journey remains the Playwright e2e (GEC-53/101). _UAT + beta sign-off + feedback capture stay human gates on a deployed staging URL._
 - User story: As the team, I want staging smoke tests and UAT/beta gates, so that releases follow the Eng-Ops SDLC.
 - Business value: Eng-Ops §7–§9 approval gates.
 - Acceptance criteria:
@@ -1719,3 +1719,4 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-27 | **Trivy DAST + dep patch.** Replaced Trivy's flaky self-install with the pinned `aquasec/trivy:0.65.0` image; the now-working scan caught 9 real HIGH CVEs in `golang.org/x/crypto` v0.51.0 (SSH) — bumped to v0.52.0. Gated the SonarQube job on `SONAR_TOKEN` (skips green when unset, enforced when set; action→v6). | Claude |
 | 2026-06-28 | **GEC-69 — Web Push (critical-only).** VAPID-gated push: subscription store + sender port + `PushService` (open-critical-only, per-device dedup, fanout off brief-refresh) + principal-scoped endpoints; frontend SW handler + `usePush` hook + Settings opt-in. No-op without VAPID keys. Verified locally (golangci-lint v2.12.2 0 issues; backend cover 85.8%; frontend 94/94). | Claude |
 | 2026-06-28 | **GEC-95 — Tested restore drill.** `scripts/restore-drill.sh` (dump→restore-to-scratch→verify row-count parity), verified against PG18 seeded by the API (14 tables/207 rows; failure paths exercised). Runbook updated. | Claude |
+| 2026-06-28 | **GEC-111 — Post-deploy smoke suite.** `scripts/smoke.sh` (health/ready/login/brief/metrics) + `Smoke` workflow_dispatch; verified PASS against the API. UAT/beta sign-off remain human. | Claude |
