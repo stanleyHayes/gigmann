@@ -69,6 +69,33 @@ func TestDefaultThresholds(t *testing.T) {
 	assert.Greater(t, th.UnbilledCritical, th.UnbilledWatch)
 }
 
+// TestRankDeterministicTiebreak covers the lower tiebreakers: with equal
+// severity and magnitude, order is FacilityID asc, then Type asc — so the brief
+// is stable and reproducible run-to-run.
+func TestRankDeterministicTiebreak(t *testing.T) {
+	eng := signal.NewEngine(stubDetector{sigs: []signal.Signal{
+		{Type: "z", FacilityID: "f2", Severity: severity.Watch, Magnitude: 0.5},
+		{Type: "b", FacilityID: "f1", Severity: severity.Watch, Magnitude: 0.5},
+		{Type: "a", FacilityID: "f1", Severity: severity.Watch, Magnitude: 0.5},
+	}})
+	got := eng.Run(signal.Input{})
+	require.Len(t, got, 3)
+	assert.Equal(t, "f1", got[0].FacilityID)
+	assert.Equal(t, "a", got[0].Type, "within a facility, Type breaks the tie ascending")
+	assert.Equal(t, "f1", got[1].FacilityID)
+	assert.Equal(t, "b", got[1].Type)
+	assert.Equal(t, "f2", got[2].FacilityID, "FacilityID breaks the tie ascending")
+}
+
+func TestDetectorNames(t *testing.T) {
+	th := signal.DefaultThresholds()
+	assert.Equal(t, "leakage", signal.NewLeakageDetector(th).Name())
+	assert.Equal(t, "claims", signal.NewClaimsDetector(th).Name())
+	assert.Equal(t, "stockout", signal.NewStockOutDetector().Name())
+	assert.Equal(t, "staff", signal.NewStaffDetector(th).Name())
+	assert.Equal(t, "trend", signal.NewTrendDetector(th).Name())
+}
+
 func TestTrendDetector(t *testing.T) {
 	th := signal.DefaultThresholds()
 	d := signal.NewTrendDetector(th)
@@ -117,6 +144,33 @@ func TestClaimsDetector(t *testing.T) {
 	ok := d.Detect(signal.Input{Metrics: series(t, 1000, 1000, 100, 100, 60, 60, 1, 0)})
 	assert.False(t, hasType(ok, "denial_spike"))
 	assert.False(t, hasType(ok, "submission_gap"))
+}
+
+func TestClaimsDetectorGuards(t *testing.T) {
+	d := signal.NewClaimsDetector(signal.DefaultThresholds())
+
+	// 14% denial (between Watch 0.10 and Critical 0.18) → Watch-tier denial_spike.
+	watch := d.Detect(signal.Input{Metrics: series(t, 1000, 1000, 100, 100, 100, 100, 14, 0)})
+	require.True(t, hasType(watch, "denial_spike"))
+	for _, s := range watch {
+		if s.Type == "denial_spike" {
+			assert.Equal(t, severity.Watch, s.Severity)
+		}
+	}
+
+	// Zero submissions this week → no denial_spike (can't compute a rate), but the
+	// collapse 60→0 is still a submission_gap.
+	zeroSub := d.Detect(signal.Input{Metrics: series(t, 1000, 1000, 100, 100, 60, 0, 0, 0)})
+	assert.False(t, hasType(zeroSub, "denial_spike"))
+	assert.True(t, hasType(zeroSub, "submission_gap"))
+
+	// No prior-week activity (patients & submissions both 0) → no submission_gap.
+	noPrev := d.Detect(signal.Input{Metrics: series(t, 1000, 1000, 0, 100, 0, 20, 0, 0)})
+	assert.False(t, hasType(noPrev, "submission_gap"))
+
+	// A single day is too little to split into two windows → no signals.
+	one := d.Detect(signal.Input{Metrics: []metric.FacilityMetric{mk(t, 0, 1000, 100, 60, 0, 0)}})
+	assert.Empty(t, one)
 }
 
 func TestLeakageDetector(t *testing.T) {
