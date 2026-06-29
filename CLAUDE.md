@@ -38,6 +38,18 @@ all numbers**; Claude only **narrates and prioritises** them. **The AI never inv
 - Write tests with the change, not after.
 
 ## 6. GitHub workflow
+> **Interim multi-agent policy (added 2026-06-29; in force until the product is stable).**
+> Several agents work this repo in parallel, so until we declare the product stable:
+> - **Push directly to `main`.** Skip feature branches/PRs for now; the branch-and-PR flow
+>   below resumes once the product is stable.
+> - **Every push must be green.** Run the full CI gate locally first (§5) — `main` is shared.
+> - **Stay in your lane.** Commit and push only the work *you* did. Never commit another
+>   agent's in-progress changes that happen to share the working tree.
+> - **Sync before you push.** `git fetch` then rebase onto `origin/main` to integrate other
+>   agents' pushes, and push only your own commits.
+> - **Then pick the next available to-do story** that no other agent is already working on.
+
+When the product is stable, revert to the branch-and-PR flow:
 - Branch: `feature/GEC-123-short-description` (also `fix/`, `chore/`, `docs/`).
 - Commit: `GEC-123 implement X`. PR title: `GEC-123 Short summary`.
 - A merged PR is the only thing that flips a story to Done; the PR must update `agent_plan.md`.
