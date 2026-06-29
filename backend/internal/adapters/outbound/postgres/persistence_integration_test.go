@@ -136,6 +136,48 @@ func TestUserRepoIntegration(t *testing.T) {
 	assert.Equal(t, "hash-ceo-2", updated.PasswordHash)
 }
 
+func TestUserRepoRecoveryCodesIntegration(t *testing.T) {
+	ctx := context.Background()
+	truncateAll(ctx, t)
+
+	repo := postgres.NewUserRepo(testPool)
+	u, err := user.New(user.User{ID: "u-mfa", Name: "Mfa User", Role: user.RoleExecutive})
+	require.NoError(t, err)
+
+	// A nil RecoveryCodeHashes must persist: recovery_code_hashes is
+	// NOT NULL DEFAULT '{}', and the upsert always supplies the column, so a nil
+	// Go slice is normalised to an empty array rather than sending SQL NULL.
+	require.NoError(t, repo.Save(ctx, ports.Account{User: u, Email: "mfa@gigmann.health", PasswordHash: "h"}))
+	got, err := repo.FindByID(ctx, "u-mfa")
+	require.NoError(t, err)
+	assert.Empty(t, got.RecoveryCodeHashes)
+
+	// Enrolment persists the hashes verbatim.
+	require.NoError(t, repo.Save(ctx, ports.Account{
+		User: u, Email: "mfa@gigmann.health", PasswordHash: "h", MFASecret: "JBSWY3DPEHPK3PXP",
+		RecoveryCodeHashes: []string{"hash:a", "hash:b", "hash:c"},
+	}))
+	got, err = repo.FindByID(ctx, "u-mfa")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"hash:a", "hash:b", "hash:c"}, got.RecoveryCodeHashes)
+
+	// Consuming a code persists the reduced slice.
+	got.RecoveryCodeHashes = []string{"hash:b", "hash:c"}
+	require.NoError(t, repo.Save(ctx, got))
+	got, err = repo.FindByID(ctx, "u-mfa")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"hash:b", "hash:c"}, got.RecoveryCodeHashes)
+
+	// Disabling MFA clears the secret and codes (nil → empty array, not NULL).
+	got.MFASecret = ""
+	got.RecoveryCodeHashes = nil
+	require.NoError(t, repo.Save(ctx, got))
+	got, err = repo.FindByID(ctx, "u-mfa")
+	require.NoError(t, err)
+	assert.Empty(t, got.MFASecret)
+	assert.Empty(t, got.RecoveryCodeHashes)
+}
+
 func TestRefreshRepoIntegration(t *testing.T) {
 	ctx := context.Background()
 	truncateAll(ctx, t)
