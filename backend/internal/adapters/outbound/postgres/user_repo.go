@@ -98,12 +98,19 @@ func userParams(account ports.Account, prefs []byte) sqlcgen.UpsertUserParams {
 }
 
 func credentialParams(account ports.Account) sqlcgen.UpsertCredentialsParams {
+	// recovery_code_hashes is NOT NULL DEFAULT '{}'; a nil Go slice serialises to
+	// SQL NULL (the default only applies when the column is omitted), which the
+	// upsert always supplies — so normalise nil to an empty array.
+	recoveryCodeHashes := account.RecoveryCodeHashes
+	if recoveryCodeHashes == nil {
+		recoveryCodeHashes = []string{}
+	}
 	return sqlcgen.UpsertCredentialsParams{
 		UserID:             account.User.ID,
 		Email:              normalizeEmail(account.Email),
 		PasswordHash:       account.PasswordHash,
 		MfaSecret:          account.MFASecret,
-		RecoveryCodeHashes: account.RecoveryCodeHashes,
+		RecoveryCodeHashes: recoveryCodeHashes,
 	}
 }
 

@@ -63,6 +63,14 @@ linters:
   settings:
     exhaustive:
       default-signifies-exhaustive: true
+    gosec:
+      excludes:
+        # G118: detached background goroutines (brief cache warm/refresh) use
+        # context.Background by design — they intentionally outlive any request,
+        # so a request-scoped context would be wrong. Excluded project-wide so the
+        # pattern needs no per-line nolint (which different golangci-lint versions
+        # disagree on flagging). Other gosec rules stay enabled.
+        - G118
     revive:
       rules:
         - name: exported
