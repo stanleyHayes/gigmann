@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -217,6 +219,9 @@ func TestLoginRequiresMFAWhenEnrolled(t *testing.T) {
 	acct := execAccount(t)
 	acct.MFASecret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
 	users.EXPECT().FindByEmail(gomock.Any(), gomock.Any()).Return(acct, nil)
+	// A non-TOTP code falls through to the recovery-code path, which reloads the
+	// account under the lock before checking (no codes here → still mfa_required).
+	users.EXPECT().FindByID(gomock.Any(), "u1").Return(acct, nil)
 	hasher.EXPECT().Verify(gomock.Any(), gomock.Any()).Return(true, nil)
 
 	svc := app.NewAuthService(users, hasher, mocks.NewMockTokenService(ctrl), mocks.NewMockRefreshTokenStore(ctrl), time.Hour, auditMock(ctrl))
@@ -297,6 +302,38 @@ func TestLoginWithRecoveryCodeConsumesIt(t *testing.T) {
 
 	_, _, _, err = svc.Login(context.Background(), "ceo@gigmann.health", "pw", "abcd-1234-efgh-5678")
 	require.ErrorIs(t, err, app.ErrMFARequired)
+}
+
+// TestLoginRecoveryCodeNoDoubleSpend guards the TOCTOU fix: two concurrent
+// logins presenting the same recovery code must spend it at most once.
+func TestLoginRecoveryCodeNoDoubleSpend(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	tokens := mocks.NewMockTokenService(ctrl)
+	refresh := mocks.NewMockRefreshTokenStore(ctrl)
+
+	acct := execAccount(t)
+	acct.PasswordHash = "hash:pw"
+	acct.MFASecret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
+	acct.RecoveryCodeHashes = []string{"hash:ABCD1234EFGH5678"}
+	users := memory.NewUserRepo(acct)
+
+	// Exactly one login may succeed (and issue a token pair).
+	tokens.EXPECT().Issue(gomock.Any()).Return("access-token", nil).Times(1)
+	refresh.EXPECT().Issue(gomock.Any(), gomock.Any(), gomock.Any()).Return("refresh-token", nil).Times(1)
+
+	svc := app.NewAuthService(users, staticHasher{}, tokens, refresh, time.Hour, auditMock(ctrl))
+
+	var wg sync.WaitGroup
+	var successes atomic.Int64
+	for range 2 {
+		wg.Go(func() {
+			if _, _, _, err := svc.Login(context.Background(), "ceo@gigmann.health", "pw", "abcd-1234-efgh-5678"); err == nil {
+				successes.Add(1)
+			}
+		})
+	}
+	wg.Wait()
+	assert.Equal(t, int64(1), successes.Load(), "a recovery code must be spendable at most once, even under concurrent logins")
 }
 
 func TestDisableMFAWithRecoveryCodeClearsSecretAndCodes(t *testing.T) {

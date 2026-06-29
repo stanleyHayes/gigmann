@@ -42,6 +42,13 @@ type AuthService struct {
 
 	mfaMu   sync.Mutex
 	mfaUsed map[string]uint64 // userID -> last consumed TOTP step (single-use / anti-replay)
+
+	// recoveryMu serialises recovery-code consumption so the verify→remove→save is
+	// atomic on this instance — without it two concurrent logins with the same code
+	// both verify before either saves and the code is spent twice (MFA bypass). A
+	// multi-instance deployment additionally needs a row-locked UPDATE; see
+	// docs/security/audit-findings-2026-06-29.md.
+	recoveryMu sync.Mutex
 }
 
 // NewAuthService wires the authentication use case to its ports.
@@ -217,7 +224,16 @@ func (s *AuthService) consumeRecoveryCode(ctx context.Context, acct ports.Accoun
 	if normalized == "" {
 		return false, nil
 	}
-	for i, hash := range acct.RecoveryCodeHashes {
+	// Serialise and reload under the lock so verify→remove→save is atomic: the
+	// passed acct may be stale (loaded before another concurrent login consumed a
+	// code), so always work from the freshly persisted state.
+	s.recoveryMu.Lock()
+	defer s.recoveryMu.Unlock()
+	fresh, err := s.users.FindByID(ctx, acct.User.ID)
+	if err != nil {
+		return false, fmt.Errorf("app: reload account: %w", err)
+	}
+	for i, hash := range fresh.RecoveryCodeHashes {
 		ok, err := s.hasher.Verify(normalized, hash)
 		if err != nil {
 			return false, fmt.Errorf("app: verify recovery code: %w", err)
@@ -225,11 +241,11 @@ func (s *AuthService) consumeRecoveryCode(ctx context.Context, acct ports.Accoun
 		if !ok {
 			continue
 		}
-		acct.RecoveryCodeHashes = append(acct.RecoveryCodeHashes[:i], acct.RecoveryCodeHashes[i+1:]...)
-		if err := s.users.Save(ctx, acct); err != nil {
+		fresh.RecoveryCodeHashes = append(fresh.RecoveryCodeHashes[:i], fresh.RecoveryCodeHashes[i+1:]...)
+		if err := s.users.Save(ctx, fresh); err != nil {
 			return false, fmt.Errorf("app: consume recovery code: %w", err)
 		}
-		s.audit.Record(ctx, ports.AuditEvent{Actor: acct.User.ID, Action: "auth.mfa.recovery", Outcome: "success"})
+		s.audit.Record(ctx, ports.AuditEvent{Actor: fresh.User.ID, Action: "auth.mfa.recovery", Outcome: "success"})
 		return true, nil
 	}
 	return false, nil
