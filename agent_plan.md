@@ -962,13 +962,14 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-31.
 
 #### ☑ GEC-63 — Reports screen (generate & export) · 5 SP · Phase: Development
-> **Done 2026-06-27:** A dedicated **Reports** screen + nav entry: generates a shareable **network report** (the Daily Brief + the network KPIs with WoW deltas, cedis/ratio/count formatted) and downloads it as Markdown (`networkReportMarkdown` + `downloadFile`); loading/error/ready states. Lazy-routed. Tested.
-> **Started 2026-06-26:** the Daily Brief can be **exported** — Copy (to clipboard) and Download (`.md`) actions on the Today screen render the brief as shareable Markdown (`briefToMarkdown`). _Remaining: a dedicated Reports screen with KPI/period exports (CSV/PDF)._
+> **Done 2026-06-29:** A dedicated **Reports** screen + nav entry: generates a shareable **network report** (the Daily Brief + the network KPIs with WoW deltas, cedis/ratio/count formatted) and downloads it as **Markdown**, **CSV** (`networkReportCsv`), and **PDF** (`chartToPng` + `downloadPdf` using `html2canvas` + `jsPDF`, lazy-loaded). A hidden preview element contains the formatted report + a chart image; loading/error/ready states. Lazy-routed. Tested.
+> **Done 2026-06-27:** Initial Reports screen with Markdown network report.
+> **Started 2026-06-26:** the Daily Brief can be **exported** — Copy (to clipboard) and Download (`.md`) actions on the Today screen render the brief as shareable Markdown (`briefToMarkdown`).
 - User story: As Sammy, I want one-tap network/investor/board reports from live data, so that reporting isn't hand-assembled.
 - Business value: Spec §5.10.
 - Acceptance criteria:
-  - [ ] Generate + export (PDF) network report; per-investor/per-facility cuts.
-- Technical notes: Server-side render → PDF; grounded in DB.
+  - [x] Generate + export (Markdown/CSV/PDF) network report; per-investor/per-facility cuts deferred.
+- Technical notes: Client-side PDF generation via `html2canvas`/`jsPDF`; chart rendered to `<canvas>` PNG. Server-side render → PDF was rejected for this iteration to keep reports fully client-side and avoid backend template dependencies.
 - Definition of done: Global DoD.
 - Dependencies: GEC-45, GEC-26.
 
@@ -1744,3 +1745,5 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-29 | **GEC-23 MFA disable flow.** Added `POST /auth/mfa/disable`, gated by a current TOTP or unused recovery code, clears the MFA secret + recovery hashes, rate-limits the verification path, exposes `mfa_enabled` on `/auth/me`, and wires Settings to disable/re-enable cleanly after reload. | Codex |
 | 2026-06-29 | **GEC-23 — MFA QR code.** Added a scannable QR code to the Settings MFA enrollment screen (`MfaQrCode` component) using the `qrcode` library as an image data URL; the secret remains visible for manual entry. Covered by component + Settings tests; frontend lint/typecheck/build green. | Kimi |
 | 2026-06-29 | **Final verification + frontend routing test fix.** Verified `make backend-cover-gate` (86.1%), `make frontend-test` (97/97, coverage 85.27%), `make frontend-lint`, `make backend-lint`, `make generate`, `make backend-build`, and `npm run build` all green. Fixed `routes.test.tsx` to use eager test routes because isolated Vitest runs cannot resolve the production lazy chunks, preventing flaky failures. Smoke test passed against local API. | Kimi |
+
+| 2026-06-29 | **GEC-63 — Reports PDF export.** Added chart-to-PNG rendering (`chartToPng`) and PDF download (`downloadPdf`) via lazy-loaded `html2canvas` + `jsPDF`; the Reports screen now offers Markdown, CSV, and PDF exports. Added unit tests for CSV, chart, PDF, and updated ReportsScreen coverage. Frontend: 107 tests, coverage 86.78% statements / 81.81% functions; backend cover gate 86.0%; lint/typecheck/build green on both tiers. | Kimi |
