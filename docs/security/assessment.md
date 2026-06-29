@@ -104,4 +104,5 @@ place and trivially relaxed.
 A formal **third-party penetration test** against a **deployed staging URL** is still
 required to close GEC-82 — covering live auth flows, session/token handling under
 real network conditions, business-logic abuse, and infra. The automated DAST (ZAP)
-and this internal assessment are the inputs/scope for that engagement.
+workflow can now be dispatched against that staging URL, and this internal
+assessment is the input/scope for that engagement.

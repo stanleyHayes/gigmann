@@ -49,21 +49,22 @@ func (q *Queries) DeleteRefreshToken(ctx context.Context, tokenHash string) erro
 
 const findAccountByEmail = `-- name: FindAccountByEmail :one
 SELECT u.id, u.name, u.role, u.facility_id, u.preferences,
-       c.email, c.password_hash, c.mfa_secret
+       c.email, c.password_hash, c.mfa_secret, c.recovery_code_hashes
 FROM credentials c
 JOIN users u ON u.id = c.user_id
 WHERE c.email = $1
 `
 
 type FindAccountByEmailRow struct {
-	ID           string
-	Name         string
-	Role         string
-	FacilityID   *string
-	Preferences  []byte
-	Email        string
-	PasswordHash string
-	MfaSecret    string
+	ID                 string
+	Name               string
+	Role               string
+	FacilityID         *string
+	Preferences        []byte
+	Email              string
+	PasswordHash       string
+	MfaSecret          string
+	RecoveryCodeHashes []string
 }
 
 func (q *Queries) FindAccountByEmail(ctx context.Context, email string) (FindAccountByEmailRow, error) {
@@ -78,27 +79,29 @@ func (q *Queries) FindAccountByEmail(ctx context.Context, email string) (FindAcc
 		&i.Email,
 		&i.PasswordHash,
 		&i.MfaSecret,
+		&i.RecoveryCodeHashes,
 	)
 	return i, err
 }
 
 const findAccountByID = `-- name: FindAccountByID :one
 SELECT u.id, u.name, u.role, u.facility_id, u.preferences,
-       c.email, c.password_hash, c.mfa_secret
+       c.email, c.password_hash, c.mfa_secret, c.recovery_code_hashes
 FROM users u
 JOIN credentials c ON c.user_id = u.id
 WHERE u.id = $1
 `
 
 type FindAccountByIDRow struct {
-	ID           string
-	Name         string
-	Role         string
-	FacilityID   *string
-	Preferences  []byte
-	Email        string
-	PasswordHash string
-	MfaSecret    string
+	ID                 string
+	Name               string
+	Role               string
+	FacilityID         *string
+	Preferences        []byte
+	Email              string
+	PasswordHash       string
+	MfaSecret          string
+	RecoveryCodeHashes []string
 }
 
 func (q *Queries) FindAccountByID(ctx context.Context, id string) (FindAccountByIDRow, error) {
@@ -113,6 +116,7 @@ func (q *Queries) FindAccountByID(ctx context.Context, id string) (FindAccountBy
 		&i.Email,
 		&i.PasswordHash,
 		&i.MfaSecret,
+		&i.RecoveryCodeHashes,
 	)
 	return i, err
 }
@@ -144,20 +148,22 @@ func (q *Queries) InsertRefreshToken(ctx context.Context, arg InsertRefreshToken
 }
 
 const upsertCredentials = `-- name: UpsertCredentials :exec
-INSERT INTO credentials (user_id, email, password_hash, mfa_secret)
-VALUES ($1, $2, $3, $4)
+INSERT INTO credentials (user_id, email, password_hash, mfa_secret, recovery_code_hashes)
+VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (user_id) DO UPDATE SET
     email = EXCLUDED.email,
     password_hash = EXCLUDED.password_hash,
     mfa_secret = EXCLUDED.mfa_secret,
+    recovery_code_hashes = EXCLUDED.recovery_code_hashes,
     updated_at = now()
 `
 
 type UpsertCredentialsParams struct {
-	UserID       string
-	Email        string
-	PasswordHash string
-	MfaSecret    string
+	UserID             string
+	Email              string
+	PasswordHash       string
+	MfaSecret          string
+	RecoveryCodeHashes []string
 }
 
 func (q *Queries) UpsertCredentials(ctx context.Context, arg UpsertCredentialsParams) error {
@@ -166,6 +172,7 @@ func (q *Queries) UpsertCredentials(ctx context.Context, arg UpsertCredentialsPa
 		arg.Email,
 		arg.PasswordHash,
 		arg.MfaSecret,
+		arg.RecoveryCodeHashes,
 	)
 	return err
 }

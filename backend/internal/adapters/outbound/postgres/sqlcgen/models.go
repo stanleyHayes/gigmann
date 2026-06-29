@@ -45,12 +45,13 @@ type Brief struct {
 }
 
 type Credential struct {
-	UserID       string
-	Email        string
-	PasswordHash string
-	MfaSecret    string
-	CreatedAt    pgtype.Timestamptz
-	UpdatedAt    pgtype.Timestamptz
+	UserID             string
+	Email              string
+	PasswordHash       string
+	MfaSecret          string
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
+	RecoveryCodeHashes []string
 }
 
 type Facility struct {

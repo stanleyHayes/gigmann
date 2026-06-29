@@ -303,6 +303,7 @@ func TestAuthLoginSuccessAndMe(t *testing.T) {
 	var me map[string]any
 	require.NoError(t, json.NewDecoder(meRec.Body).Decode(&me))
 	assert.Equal(t, "Sammy Adjei", me["name"])
+	assert.Equal(t, false, me["mfa_enabled"])
 }
 
 func TestAuthLoginBadPassword(t *testing.T) {
@@ -548,7 +549,20 @@ func TestMFAEnrollAndStepUp(t *testing.T) {
 	code, err := mfa.Code(enr.Secret, time.Now())
 	require.NoError(t, err)
 	confirm := authed(http.MethodPost, "/api/v1/auth/mfa/confirm", `{"secret":"`+enr.Secret+`","code":"`+code+`"}`)
-	require.Equal(t, http.StatusNoContent, confirm.Code)
+	require.Equal(t, http.StatusOK, confirm.Code)
+	var recovery struct {
+		RecoveryCodes []string `json:"recovery_codes"`
+	}
+	require.NoError(t, json.NewDecoder(confirm.Body).Decode(&recovery))
+	require.Len(t, recovery.RecoveryCodes, 10)
+
+	meWithMFA := authed(http.MethodGet, "/api/v1/auth/me", "")
+	require.Equal(t, http.StatusOK, meWithMFA.Code)
+	var enabled struct {
+		MFAEnabled bool `json:"mfa_enabled"`
+	}
+	require.NoError(t, json.NewDecoder(meWithMFA.Body).Decode(&enabled))
+	assert.True(t, enabled.MFAEnabled)
 
 	// login without a code now requires MFA
 	noCode := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234"}`)
@@ -567,6 +581,29 @@ func TestMFAEnrollAndStepUp(t *testing.T) {
 	// replaying the same code is rejected (single-use / anti-replay)
 	replay := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234","code":"`+code2+`"}`)
 	require.Equal(t, http.StatusUnauthorized, replay.Code)
+
+	// a recovery code works once and is consumed
+	withRecovery := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234","code":"`+recovery.RecoveryCodes[0]+`"}`)
+	require.Equal(t, http.StatusOK, withRecovery.Code)
+	reuseRecovery := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234","code":"`+recovery.RecoveryCodes[0]+`"}`)
+	require.Equal(t, http.StatusUnauthorized, reuseRecovery.Code)
+
+	badDisable := authed(http.MethodPost, "/api/v1/auth/mfa/disable", `{"code":"000000"}`)
+	require.Equal(t, http.StatusBadRequest, badDisable.Code)
+
+	disable := authed(http.MethodPost, "/api/v1/auth/mfa/disable", `{"code":"`+recovery.RecoveryCodes[1]+`"}`)
+	require.Equal(t, http.StatusNoContent, disable.Code)
+
+	meAfterDisable := authed(http.MethodGet, "/api/v1/auth/me", "")
+	require.Equal(t, http.StatusOK, meAfterDisable.Code)
+	var disabled struct {
+		MFAEnabled bool `json:"mfa_enabled"`
+	}
+	require.NoError(t, json.NewDecoder(meAfterDisable.Body).Decode(&disabled))
+	assert.False(t, disabled.MFAEnabled)
+
+	withoutMFA := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234"}`)
+	require.Equal(t, http.StatusOK, withoutMFA.Code)
 }
 
 func TestMetricsEndpoint(t *testing.T) {

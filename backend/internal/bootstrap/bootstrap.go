@@ -178,7 +178,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 	}
 	briefs := app.NewCachedBrief(app.NewStaticBrief(briefSvc, input), briefCacheTTL)
 	hub := realtime.New()
-	go func() { //nolint:contextcheck,gosec // G118: startup cache warm runs detached from any request
+	go func() { //nolint:contextcheck // Startup cache warm runs detached from any request.
 		if _, err := briefs.Generate(context.Background()); err != nil {
 			logger.Warn("brief cache warm failed", "err", err)
 			return

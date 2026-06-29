@@ -27,8 +27,9 @@ Summary of what is delivered, how to verify it, and what remains. Pair with
 ## Delivered (epics)
 Domain + signal engine (~100% covered), deterministic grounded narration, full REST
 API (brief/metrics/facilities + detail/auth+MFA/approvals/tasks/ask/facility-search/
-preferences/alerts), Postgres + pgvector persistence, React SPA (all core screens),
-PWA, theming, a11y baseline, CI, Render Blueprint, ADRs + docs.
+preferences/alerts), Postgres + pgvector persistence, realtime WebSocket updates,
+critical-only Web Push, React SPA (all core screens), public SEO landing page, PWA,
+theming, a11y baseline, observability, CI/CD, Render Blueprint, ADRs + docs.
 
 ## Environment reference
 Required: `JWT_SECRET` (outside dev). Optional: `DATABASE_URL`, `REDIS_URL`,
@@ -36,8 +37,9 @@ Required: `JWT_SECRET` (outside dev). Optional: `DATABASE_URL`, `REDIS_URL`,
 `CORS_ALLOWED_ORIGINS`, `DEMO_PASSWORD`. See `backend/.env.example` + `infra/render.yaml`.
 
 ## Known gaps / not in PoC scope
-Realtime (WebSocket GEC-67) + push (GEC-69); public marketing site + SEO
-(GEC-83/84/85/118); Sentry/SLOs/backups (GEC-92/94/95) and a penetration test
-(GEC-82) — these need live infra, third-party accounts, or a human process and are
-tracked in `agent_plan.md`. The pasted Anthropic key from development **must be
-rotated** before handover.
+The remaining release blockers are external gates, not missing implementation:
+formal staging penetration test (GEC-82) and human UAT/beta sign-off (GEC-111).
+Operational live-infra steps before GA: set production secrets, rotate any pasted
+development Anthropic key, provide VAPID keys for real browser push, provide Sentry
+and alert-channel DSNs/webhooks if those services are used, and archive the signed
+records in `docs/uat-checklist.md` plus the pen-test report.

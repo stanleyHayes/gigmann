@@ -12,8 +12,8 @@
 | **Client / persona** | Gigmann Medicals — Sammy Adjei (CEO/owner), 12-facility hospital & diagnostics network, Ghana |
 | **Prepared for** | XCreativs Technologies — engineering & product |
 | **Source docs** | `Gigmann_Cockpit_PoC_Spec.pdf` · `AI_Development_Workflow_Training_Manual.docx` · `AI_Native_Software_Engineering_Operations_Manual.docx` |
-| **Plan version** | 1.0 |
-| **Last updated** | 2026-06-24 |
+| **Plan version** | 1.1 |
+| **Last updated** | 2026-06-29 |
 | **Goal of this plan** | Take the cockpit from PoC to a **production-ready** product with **security** and **SEO** designed in from day one. |
 
 ---
@@ -60,24 +60,28 @@ Story points (Fibonacci: 1, 2, 3, 5, 8, 13). 1 SP ≈ a few hours; 8+ SP should 
 
 | Epic | Title | Stories | Points | Status |
 |---|---|---|---|---|
-| **E0** | Foundations & Engineering Operations | 9 | 41 | ◐ In progress — GEC-1/2/5/9 done; 3/4/6/7/8 in progress |
-| **E1** | Domain Model, Data Layer & Synthetic Network | 8 | 47 | ◐ In progress — GEC-10/11/14/15/16 done |
-| **E2** | Authentication & Authorization | 7 | 39 | ◐ In progress — GEC-18/19/20/21/22/23/24 done; only GEC-17 left |
-| **E3** | Core Domain APIs (REST + OpenAPI) | 9 | 52 | ◐ In progress — GEC-26/30/31 done |
+| **E0** | Foundations & Engineering Operations | 9 | 41 | ☑ Done |
+| **E1** | Domain Model, Data Layer & Synthetic Network | 8 | 47 | ☑ Done |
+| **E2** | Authentication & Authorization | 7 | 39 | ☑ Done |
+| **E3** | Core Domain APIs (REST + OpenAPI) | 9 | 52 | ☑ Done |
 | **E4** | Signal Engine (deterministic) | 7 | 42 | ☑ Done |
-| **E5** | Intelligence Service (Claude) | 8 | 55 | ◐ In progress — GEC-41/42/43/44/46 done (live) |
-| **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ◐ In progress — GEC-49/50 done |
-| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ◐ In progress — all screens + facility drill-down |
-| **E8** | Realtime, Notifications & Alerts | 5 | 26 | ☐ Not started |
-| **E9** | Security Hardening & Compliance | 11 | 63 | ◐ In progress — CORS/rate-limit/audit done |
-| **E10** | SEO & Web Performance | 7 | 31 | ☐ Not started |
-| **E11** | Observability & Reliability | 7 | 37 | ◐ In progress — logging, /readyz, /metrics |
-| **E12** | Quality, Testing & CI Gates | 8 | 44 | ☐ Not started |
-| **E13** | Deployment, Infra & Release | 7 | 38 | ☐ Not started |
-| **E14** | Documentation, Governance & Handover | 6 | 24 | ☐ Not started |
+| **E5** | Intelligence Service (Claude) | 8 | 55 | ☑ Done |
+| **E6** | The Daily Brief (hero, end-to-end) | 5 | 34 | ☑ Done |
+| **E7** | Cockpit Frontend (React + Vite) | 14 | 100 | ☑ Done |
+| **E8** | Realtime, Notifications & Alerts | 5 | 26 | ☑ Done |
+| **E9** | Security Hardening & Compliance | 11 | 63 | ⊘ External gate — internal assessment/DAST complete; formal staging pen-test remains (GEC-82) |
+| **E10** | SEO & Web Performance | 7 | 31 | ☑ Done |
+| **E11** | Observability & Reliability | 7 | 37 | ☑ Done |
+| **E12** | Quality, Testing & CI Gates | 8 | 44 | ☑ Done |
+| **E13** | Deployment, Infra & Release | 7 | 38 | ⊘ External gate — deploy/smoke tooling complete; UAT/beta sign-off remains (GEC-111) |
+| **E14** | Documentation, Governance & Handover | 6 | 24 | ☑ Done |
 | | **Total** | **118** | **673** | |
 
 > Keep this table in sync as stories close. "Status" rolls up from the stories below.
+> 2026-06-29 reconciliation: all implementable software stories are complete or externally gated.
+> Do not flip GEC-82 or GEC-111 to `☑` until the formal pen-test report and human UAT/beta sign-off are archived.
+> Older `Started` / `In progress` / `Remaining` notes are retained as history; the story header and newest dated
+> status note are authoritative.
 
 ---
 
@@ -488,13 +492,14 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-20, GEC-5.
 
 #### ☑ GEC-23 — Optional TOTP MFA · 5 SP · Phase: Development
-> **Backend done 2026-06-26 (live-verified):** RFC 6238 TOTP (`core/mfa`, HMAC-SHA1, 30s/6-digit, ±1 skew; passes the RFC test vector). Opt-in enrollment: `POST /auth/mfa/enroll` (returns a base32 secret + otpauth URI) → `POST /auth/mfa/confirm` (validates a code, persists the secret on the account). Login gains an optional `code`; if MFA is enrolled, a missing/invalid code returns 401 `mfa_required`, a valid one issues tokens. `UserRepository` gained `FindByID`/`Save`. Full enroll→step-up flow verified live + an E2E handler test. **Frontend done 2026-06-26:** a Settings screen (⚙ in the app bar) enrols MFA — *Set up* → shows the secret → confirm a code; the login screen auto-prompts for the 6-digit code on an `mfa_required` response. _Remaining: recovery codes + a QR image (the otpauth URI/secret is shown as text)._
+> **Done 2026-06-29:** TOTP enrollment now also shows a scannable QR code for the `otpauth_uri` (using the `qrcode` library as an image data URL) alongside the manual key, returns one-time recovery codes that are stored hashed and consumed on login, and supports authenticated MFA disable with a current TOTP or unused recovery code. Backend and UI now complete the MFA enrollment/disable flow.
+> **Backend done 2026-06-26 (live-verified):** RFC 6238 TOTP (`core/mfa`, HMAC-SHA1, 30s/6-digit, ±1 skew; passes the RFC test vector). Opt-in enrollment: `POST /auth/mfa/enroll` (returns a base32 secret + otpauth URI) → `POST /auth/mfa/confirm` (validates a code, persists the secret on the account). Login gains an optional `code`; if MFA is enrolled, a missing/invalid code returns 401 `mfa_required`, a valid one issues tokens. `UserRepository` gained `FindByID`/`Save`. Full enroll→step-up flow verified live + an E2E handler test. **Frontend done 2026-06-26:** a Settings screen (⚙ in the app bar) enrols MFA — *Set up* → shows the secret → confirm a code; the login screen auto-prompts for the 6-digit code on an `mfa_required` response.
 - User story: As an executive, I want optional 2FA, so that my high-value account is harder to compromise.
 - Business value: Executive accounts are high-value targets.
 - Acceptance criteria:
-  - [ ] TOTP enrol/verify/disable; recovery codes (hashed).
-  - [ ] Enforced when enabled; clear recovery flow.
-- Technical notes: `pquerna/otp`; rate-limit verification.
+  - [x] TOTP enrol/verify/disable; recovery codes (hashed).
+  - [x] Enforced when enabled; clear recovery flow.
+- Technical notes: `core/mfa`; rate-limit verification.
 - Definition of done: Global DoD + security review.
 - Dependencies: GEC-22.
 
@@ -1185,7 +1190,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-72.
 
-#### ◐ GEC-82 — Pre-production penetration test · 5 SP · Phase: Staging
+#### ⊘ GEC-82 — Pre-production penetration test · 5 SP · Phase: Staging
+> **Blocked 2026-06-29:** Internal security assessment, automated CI security scans, and repeatable DAST tooling are in place. The `DAST` workflow now accepts an optional deployed `target_url` so OWASP ZAP can scan staging as soon as a URL exists. Closure still requires a formal pen-test report against staging with critical/high findings triaged and fixed.
 > **Progressed 2026-06-28:** Shipped an **internal security assessment** ([docs/security/assessment.md](docs/security/assessment.md)) — methodology (threat model + CI SAST/deps/secret/container/DAST scanning + four adversarial multi-agent code audits), the confirmed findings and their fixes (incl. an IDOR cluster, a `x/crypto` CVE bump, and several correctness/availability bugs — all remediated, CI green), accepted-risk decisions with rationale, and the controls in place. _The formal third-party pen test against a deployed staging URL remains the external requirement to close this._
 - User story: As the business, I want a pen-test before GA, so that real-world weaknesses are found and fixed.
 - Business value: Production confidence.
@@ -1513,7 +1519,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Definition of done: Global DoD.
 - Dependencies: GEC-6.
 
-#### ◐ GEC-111 — Staging smoke + UAT + beta gates · 5 SP · Phase: UAT/Beta
+#### ⊘ GEC-111 — Staging smoke + UAT + beta gates · 5 SP · Phase: UAT/Beta
+> **Blocked 2026-06-29:** Automated release gates are ready: `Smoke` workflow runs the HTTP smoke suite against a supplied staging URL and defaults to two consecutive runs; `E2E` workflow can be manually dispatched with `repeat_count=2` for the demo-readiness gate. Closure still requires the owner/team to run UAT on staging and record beta sign-off in [docs/uat-checklist.md](docs/uat-checklist.md).
 > **Progressed 2026-06-28:** **Automated post-deploy smoke shipped** — `scripts/smoke.sh` (health → ready → login → grounded Daily Brief → metrics over HTTP) + a `Smoke` workflow (`workflow_dispatch` with a `base_url` input). **Verified PASS** against the running API; shellcheck-clean. The browser journey remains the Playwright e2e (GEC-53/101). _UAT + beta sign-off + feedback capture stay human gates on a deployed staging URL._
 - User story: As the team, I want staging smoke tests and UAT/beta gates, so that releases follow the Eng-Ops SDLC.
 - Business value: Eng-Ops §7–§9 approval gates.
@@ -1732,3 +1739,8 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-28 | **Intel context name fallback (7th audit).** A signal referencing a facility not in the facilities list yielded an empty `FacilityName` → broken narration (": Headline"). `BuildContext` now falls back to the facility id when the name is unresolved (never empty); tests assert it. Rejected: fail-fast signal validation (graceful fallback is better UX than killing the brief on one orphaned signal) and the staff-id-in-figures concern (the staff data is synthetic — no real PII). | Claude |
 | 2026-06-28 | **Fix-review (8th audit) — completed the IDOR scope + 2 fix-introduced bugs.** An independent review of this session's fixes caught that the IDOR fix had **missed `ListTasks` and `UpdateTaskStatus`** (a manager could list/mutate any facility's tasks) — now scoped (+403, IDOR tests). Also fixed a div-by-zero I introduced in the leakage magnitude (guarded the threshold, matching stockout) and an MFA re-enroll edge case (clear the single-use counter on `BeginMFAEnrollment`). Rejected: unbounded `mfaUsed` growth (bounded by user count; eviction is over-engineering for this app). Verified: lint 0, coverage 86.3%, codegen idempotent. | Claude |
 | 2026-06-28 | **Network-aggregate views are executive-only (fail-closed).** A FacilityID-endpoint enumeration found the network-aggregate features (`GetBrief`, `PostAsk`, `GetMetrics`, `ListFacilities`) build context from the *whole* network regardless of principal — a latent network-wide leak for a facility manager. Applied the secure default: `requireAuth` rejects a non-executive on these with 403 (test added). The per-resource IDOR was already fully closed; this blocks the aggregate views. Per-facility scoping (vs. block) is a documented owner decision (`docs/security/assessment.md`) — left un-guessed because it's a larger, cached/interface change. | Claude |
+| 2026-06-29 | **GEC-82/111 release-gate closure pass.** Reconciled the dashboard to the shipped story state, marked the two remaining gates as external blockers, added staging-target support to the DAST workflow, made Smoke/E2E manually repeatable for the two-run demo gate, refreshed UAT/handover/security docs so the remaining pen-test + human sign-off evidence has a clear home, and cleaned stale backend lint suppressions found during verification. | Codex |
+| 2026-06-29 | **GEC-23 MFA recovery codes.** Confirming TOTP MFA now returns 10 one-time recovery codes, stores only hashed codes (`credentials.recovery_code_hashes`), allows an unused recovery code as the login `code`, consumes it on successful login, and surfaces the codes once in Settings with copy support. OpenAPI, generated Go stubs, sqlc, and TS schema regenerated. | Codex |
+| 2026-06-29 | **GEC-23 MFA disable flow.** Added `POST /auth/mfa/disable`, gated by a current TOTP or unused recovery code, clears the MFA secret + recovery hashes, rate-limits the verification path, exposes `mfa_enabled` on `/auth/me`, and wires Settings to disable/re-enable cleanly after reload. | Codex |
+| 2026-06-29 | **GEC-23 — MFA QR code.** Added a scannable QR code to the Settings MFA enrollment screen (`MfaQrCode` component) using the `qrcode` library as an image data URL; the secret remains visible for manual entry. Covered by component + Settings tests; frontend lint/typecheck/build green. | Kimi |
+| 2026-06-29 | **Final verification + frontend routing test fix.** Verified `make backend-cover-gate` (86.1%), `make frontend-test` (97/97, coverage 85.27%), `make frontend-lint`, `make backend-lint`, `make generate`, `make backend-build`, and `npm run build` all green. Fixed `routes.test.tsx` to use eager test routes because isolated Vitest runs cannot resolve the production lazy chunks, preventing flaky failures. Smoke test passed against local API. | Kimi |

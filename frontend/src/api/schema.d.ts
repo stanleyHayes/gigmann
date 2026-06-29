@@ -363,6 +363,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/mfa/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disable TOTP MFA with a current code or recovery code */
+        post: operations["postAuthMfaDisable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/push/key": {
         parameters: {
             query?: never;
@@ -563,6 +580,7 @@ export interface components {
             /** @enum {string} */
             role: "executive" | "facility_manager";
             facility_id?: string;
+            mfa_enabled?: boolean;
         };
         AuthSession: {
             token: string;
@@ -670,6 +688,12 @@ export interface components {
         };
         MfaConfirmRequest: {
             secret: string;
+            code: string;
+        };
+        MfaRecoveryCodes: {
+            recovery_codes: string[];
+        };
+        MfaDisableRequest: {
             code: string;
         };
         Error: {
@@ -1294,7 +1318,34 @@ export interface operations {
             };
         };
         responses: {
-            /** @description MFA enrolled */
+            /** @description MFA enrolled; recovery codes returned once */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaRecoveryCodes"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postAuthMfaDisable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaDisableRequest"];
+            };
+        };
+        responses: {
+            /** @description MFA disabled */
             204: {
                 headers: {
                     [name: string]: unknown;

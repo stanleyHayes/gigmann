@@ -38,7 +38,7 @@ func (r *UserRepo) FindByEmail(ctx context.Context, email string) (ports.Account
 	if err != nil {
 		return ports.Account{}, fmt.Errorf("postgres: find account by email: %w", err)
 	}
-	return accountFrom(row.ID, row.Name, row.Role, row.FacilityID, row.Preferences, row.Email, row.PasswordHash, row.MfaSecret)
+	return accountFrom(row.ID, row.Name, row.Role, row.FacilityID, row.Preferences, row.Email, row.PasswordHash, row.MfaSecret, row.RecoveryCodeHashes)
 }
 
 // FindByID returns the account for the user id, or ErrAccountNotFound.
@@ -50,7 +50,7 @@ func (r *UserRepo) FindByID(ctx context.Context, id string) (ports.Account, erro
 	if err != nil {
 		return ports.Account{}, fmt.Errorf("postgres: find account by id: %w", err)
 	}
-	return accountFrom(row.ID, row.Name, row.Role, row.FacilityID, row.Preferences, row.Email, row.PasswordHash, row.MfaSecret)
+	return accountFrom(row.ID, row.Name, row.Role, row.FacilityID, row.Preferences, row.Email, row.PasswordHash, row.MfaSecret, row.RecoveryCodeHashes)
 }
 
 // Save upserts the account's profile and credentials in a single transaction.
@@ -99,14 +99,15 @@ func userParams(account ports.Account, prefs []byte) sqlcgen.UpsertUserParams {
 
 func credentialParams(account ports.Account) sqlcgen.UpsertCredentialsParams {
 	return sqlcgen.UpsertCredentialsParams{
-		UserID:       account.User.ID,
-		Email:        normalizeEmail(account.Email),
-		PasswordHash: account.PasswordHash,
-		MfaSecret:    account.MFASecret,
+		UserID:             account.User.ID,
+		Email:              normalizeEmail(account.Email),
+		PasswordHash:       account.PasswordHash,
+		MfaSecret:          account.MFASecret,
+		RecoveryCodeHashes: account.RecoveryCodeHashes,
 	}
 }
 
-func accountFrom(id, name, role string, facilityID *string, prefs []byte, email, hash, mfa string) (ports.Account, error) {
+func accountFrom(id, name, role string, facilityID *string, prefs []byte, email, hash, mfa string, recoveryCodeHashes []string) (ports.Account, error) {
 	p, err := unmarshalPrefs(prefs)
 	if err != nil {
 		return ports.Account{}, err
@@ -121,5 +122,5 @@ func accountFrom(id, name, role string, facilityID *string, prefs []byte, email,
 	if err != nil {
 		return ports.Account{}, fmt.Errorf("postgres: map account %q: %w", id, err)
 	}
-	return ports.Account{User: u, Email: email, PasswordHash: hash, MFASecret: mfa}, nil
+	return ports.Account{User: u, Email: email, PasswordHash: hash, MFASecret: mfa, RecoveryCodeHashes: recoveryCodeHashes}, nil
 }

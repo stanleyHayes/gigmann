@@ -1,6 +1,11 @@
 name: DAST
 on:
   workflow_dispatch:
+    inputs:
+      target_url:
+        description: "Optional deployed staging URL to scan. Empty scans a local in-memory API."
+        required: false
+        type: string
   schedule:
     - cron: "0 4 * * 1"   # weekly
 permissions:
@@ -12,22 +17,44 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve scan target
+        id: target
+        run: |
+          target="${{ inputs.target_url }}"
+          if [ -z "$target" ]; then
+            target="http://localhost:8080"
+          fi
+          target="${target%/}"
+          echo "url=$target" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-go@v5
+        if: ${{ steps.target.outputs.url == 'http://localhost:8080' }}
         with:
           go-version: "1.25.x"
           cache-dependency-path: backend/go.sum
       - name: Start the API (in-memory)
+        if: ${{ steps.target.outputs.url == 'http://localhost:8080' }}
         working-directory: backend
         env:
           JWT_SECRET: dast-secret
           APP_ENV: development
         run: |
           go run ./cmd/api &
-          for i in $(seq 1 30); do curl -fs localhost:8080/healthz && break || sleep 1; done
+          ready=0
+          for _ in $(seq 1 30); do
+            if curl -fs localhost:8080/healthz; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "API did not become healthy" >&2
+            exit 1
+          fi
       - name: ZAP baseline scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
-          target: http://localhost:8080
+          target: ${{ steps.target.outputs.url }}
           rules_file_name: .zap/rules.tsv
           cmd_options: "-a"
           fail_action: false

@@ -4,6 +4,7 @@ sql:
     schema:
       - "migrations/000001_init.up.sql"
       - "migrations/000002_auth.up.sql"
+      - "migrations/000005_mfa_recovery_codes.up.sql"
     queries: "internal/adapters/outbound/postgres/queries"
     gen:
       go:

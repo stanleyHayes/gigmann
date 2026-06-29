@@ -78,10 +78,11 @@ type BriefGenerator interface {
 
 // Account is a user profile plus the credentials used to authenticate them.
 type Account struct {
-	User         user.User
-	Email        string
-	PasswordHash string
-	MFASecret    string // base32 TOTP secret; empty means MFA is not enrolled
+	User               user.User
+	Email              string
+	PasswordHash       string
+	MFASecret          string   // base32 TOTP secret; empty means MFA is not enrolled
+	RecoveryCodeHashes []string // one-time MFA recovery code hashes; raw codes are shown only once
 }
 
 // UserRepository is a driven port for looking up accounts by email.

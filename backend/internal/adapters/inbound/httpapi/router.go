@@ -42,8 +42,8 @@ const (
 )
 
 // authRateLimitedPaths are the brute-force-sensitive auth endpoints (login,
-// refresh, and the MFA confirm step where a 6-digit TOTP is checked).
-var authRateLimitedPaths = []string{"/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/mfa/confirm"}
+// refresh, and MFA steps where a TOTP/recovery code is checked).
+var authRateLimitedPaths = []string{"/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/mfa/confirm", "/api/v1/auth/mfa/disable"}
 
 // askRateLimitedPaths bound AI cost/abuse per principal (GEC-48).
 var askRateLimitedPaths = []string{"/api/v1/ask", "/api/v1/drafts"}
@@ -670,7 +670,11 @@ func (s *Server) GetAuthMe(ctx context.Context, _ GetAuthMeRequestObject) (GetAu
 	if !ok {
 		return GetAuthMe401JSONResponse{UnauthorizedJSONResponse{Error: "unauthorized"}}, nil
 	}
-	return GetAuthMe200JSONResponse(toAPIAuthUser(p)), nil
+	live, mfaEnabled, err := s.auth.CurrentUser(ctx, p)
+	if err != nil {
+		return GetAuthMe401JSONResponse{UnauthorizedJSONResponse{Error: "unauthorized"}}, nil //nolint:nilerr
+	}
+	return GetAuthMe200JSONResponse(toAPIAuthUserWithMFA(live, mfaEnabled)), nil
 }
 
 // PostAuthMfaEnroll mints a TOTP secret + otpauth URI for the current user.
@@ -695,14 +699,33 @@ func (s *Server) PostAuthMfaConfirm(ctx context.Context, request PostAuthMfaConf
 	if request.Body == nil {
 		return PostAuthMfaConfirm400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
 	}
-	err := s.auth.ConfirmMFAEnrollment(ctx, p, request.Body.Secret, request.Body.Code)
+	codes, err := s.auth.ConfirmMFAEnrollment(ctx, p, request.Body.Secret, request.Body.Code)
 	switch {
 	case errors.Is(err, app.ErrInvalidMFACode):
 		return PostAuthMfaConfirm400JSONResponse{BadRequestJSONResponse{Error: "invalid_code"}}, nil
 	case err != nil:
 		return PostAuthMfaConfirm500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
 	}
-	return PostAuthMfaConfirm204Response{}, nil
+	return PostAuthMfaConfirm200JSONResponse(MfaRecoveryCodes{RecoveryCodes: codes}), nil
+}
+
+// PostAuthMfaDisable disables MFA after a current TOTP or recovery code.
+func (s *Server) PostAuthMfaDisable(ctx context.Context, request PostAuthMfaDisableRequestObject) (PostAuthMfaDisableResponseObject, error) {
+	p, ok := principalFrom(ctx)
+	if !ok {
+		return PostAuthMfaDisable401JSONResponse{UnauthorizedJSONResponse{Error: "unauthorized"}}, nil
+	}
+	if request.Body == nil {
+		return PostAuthMfaDisable400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
+	}
+	err := s.auth.DisableMFA(ctx, p, request.Body.Code)
+	switch {
+	case errors.Is(err, app.ErrInvalidMFACode):
+		return PostAuthMfaDisable400JSONResponse{BadRequestJSONResponse{Error: "invalid_code"}}, nil
+	case err != nil:
+		return PostAuthMfaDisable500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
+	}
+	return PostAuthMfaDisable204Response{}, nil
 }
 
 // PostAuthRefresh rotates a refresh token into a fresh access + refresh pair.
@@ -924,5 +947,11 @@ func toAPIAuthUser(p auth.Principal) AuthUser {
 		fid := p.FacilityID
 		out.FacilityId = &fid
 	}
+	return out
+}
+
+func toAPIAuthUserWithMFA(p auth.Principal, enabled bool) AuthUser {
+	out := toAPIAuthUser(p)
+	out.MfaEnabled = &enabled
 	return out
 }

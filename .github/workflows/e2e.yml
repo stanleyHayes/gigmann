@@ -4,9 +4,18 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      repeat_count:
+        description: "Number of consecutive demo runs. Use 2 for stakeholder demo-readiness."
+        required: false
+        default: "2"
+        type: string
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    env:
+      E2E_REPEAT_COUNT: ${{ inputs.repeat_count || '1' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -20,4 +29,14 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: cd frontend && npm ci
       - run: cd frontend && npx playwright install --with-deps chromium
-      - run: cd frontend && npx playwright test
+      - name: Run Playwright demo journey
+        working-directory: frontend
+        run: |
+          repeat_count="${E2E_REPEAT_COUNT:-1}"
+          case "$repeat_count" in
+            ''|*[!0-9]*|0) echo "repeat_count must be a positive integer" >&2; exit 2 ;;
+          esac
+          for i in $(seq 1 "$repeat_count"); do
+            echo "E2E run $i/$repeat_count"
+            npx playwright test
+          done

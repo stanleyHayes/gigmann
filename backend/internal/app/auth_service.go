@@ -2,8 +2,11 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base32"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,6 +24,11 @@ var ErrMFARequired = errors.New("app: mfa code required")
 
 // ErrInvalidMFACode means an enrollment confirmation code did not validate.
 var ErrInvalidMFACode = errors.New("app: invalid mfa code")
+
+const (
+	recoveryCodeCount = 10
+	recoveryCodeBytes = 10
+)
 
 // AuthService is the authentication use case: verify credentials, issue an
 // access token plus a rotating refresh token, refresh, and revoke (logout).
@@ -64,9 +72,15 @@ func (s *AuthService) Login(ctx context.Context, email, password, code string) (
 		s.audit.Record(ctx, ports.AuditEvent{Actor: email, Action: "auth.login", Outcome: "failure"})
 		return "", "", auth.Principal{}, ErrInvalidCredentials
 	}
-	if acct.MFASecret != "" && !s.checkMFA(acct.User.ID, acct.MFASecret, code, time.Now()) {
-		s.audit.Record(ctx, ports.AuditEvent{Actor: acct.User.ID, Action: "auth.login", Outcome: "mfa_required"})
-		return "", "", auth.Principal{}, ErrMFARequired
+	if acct.MFASecret != "" {
+		ok, err := s.checkSecondFactor(ctx, acct, code, time.Now())
+		if err != nil {
+			return "", "", auth.Principal{}, err
+		}
+		if !ok {
+			s.audit.Record(ctx, ports.AuditEvent{Actor: acct.User.ID, Action: "auth.login", Outcome: "mfa_required"})
+			return "", "", auth.Principal{}, ErrMFARequired
+		}
 	}
 	p := principalOf(acct)
 	s.audit.Record(ctx, ports.AuditEvent{Actor: p.UserID, Action: "auth.login", Outcome: "success"})
@@ -107,6 +121,18 @@ func (s *AuthService) Logout(ctx context.Context, rawRefresh string) error {
 	return s.refresh.Revoke(ctx, rawRefresh)
 }
 
+// CurrentUser re-reads the authenticated account so account state changes (such
+// as enabling or disabling MFA) are reflected in /auth/me without waiting for a
+// token refresh.
+func (s *AuthService) CurrentUser(ctx context.Context, p auth.Principal) (auth.Principal, bool, error) {
+	acct, err := s.users.FindByID(ctx, p.UserID)
+	if err != nil {
+		s.audit.Record(ctx, ports.AuditEvent{Actor: p.UserID, Action: "auth.me", Outcome: "failure"})
+		return auth.Principal{}, false, ErrInvalidCredentials
+	}
+	return principalOf(acct), acct.MFASecret != "", nil
+}
+
 // BeginMFAEnrollment mints a fresh TOTP secret and its otpauth URI. The secret
 // is not persisted until ConfirmMFAEnrollment proves the user can generate codes.
 func (s *AuthService) BeginMFAEnrollment(_ context.Context, p auth.Principal) (string, string, error) {
@@ -123,21 +149,124 @@ func (s *AuthService) BeginMFAEnrollment(_ context.Context, p auth.Principal) (s
 }
 
 // ConfirmMFAEnrollment validates a code against the secret and, on success,
-// persists the secret on the principal's account (activating MFA).
-func (s *AuthService) ConfirmMFAEnrollment(ctx context.Context, p auth.Principal, secret, code string) error {
+// persists the secret on the principal's account (activating MFA). It returns
+// one-time recovery codes; callers must show them once and never persist them raw.
+func (s *AuthService) ConfirmMFAEnrollment(ctx context.Context, p auth.Principal, secret, code string) ([]string, error) {
 	if !s.checkMFA(p.UserID, secret, code, time.Now()) {
-		return ErrInvalidMFACode
+		return nil, ErrInvalidMFACode
 	}
+	acct, err := s.users.FindByID(ctx, p.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("app: load account: %w", err)
+	}
+	codes, hashes, err := s.generateRecoveryCodes()
+	if err != nil {
+		return nil, err
+	}
+	acct.MFASecret = secret
+	acct.RecoveryCodeHashes = hashes
+	if err := s.users.Save(ctx, acct); err != nil {
+		return nil, fmt.Errorf("app: save account: %w", err)
+	}
+	s.audit.Record(ctx, ports.AuditEvent{Actor: p.UserID, Action: "auth.mfa.enroll", Outcome: "success"})
+	return codes, nil
+}
+
+// DisableMFA clears the persisted TOTP secret and recovery-code hashes after the
+// user proves possession with a current TOTP or an unused recovery code.
+func (s *AuthService) DisableMFA(ctx context.Context, p auth.Principal, code string) error {
 	acct, err := s.users.FindByID(ctx, p.UserID)
 	if err != nil {
 		return fmt.Errorf("app: load account: %w", err)
 	}
-	acct.MFASecret = secret
-	if err := s.users.Save(ctx, acct); err != nil {
-		return fmt.Errorf("app: save account: %w", err)
+	if acct.MFASecret == "" {
+		return nil
 	}
-	s.audit.Record(ctx, ports.AuditEvent{Actor: p.UserID, Action: "auth.mfa.enroll", Outcome: "success"})
+	ok, err := s.checkSecondFactor(ctx, acct, code, time.Now())
+	if err != nil {
+		return err
+	}
+	if !ok {
+		s.audit.Record(ctx, ports.AuditEvent{Actor: p.UserID, Action: "auth.mfa.disable", Outcome: "failure"})
+		return ErrInvalidMFACode
+	}
+	acct.MFASecret = ""
+	acct.RecoveryCodeHashes = nil
+	if err := s.users.Save(ctx, acct); err != nil {
+		return fmt.Errorf("app: disable mfa: %w", err)
+	}
+	s.mfaMu.Lock()
+	delete(s.mfaUsed, p.UserID)
+	s.mfaMu.Unlock()
+	s.audit.Record(ctx, ports.AuditEvent{Actor: p.UserID, Action: "auth.mfa.disable", Outcome: "success"})
 	return nil
+}
+
+func (s *AuthService) checkSecondFactor(ctx context.Context, acct ports.Account, code string, now time.Time) (bool, error) {
+	if s.checkMFA(acct.User.ID, acct.MFASecret, code, now) {
+		return true, nil
+	}
+	if code == "" {
+		return false, nil
+	}
+	return s.consumeRecoveryCode(ctx, acct, code)
+}
+
+func (s *AuthService) consumeRecoveryCode(ctx context.Context, acct ports.Account, code string) (bool, error) {
+	normalized := normalizeRecoveryCode(code)
+	if normalized == "" {
+		return false, nil
+	}
+	for i, hash := range acct.RecoveryCodeHashes {
+		ok, err := s.hasher.Verify(normalized, hash)
+		if err != nil {
+			return false, fmt.Errorf("app: verify recovery code: %w", err)
+		}
+		if !ok {
+			continue
+		}
+		acct.RecoveryCodeHashes = append(acct.RecoveryCodeHashes[:i], acct.RecoveryCodeHashes[i+1:]...)
+		if err := s.users.Save(ctx, acct); err != nil {
+			return false, fmt.Errorf("app: consume recovery code: %w", err)
+		}
+		s.audit.Record(ctx, ports.AuditEvent{Actor: acct.User.ID, Action: "auth.mfa.recovery", Outcome: "success"})
+		return true, nil
+	}
+	return false, nil
+}
+
+func (s *AuthService) generateRecoveryCodes() ([]string, []string, error) {
+	codes := make([]string, 0, recoveryCodeCount)
+	hashes := make([]string, 0, recoveryCodeCount)
+	for range recoveryCodeCount {
+		code, normalized, err := newRecoveryCode()
+		if err != nil {
+			return nil, nil, err
+		}
+		hash, err := s.hasher.Hash(normalized)
+		if err != nil {
+			return nil, nil, fmt.Errorf("app: hash recovery code: %w", err)
+		}
+		codes = append(codes, code)
+		hashes = append(hashes, hash)
+	}
+	return codes, hashes, nil
+}
+
+func newRecoveryCode() (formatted string, normalized string, err error) {
+	var b [recoveryCodeBytes]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", "", fmt.Errorf("app: generate recovery code: %w", err)
+	}
+	normalized = strings.TrimRight(base32.StdEncoding.EncodeToString(b[:]), "=")
+	return normalized[:4] + "-" + normalized[4:8] + "-" + normalized[8:12] + "-" + normalized[12:16], normalized, nil
+}
+
+func normalizeRecoveryCode(code string) string {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	code = strings.ReplaceAll(code, "-", "")
+	code = strings.ReplaceAll(code, " ", "")
+	return code
 }
 
 // checkMFA validates a TOTP code and enforces single-use: a given time-step

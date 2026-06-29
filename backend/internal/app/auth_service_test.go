@@ -3,6 +3,7 @@ package app_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/xcreativs/gigmann/internal/adapters/outbound/memory"
 	"github.com/xcreativs/gigmann/internal/app"
 	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/mfa"
@@ -171,6 +173,13 @@ func auditMock(ctrl *gomock.Controller) *mocks.MockAuditLogger {
 	return m
 }
 
+type staticHasher struct{}
+
+func (staticHasher) Hash(plain string) (string, error) { return "hash:" + plain, nil }
+func (staticHasher) Verify(plain, encoded string) (bool, error) {
+	return encoded == "hash:"+plain, nil
+}
+
 func TestLoginAuditsSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	users := mocks.NewMockUserRepository(ctrl)
@@ -219,9 +228,17 @@ func TestConfirmMFAEnrollment(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	users := mocks.NewMockUserRepository(ctrl)
 	users.EXPECT().FindByID(gomock.Any(), "u1").Return(execAccount(t), nil)
-	users.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
+	users.EXPECT().Save(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, acct ports.Account) error {
+			assert.NotEmpty(t, acct.MFASecret)
+			require.Len(t, acct.RecoveryCodeHashes, 10)
+			for _, hash := range acct.RecoveryCodeHashes {
+				assert.True(t, strings.HasPrefix(hash, "hash:"))
+			}
+			return nil
+		})
 
-	svc := app.NewAuthService(users, mocks.NewMockPasswordHasher(ctrl), mocks.NewMockTokenService(ctrl), mocks.NewMockRefreshTokenStore(ctrl), time.Hour, auditMock(ctrl))
+	svc := app.NewAuthService(users, staticHasher{}, mocks.NewMockTokenService(ctrl), mocks.NewMockRefreshTokenStore(ctrl), time.Hour, auditMock(ctrl))
 	secret, uri, err := svc.BeginMFAEnrollment(context.Background(), auth.Principal{UserID: "u1", Name: "Sammy"})
 	require.NoError(t, err)
 	require.NotEmpty(t, secret)
@@ -229,12 +246,89 @@ func TestConfirmMFAEnrollment(t *testing.T) {
 
 	code, err := mfa.Code(secret, time.Now())
 	require.NoError(t, err)
-	require.NoError(t, svc.ConfirmMFAEnrollment(context.Background(), auth.Principal{UserID: "u1", Name: "Sammy"}, secret, code))
+	codes, err := svc.ConfirmMFAEnrollment(context.Background(), auth.Principal{UserID: "u1", Name: "Sammy"}, secret, code)
+	require.NoError(t, err)
+	require.Len(t, codes, 10)
+	assert.Contains(t, codes[0], "-")
 }
 
 func TestConfirmMFAEnrollmentBadCode(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	svc := app.NewAuthService(mocks.NewMockUserRepository(ctrl), mocks.NewMockPasswordHasher(ctrl), mocks.NewMockTokenService(ctrl), mocks.NewMockRefreshTokenStore(ctrl), time.Hour, auditMock(ctrl))
-	err := svc.ConfirmMFAEnrollment(context.Background(), auth.Principal{UserID: "u1"}, "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", "000000")
+	_, err := svc.ConfirmMFAEnrollment(context.Background(), auth.Principal{UserID: "u1"}, "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", "000000")
 	assert.ErrorIs(t, err, app.ErrInvalidMFACode)
+}
+
+func TestCurrentUserReportsMFAEnabled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	acct := execAccount(t)
+	acct.MFASecret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
+	users := memory.NewUserRepo(acct)
+
+	svc := app.NewAuthService(users, staticHasher{}, mocks.NewMockTokenService(ctrl), mocks.NewMockRefreshTokenStore(ctrl), time.Hour, auditMock(ctrl))
+	p, enabled, err := svc.CurrentUser(context.Background(), auth.Principal{UserID: "u1"})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Sammy Adjei", p.Name)
+	assert.True(t, enabled)
+}
+
+func TestLoginWithRecoveryCodeConsumesIt(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	tokens := mocks.NewMockTokenService(ctrl)
+	refresh := mocks.NewMockRefreshTokenStore(ctrl)
+
+	acct := execAccount(t)
+	acct.PasswordHash = "hash:pw"
+	acct.MFASecret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
+	acct.RecoveryCodeHashes = []string{"hash:ABCD1234EFGH5678"}
+	users := memory.NewUserRepo(acct)
+
+	tokens.EXPECT().Issue(gomock.Any()).Return("access-token", nil)
+	refresh.EXPECT().Issue(gomock.Any(), gomock.Any(), gomock.Any()).Return("refresh-token", nil)
+
+	svc := app.NewAuthService(users, staticHasher{}, tokens, refresh, time.Hour, auditMock(ctrl))
+	_, _, _, err := svc.Login(context.Background(), "ceo@gigmann.health", "pw", "abcd-1234-efgh-5678")
+	require.NoError(t, err)
+
+	saved, err := users.FindByID(context.Background(), "u1")
+	require.NoError(t, err)
+	require.Empty(t, saved.RecoveryCodeHashes)
+
+	_, _, _, err = svc.Login(context.Background(), "ceo@gigmann.health", "pw", "abcd-1234-efgh-5678")
+	require.ErrorIs(t, err, app.ErrMFARequired)
+}
+
+func TestDisableMFAWithRecoveryCodeClearsSecretAndCodes(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	acct := execAccount(t)
+	acct.MFASecret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
+	acct.RecoveryCodeHashes = []string{"hash:ABCD1234EFGH5678"}
+	users := memory.NewUserRepo(acct)
+
+	svc := app.NewAuthService(users, staticHasher{}, mocks.NewMockTokenService(ctrl), mocks.NewMockRefreshTokenStore(ctrl), time.Hour, auditMock(ctrl))
+	err := svc.DisableMFA(context.Background(), auth.Principal{UserID: "u1"}, "abcd-1234-efgh-5678")
+
+	require.NoError(t, err)
+	saved, err := users.FindByID(context.Background(), "u1")
+	require.NoError(t, err)
+	assert.Empty(t, saved.MFASecret)
+	assert.Empty(t, saved.RecoveryCodeHashes)
+}
+
+func TestDisableMFABadCode(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	acct := execAccount(t)
+	acct.MFASecret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
+	acct.RecoveryCodeHashes = []string{"hash:ABCD1234EFGH5678"}
+	users := memory.NewUserRepo(acct)
+
+	svc := app.NewAuthService(users, staticHasher{}, mocks.NewMockTokenService(ctrl), mocks.NewMockRefreshTokenStore(ctrl), time.Hour, auditMock(ctrl))
+	err := svc.DisableMFA(context.Background(), auth.Principal{UserID: "u1"}, "000000")
+
+	require.ErrorIs(t, err, app.ErrInvalidMFACode)
+	saved, err := users.FindByID(context.Background(), "u1")
+	require.NoError(t, err)
+	assert.NotEmpty(t, saved.MFASecret)
+	assert.NotEmpty(t, saved.RecoveryCodeHashes)
 }

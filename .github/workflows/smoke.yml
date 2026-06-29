@@ -6,6 +6,11 @@ on:
         description: "Base URL of the deployment to smoke (e.g. https://gigmann-staging.onrender.com)"
         required: true
         type: string
+      repeat_count:
+        description: "Number of consecutive smoke runs. Use 2 before stakeholder demos."
+        required: false
+        default: "2"
+        type: string
 permissions:
   contents: read
 jobs:
@@ -18,4 +23,12 @@ jobs:
         env:
           SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
           SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
-        run: scripts/smoke.sh "${{ inputs.base_url }}"
+          REPEAT_COUNT: ${{ inputs.repeat_count }}
+        run: |
+          case "$REPEAT_COUNT" in
+            ''|*[!0-9]*|0) echo "repeat_count must be a positive integer" >&2; exit 2 ;;
+          esac
+          for i in $(seq 1 "$REPEAT_COUNT"); do
+            echo "Smoke run $i/$REPEAT_COUNT"
+            scripts/smoke.sh "${{ inputs.base_url }}"
+          done

@@ -4,6 +4,7 @@ import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Checkbox from '@mui/material/Checkbox'
+import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import FormGroup from '@mui/material/FormGroup'
 import Stack from '@mui/material/Stack'
@@ -11,10 +12,12 @@ import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 
-import { useMfaConfirm, useMfaEnroll } from '../api/useMfa'
+import { useMfaConfirm, useMfaDisable, useMfaEnroll } from '../api/useMfa'
 import { usePreferences, useSavePreferences } from '../api/usePreferences'
 import { usePush } from '../api/usePush'
+import { useAuth } from '../auth/authContext'
 import { ButtonLoadingDots } from '../components/ButtonLoadingDots'
+import { MfaQrCode } from '../components/MfaQrCode'
 import { monoFont } from '../theme'
 
 /** SettingsScreen lets the user opt into two-factor authentication. */
@@ -26,10 +29,30 @@ const WATCHABLE = [
 ]
 
 export function SettingsScreen() {
+  const { user } = useAuth()
   const enroll = useMfaEnroll()
   const confirm = useMfaConfirm()
+  const disable = useMfaDisable()
   const [code, setCode] = useState('')
+  const [disableCode, setDisableCode] = useState('')
   const secret = enroll.data?.secret
+  const enrollmentSecret = secret ?? ''
+  const otpauthUri = enroll.data?.otpauth_uri
+  const recoveryCodes = confirm.data?.recovery_codes ?? []
+  const mfaEnabled = (Boolean(user?.mfa_enabled) || confirm.isSuccess) && !disable.isSuccess
+  const enrollmentStarted = Boolean(secret) && !confirm.isSuccess && !disable.isSuccess
+  const copyRecoveryCodes = () => {
+    if (recoveryCodes.length > 0) {
+      void navigator.clipboard?.writeText(recoveryCodes.join('\n'))
+    }
+  }
+  const startEnrollment = () => {
+    confirm.reset()
+    disable.reset()
+    setCode('')
+    setDisableCode('')
+    enroll.mutate()
+  }
 
   const push = usePush()
   const prefs = usePreferences()
@@ -55,14 +78,71 @@ export function SettingsScreen() {
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               Two-factor authentication
             </Typography>
-            {confirm.isSuccess ? (
-              <Alert severity="success">Two-factor authentication is on for your account.</Alert>
-            ) : !secret ? (
+            {mfaEnabled ? (
+              <Stack spacing={2}>
+                <Alert severity="success">Two-factor authentication is on for your account.</Alert>
+                {recoveryCodes.length > 0 ? (
+                  <Stack spacing={1}>
+                    <Typography variant="body2" color="text.secondary">
+                      Save these one-time recovery codes before leaving this screen.
+                    </Typography>
+                    <Stack
+                      component="ul"
+                      spacing={0.75}
+                      sx={{
+                        m: 0,
+                        p: 2,
+                        listStyle: 'none',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        bgcolor: 'action.hover',
+                      }}
+                    >
+                      {recoveryCodes.map((item) => (
+                        <Typography key={item} component="li" sx={{ fontFamily: monoFont }}>
+                          {item}
+                        </Typography>
+                      ))}
+                    </Stack>
+                    <Button
+                      variant="outlined"
+                      startIcon={<ContentCopyOutlined fontSize="small" />}
+                      onClick={copyRecoveryCodes}
+                      sx={{ alignSelf: 'flex-start' }}
+                    >
+                      Copy recovery codes
+                    </Button>
+                  </Stack>
+                ) : null}
+                <Stack spacing={1.5} sx={{ alignItems: 'flex-start', maxWidth: 360 }}>
+                  <TextField
+                    label="Code to disable"
+                    value={disableCode}
+                    onChange={(e) => setDisableCode(e.target.value)}
+                    autoComplete="one-time-code"
+                    helperText="Use an authenticator code or unused recovery code."
+                  />
+                  {disable.isError ? <Alert severity="error">That code didn&apos;t match. Try again.</Alert> : null}
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={() => disable.mutate({ code: disableCode })}
+                    disabled={disable.isPending || disableCode === ''}
+                    sx={{ alignSelf: 'flex-start' }}
+                  >
+                    {disable.isPending ? <ButtonLoadingDots /> : null}
+                    Disable two-factor auth
+                  </Button>
+                </Stack>
+              </Stack>
+            ) : !enrollmentStarted ? (
               <Stack spacing={1} sx={{ alignItems: 'flex-start' }}>
+                {disable.isSuccess ? <Alert severity="success">Two-factor authentication is off.</Alert> : null}
                 <Typography variant="body2" color="text.secondary">
                   Protect your account with a time-based one-time code from an authenticator app.
                 </Typography>
-                <Button variant="contained" onClick={() => enroll.mutate()} disabled={enroll.isPending}>
+                <Button variant="contained" onClick={startEnrollment} disabled={enroll.isPending}>
                   {enroll.isPending ? <ButtonLoadingDots /> : null}
                   Set up two-factor auth
                 </Button>
@@ -70,9 +150,11 @@ export function SettingsScreen() {
             ) : (
               <Stack spacing={2}>
                 <Typography variant="body2" color="text.secondary">
-                  Add this key to your authenticator app, then enter the 6-digit code to confirm.
+                  Scan the QR code with your authenticator app, or enter the key manually, then type the
+                  6-digit code to confirm.
                 </Typography>
-                <Typography sx={{ fontFamily: monoFont, wordBreak: 'break-all' }}>{secret}</Typography>
+                {otpauthUri ? <MfaQrCode uri={otpauthUri} size={184} /> : null}
+                <Typography sx={{ fontFamily: monoFont, wordBreak: 'break-all' }}>{enrollmentSecret}</Typography>
                 <TextField
                   label="Authenticator code"
                   value={code}
@@ -84,7 +166,7 @@ export function SettingsScreen() {
                 {confirm.isError ? <Alert severity="error">That code didn&apos;t match. Try again.</Alert> : null}
                 <Button
                   variant="contained"
-                  onClick={() => confirm.mutate({ secret, code })}
+                  onClick={() => confirm.mutate({ secret: enrollmentSecret, code })}
                   disabled={confirm.isPending || code === ''}
                   sx={{ alignSelf: 'flex-start' }}
                 >

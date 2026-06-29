@@ -47,7 +47,7 @@ func (c *CachedBrief) Generate(ctx context.Context) (brief.Brief, error) {
 		cached := c.cached
 		if c.now().Sub(c.at) >= c.ttl && !c.refreshing {
 			c.refreshing = true
-			go c.refresh() //nolint:contextcheck,gosec // G118: detached background refresh, intentionally not request-scoped
+			go c.refresh() //nolint:contextcheck // Detached background refresh, intentionally not request-scoped.
 		}
 		c.mu.Unlock()
 		return cached, nil

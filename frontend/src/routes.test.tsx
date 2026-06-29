@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { createMemoryRouter, RouterProvider } from 'react-router-dom'
+import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('./api/useBrief', () => ({
@@ -16,11 +16,33 @@ vi.mock('./api/useApprovals', () => ({
 }))
 
 import { AppProviders } from './app/providers'
-import { routes } from './app/routes'
+import { AppShell } from './app/AppShell'
+import { Placeholder } from './screens/Placeholder'
+import { RouteError } from './app/RouteError'
 import { AuthProvider } from './auth/AuthProvider'
+import { HomeScreen } from './screens/HomeScreen'
+import { NetworkScreen } from './screens/NetworkScreen'
+import { ApprovalsScreen } from './screens/ApprovalsScreen'
+
+// Eager test routes avoid dynamic imports, which hang in isolated Vitest runs
+// because jsdom cannot resolve the lazy chunks before other tests have loaded
+// the screen modules via static imports.
+const testRoutes: RouteObject[] = [
+  {
+    path: '/',
+    Component: AppShell,
+    ErrorBoundary: RouteError,
+    children: [
+      { index: true, Component: HomeScreen },
+      { path: 'network', Component: NetworkScreen },
+      { path: 'approvals', Component: ApprovalsScreen },
+      { path: '*', element: <Placeholder title="Not found" note="That page does not exist." /> },
+    ],
+  },
+]
 
 function renderAt(path: string) {
-  const router = createMemoryRouter(routes, { initialEntries: [path] })
+  const router = createMemoryRouter(testRoutes, { initialEntries: [path] })
   return render(
     <AppProviders>
       <AuthProvider>
