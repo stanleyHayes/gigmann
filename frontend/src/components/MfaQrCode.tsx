@@ -1,5 +1,5 @@
+import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 
@@ -42,16 +42,13 @@ export function MfaQrCode({ uri, size = 200 }: MfaQrCodeProps) {
   }, [uri, size])
 
   if (error) {
-    return (
-      <Typography variant="body2" color="text.secondary">
-        Couldn&apos;t generate the QR code. You can still enter the key manually.
-      </Typography>
-    )
+    return <Alert severity="error">Couldn&apos;t generate the QR code. You can still enter the key manually.</Alert>
   }
 
   if (!dataUrl) {
     return (
       <Box
+        role="status"
         aria-label="Generating QR code"
         sx={{
           width: size,

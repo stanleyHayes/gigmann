@@ -156,4 +156,15 @@ describe('ReportsScreen', () => {
     const preview = screen.getByTestId('report-pdf-preview')
     expect(downloadPdf).toHaveBeenCalledWith('network-report-2026-06-09.pdf', preview)
   })
+
+  it('surfaces an error when PDF generation fails', async () => {
+    hoisted.brief = { data: { id: 'b', date: '2026-06-09', prose: 'x', model: 'local', items: [] }, isError: false }
+    hoisted.metrics = { data: { as_of: '2026-06-09', kpis: [] } }
+    vi.mocked(downloadPdf).mockRejectedValueOnce(new Error('boom'))
+
+    render(<ReportsScreen />)
+    fireEvent.click(screen.getByRole('button', { name: /download pdf/i }))
+
+    expect(await screen.findByText(/couldn.t generate the pdf/i)).toBeInTheDocument()
+  })
 })

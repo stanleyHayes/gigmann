@@ -1,4 +1,5 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
@@ -17,6 +18,8 @@ export function ReportsScreen() {
   const metrics = useMetrics()
   const ready = brief.data !== undefined && metrics.data !== undefined
   const previewRef = useRef<HTMLDivElement>(null)
+  const [pdfBusy, setPdfBusy] = useState(false)
+  const [pdfError, setPdfError] = useState(false)
   const chartUrl = useMemo(() => (metrics.data ? chartToPng(metrics.data) : ''), [metrics.data])
 
   const onDownloadMarkdown = () => {
@@ -37,7 +40,15 @@ export function ReportsScreen() {
     if (!previewRef.current || !brief.data) {
       return
     }
-    await downloadPdf(`network-report-${brief.data.date}.pdf`, previewRef.current)
+    setPdfBusy(true)
+    setPdfError(false)
+    try {
+      await downloadPdf(`network-report-${brief.data.date}.pdf`, previewRef.current)
+    } catch {
+      setPdfError(true)
+    } finally {
+      setPdfBusy(false)
+    }
   }
 
   const statusText = () => {
@@ -87,12 +98,15 @@ export function ReportsScreen() {
               <Button
                 variant="outlined"
                 startIcon={<DownloadOutlined />}
-                disabled={!ready}
+                disabled={!ready || pdfBusy}
                 onClick={() => void onDownloadPdf()}
               >
-                Download PDF
+                {pdfBusy ? 'Generating PDF…' : 'Download PDF'}
               </Button>
             </Stack>
+            {pdfError ? (
+              <Alert severity="error">Couldn&apos;t generate the PDF. Try again shortly.</Alert>
+            ) : null}
           </Stack>
         </CardContent>
       </Card>

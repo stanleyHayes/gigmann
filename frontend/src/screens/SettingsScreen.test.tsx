@@ -94,6 +94,25 @@ describe('SettingsScreen', () => {
     expect(screen.getByRole('button', { name: /disable two-factor/i })).toBeInTheDocument()
   })
 
+  it('confirms when the recovery codes are copied', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    hoisted.confirm = {
+      mutate: vi.fn(),
+      reset: vi.fn(),
+      isPending: false,
+      isError: false,
+      isSuccess: true,
+      data: { recovery_codes: ['ABCD-1234-EFGH-5678', 'WXYZ-9876-IJKL-5432'] },
+    }
+    render(<SettingsScreen />)
+
+    fireEvent.click(screen.getByRole('button', { name: /copy recovery codes/i }))
+
+    expect(writeText).toHaveBeenCalledWith('ABCD-1234-EFGH-5678\nWXYZ-9876-IJKL-5432')
+    expect(await screen.findByText(/copied to clipboard/i)).toBeInTheDocument()
+  })
+
   it('disables MFA with a current code when already enabled', () => {
     hoisted.auth = { user: { id: 'u1', name: 'Sammy Adjei', role: 'executive', mfa_enabled: true } }
     render(<SettingsScreen />)

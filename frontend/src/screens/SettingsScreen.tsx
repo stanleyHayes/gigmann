@@ -35,15 +35,24 @@ export function SettingsScreen() {
   const disable = useMfaDisable()
   const [code, setCode] = useState('')
   const [disableCode, setDisableCode] = useState('')
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle')
   const secret = enroll.data?.secret
   const enrollmentSecret = secret ?? ''
   const otpauthUri = enroll.data?.otpauth_uri
   const recoveryCodes = confirm.data?.recovery_codes ?? []
   const mfaEnabled = (Boolean(user?.mfa_enabled) || confirm.isSuccess) && !disable.isSuccess
   const enrollmentStarted = Boolean(secret) && !confirm.isSuccess && !disable.isSuccess
-  const copyRecoveryCodes = () => {
-    if (recoveryCodes.length > 0) {
-      void navigator.clipboard?.writeText(recoveryCodes.join('\n'))
+  const copyRecoveryCodes = async () => {
+    if (recoveryCodes.length === 0) {
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(recoveryCodes.join('\n'))
+      setCopyStatus('copied')
+    } catch {
+      // Clipboard can reject (permissions / insecure context); tell the user to
+      // copy manually rather than silently fail on these one-time codes.
+      setCopyStatus('error')
     }
   }
   const startEnrollment = () => {
@@ -108,11 +117,21 @@ export function SettingsScreen() {
                     <Button
                       variant="outlined"
                       startIcon={<ContentCopyOutlined fontSize="small" />}
-                      onClick={copyRecoveryCodes}
+                      onClick={() => void copyRecoveryCodes()}
                       sx={{ alignSelf: 'flex-start' }}
                     >
                       Copy recovery codes
                     </Button>
+                    {copyStatus === 'copied' ? (
+                      <Typography variant="caption" color="success.main">
+                        Copied to clipboard.
+                      </Typography>
+                    ) : null}
+                    {copyStatus === 'error' ? (
+                      <Alert severity="warning">
+                        Couldn&apos;t copy automatically — select and copy the codes manually.
+                      </Alert>
+                    ) : null}
                   </Stack>
                 ) : null}
                 <Stack spacing={1.5} sx={{ alignItems: 'flex-start', maxWidth: 360 }}>
