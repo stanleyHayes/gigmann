@@ -24,8 +24,7 @@
 
 | Finding | Sev | Owner | Location | Recommended fix |
 |---|---|---|---|---|
-| **Recovery-code double-spend (TOCTOU).** `consumeRecoveryCode` is a non-atomic read-modify-write (load account → remove hash → save); concurrent logins can spend one recovery code twice → MFA bypass. | **High** | MFA (Codex) | `backend/internal/app/auth_service.go` (`consumeRecoveryCode`) | Consume atomically in one SQL statement: `UPDATE credentials SET recovery_code_hashes = array_remove(recovery_code_hashes, $2) WHERE user_id = $1 AND $2 = ANY(recovery_code_hashes) RETURNING ...` — success only if a row changed. (A `sync.Mutex` keyed per user closes the single-instance race but not multi-instance.) |
-| **PDF pagination math wrong.** `position = heightLeft - imgHeight + margin` mis-places content on pages 2+ (computes a large negative Y); any multi-page export is malformed. | **High** | Reports (Kimi) | `frontend/src/screens/exportBrief.ts:~161` | Track a running offset; place each new page at `position = margin` and advance the source slice. Add a test with a canvas taller than one page (current mock canvas has height 0, so the loop never runs). |
+| **Recovery-code double-spend (TOCTOU).** `consumeRecoveryCode` is a non-atomic read-modify-write (load account → verify+remove hash → save); two concurrent logins with the same code can both pass verification before either saves → one recovery code spent twice → MFA bypass. | **High** | MFA (Codex) | `backend/internal/app/auth_service.go` (`consumeRecoveryCode`) | **Note:** the codes are salted argon2id hashes, so the audit's suggested `array_remove(…, $plaintext)` SQL does **not** work (you can't match a salted hash by plaintext in SQL). The real fixes are: (a) **row-locked transaction** — `SELECT recovery_code_hashes … FOR UPDATE`, verify in app, `UPDATE` within the same tx (multi-instance-safe); or (b) a **per-user `sync.Mutex`** serialising consume + reload-under-lock (sufficient for the single-instance deployment, consistent with the existing `mfaMu` TOTP guard). |
 | **Silent clipboard failure for recovery codes.** `void navigator.clipboard?.writeText(...)` swallows rejection — if copy fails (permissions/insecure context) the user gets no feedback for one-time codes. | High | Settings (Codex/Kimi) | `frontend/src/screens/SettingsScreen.tsx:~46` | `try/await/catch` with success + error feedback (Alert/Snackbar). |
 | **No PDF error/loading state.** `onDownloadPdf` has no try/catch and `void`s the promise; html2canvas/jsPDF failure is silent. | Med | Reports (Kimi) | `frontend/src/screens/ReportsScreen.tsx:~36` | try/catch/finally with loading + error UI (the codebase's established pattern). |
 | **QR error/loading semantics.** Failure renders plain `Typography` (not `Alert`); loading `Box` has `aria-label` but no `role`. | Med | Settings (Kimi) | `frontend/src/components/MfaQrCode.tsx:~44` | Use `Alert severity="error"`; add `role="status"` to the loading box. |
@@ -44,6 +43,13 @@
 - **Recovery-code loop "timing leak".** Marginal: codes are 80-bit, ≤10 per user, and the
   argon2id verify per iteration dominates timing; position-in-list leakage is not useful
   without a valid code. Not worth a constant-time-loop rewrite.
-- **CI tool pins (govulncheck `@latest`, Trivy pinned+retry, `go-version: stable`).** The
-  Trivy pinned-image + retry loop is deliberate (Docker Hub flakiness). Go-version
-  consistency is a minor follow-up, not a correctness issue.
+- **"PDF pagination math wrong" — FALSE POSITIVE.** The audit claimed
+  `position = heightLeft - imgHeight + margin` (exportBrief.ts) mis-places pages 2+ because
+  it goes negative. It is correct: on page *k* it evaluates to `margin − k·contentHeight`,
+  which is exactly how jsPDF tiles one tall image across pages — a negative `y` shifts the
+  image up so the next contiguous slice lands in the page's content area. Verified by hand
+  (e.g. a 400 mm image on A4: page 2 `y = -267 mm` shows rows 277–554, contiguous with
+  page 1's 0–277). No change needed.
+- **CI tool pins.** `go-version` consistency is now fixed (`91dbd62`, pinned the
+  codegen-drift/integration jobs to 1.25.x). The Trivy pinned-image + retry loop is
+  deliberate (Docker Hub flakiness); govulncheck `@latest` is kept for fresh vuln data.
