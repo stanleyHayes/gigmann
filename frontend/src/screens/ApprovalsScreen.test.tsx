@@ -64,4 +64,14 @@ describe('ApprovalsScreen', () => {
     expect(screen.getByText(/note: approved for q3/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
   })
+
+  it('renders the amount without truncating fractional cedis', () => {
+    // 8_500_050 pesewas = GH₵85,000.50. The old Math.round(pesewas/100) would
+    // have rounded to 85,001 and dropped the pesewa precision entirely.
+    const fractional: Approval = { ...pending, amount_pesewas: 8_500_050 }
+    hoisted.approvals = { data: [fractional], isLoading: false, isError: false }
+    render(<ApprovalsScreen />)
+    expect(screen.getByText(/85,000\.50/)).toBeInTheDocument()
+    expect(screen.queryByText(/85,001/)).not.toBeInTheDocument()
+  })
 })

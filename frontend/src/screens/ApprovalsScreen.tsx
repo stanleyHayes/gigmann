@@ -16,6 +16,7 @@ import Typography from '@mui/material/Typography'
 
 import { useApprovals, useDecideApproval, type Approval, type Decision } from '../api/useApprovals'
 import { ButtonLoadingDots } from '../components/ButtonLoadingDots'
+import { fmt } from '../i18n/locale'
 import { monoFont } from '../theme'
 
 const TYPE_LABEL: Record<Approval['type'], string> = { capital: 'Capital', hire: 'Hire', reorder: 'Reorder' }
@@ -25,8 +26,10 @@ const STATUS_COLOR: Record<Approval['status'], 'warning' | 'success' | 'error'> 
   declined: 'error',
 }
 
+// Money arrives in pesewas (minor units); fmt.cedis takes whole cedis and
+// preserves the fractional component via Intl (no Math.round truncation).
 function formatCedis(pesewas: number): string {
-  return `GH₵ ${Math.round(pesewas / 100).toLocaleString('en-US')}`
+  return fmt.cedis(pesewas / 100)
 }
 
 /** ApprovalCard shows one approval and (when pending) the decision controls. */

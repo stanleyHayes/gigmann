@@ -35,7 +35,7 @@ All confirmed findings were fixed and shipped; CI is green on every commit.
 | Resource safety | Web Push response body leaked on the error path. | Med | `4397e20` |
 | Frontend | 401-retry replayed mutations with an **empty body** (consumed Request). | Med | `b6cabf5` |
 | Frontend | Silent error/loading states masked failures (approvals, search, tasks, push). | Med | `b6cabf5` |
-| Data fidelity | KPI money truncated pesewas; revenue-leakage headline truncated. | Med | `b6cabf5`, `4397e20` |
+| Data fidelity | Money truncated pesewas in the KPI cards, the approvals queue, and the revenue-leakage headline (`Math.round(pesewas/100)`) — now routed through `Intl`-backed `fmt.cedis`, preserving the fractional component (a fix-review caught the approvals instance the first pass missed). | Med | `b6cabf5`, `4397e20` + fix-review |
 | Correctness | Alert-feed keyset cursor reset when an alert changed status mid-paging. | High | `4397e20` |
 | Correctness | Brief-ranking magnitude not normalised — large-currency signals outranked higher-severity ratio signals within a tier. | High | `918c5d0` |
 | Correctness | Licence-expiry boundary off-by-one (exact-day expiry not flagged). | Med | `918c5d0` |
