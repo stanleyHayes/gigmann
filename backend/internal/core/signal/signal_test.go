@@ -174,6 +174,21 @@ func TestStaffDetector(t *testing.T) {
 	// healthy: licence far out, low risk → none
 	none := d.Detect(signal.Input{AsOf: asOf, Staff: []staff.Member{mkStaff(asOf.AddDate(1, 0, 0), 0.1)}})
 	assert.Empty(t, none)
+
+	// Magnitude reflects urgency: a sooner expiry must outrank a later one
+	// (not a flat constant) so the brief prioritises it correctly.
+	licMag := func(sigs []signal.Signal) float64 {
+		for _, s := range sigs {
+			if s.Type == "licence_expiry" {
+				return s.Magnitude
+			}
+		}
+		t.Fatal("expected a licence_expiry signal")
+		return 0
+	}
+	soon := d.Detect(signal.Input{AsOf: asOf, Staff: []staff.Member{mkStaff(asOf.AddDate(0, 0, 2), 0)}})
+	later := d.Detect(signal.Input{AsOf: asOf, Staff: []staff.Member{mkStaff(asOf.AddDate(0, 0, 9), 0)}})
+	assert.Greater(t, licMag(soon), licMag(later), "a sooner licence expiry ranks above a later one")
 }
 
 func TestNetworkPulse(t *testing.T) {

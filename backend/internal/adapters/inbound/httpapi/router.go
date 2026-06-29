@@ -213,10 +213,11 @@ var publicOperations = map[string]bool{
 // facility roster). Per-facility scoping (vs. this block) is a product decision —
 // see docs/security/assessment.md.
 var executiveOperations = map[string]bool{
-	"GetBrief":       true,
-	"PostAsk":        true,
-	"GetMetrics":     true,
-	"ListFacilities": true,
+	"GetBrief":         true,
+	"PostAsk":          true,
+	"GetMetrics":       true,
+	"ListFacilities":   true,
+	"SearchFacilities": true, // NL search over the whole network roster — same disclosure surface as ListFacilities
 }
 
 // forbiddenBody is the fixed 403 payload (matches the Error schema).

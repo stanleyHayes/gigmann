@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,18 @@ import (
 	"github.com/xcreativs/gigmann/internal/core/facility"
 	"github.com/xcreativs/gigmann/internal/core/payer"
 	"github.com/xcreativs/gigmann/internal/core/severity"
+	"github.com/xcreativs/gigmann/internal/ports"
 )
+
+// spyEmbedder records the texts it was asked to embed (to assert input bounds).
+type spyEmbedder struct{ texts []string }
+
+func (e *spyEmbedder) Embed(_ context.Context, texts []string, _ ports.EmbedKind) ([][]float32, error) {
+	e.texts = texts
+	return [][]float32{{0.1, 0.2, 0.3}}, nil
+}
+
+func (*spyEmbedder) Dimensions() int { return 3 }
 
 func fac(t *testing.T, id, name, region, town, typ, mgr string) facility.Facility {
 	t.Helper()
@@ -56,4 +68,14 @@ func TestFacilitySearchResolvesByName(t *testing.T) {
 	empty, err := svc.Resolve(ctx, "   ", 3)
 	require.NoError(t, err)
 	assert.Empty(t, empty)
+}
+
+func TestFacilitySearchBoundsQueryLength(t *testing.T) {
+	spy := &spyEmbedder{}
+	svc := app.NewFacilitySearchService(spy, memory.NewFacilityEmbeddingRepo(), nil)
+
+	_, err := svc.Resolve(context.Background(), strings.Repeat("a", 300), 3)
+	require.NoError(t, err)
+	require.Len(t, spy.texts, 1)
+	assert.Len(t, []rune(spy.texts[0]), 256, "over-long query is truncated to the cap before embedding")
 }

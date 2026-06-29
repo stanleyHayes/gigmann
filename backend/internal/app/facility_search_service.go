@@ -9,7 +9,13 @@ import (
 	"github.com/xcreativs/gigmann/internal/ports"
 )
 
-const defaultSearchLimit = 5
+const (
+	defaultSearchLimit = 5
+	// maxSearchQueryRunes bounds the natural-language query at the app boundary:
+	// facility phrases are short, and the query is sent to the embedder (a paid /
+	// remote call), so an unbounded query is a cost/abuse vector.
+	maxSearchQueryRunes = 256
+)
 
 // FacilityMatch is a facility resolved from a natural-language query, with a
 // similarity score in [0,1] (1 = identical).
@@ -44,6 +50,9 @@ func (s *FacilitySearchService) Resolve(ctx context.Context, query string, limit
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return nil, nil
+	}
+	if r := []rune(query); len(r) > maxSearchQueryRunes {
+		query = string(r[:maxSearchQueryRunes])
 	}
 	if limit <= 0 || limit > 20 {
 		limit = defaultSearchLimit

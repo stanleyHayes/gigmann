@@ -163,7 +163,7 @@ func TestNetworkAggregateViewsAreExecutiveOnly(t *testing.T) {
 	router := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
 
 	// A facility manager is rejected at the boundary (no network-wide data leak).
-	for _, path := range []string{"/api/v1/facilities", "/api/v1/brief", "/api/v1/metrics"} {
+	for _, path := range []string{"/api/v1/facilities", "/api/v1/facilities/search?q=kasoa", "/api/v1/brief", "/api/v1/metrics"} {
 		rec := managerRequest(t, router, "kasoa", http.MethodGet, path)
 		assert.Equal(t, http.StatusForbidden, rec.Code, "manager GET %s", path)
 	}
