@@ -65,6 +65,7 @@ func TestSecurityHeaders(t *testing.T) {
 	assert.Equal(t, "max-age=63072000; includeSubDomains", rec.Header().Get("Strict-Transport-Security"))
 	assert.Contains(t, rec.Header().Get("Content-Security-Policy"), "default-src 'none'")
 	assert.Equal(t, "same-origin", rec.Header().Get("Cross-Origin-Resource-Policy"))
+	assert.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
 }
 
 func TestSecurityHeadersNoHSTSWhenDisabled(t *testing.T) {

@@ -42,6 +42,9 @@ var securityHeaderValues = map[string]string{
 	"Cross-Origin-Resource-Policy": "same-origin",
 	// The API serves JSON only, so it never legitimately loads any resource.
 	"Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+	// API responses are dynamic and may carry data; never let a shared or browser
+	// cache store them (also clears the ZAP "storable & cacheable content" alert).
+	"Cache-Control": "no-store",
 }
 
 // securityHeaders sets conservative response security headers on every response.
