@@ -13,8 +13,12 @@ const hoisted = vi.hoisted(() => ({
 vi.mock('../api/useBrief', () => ({
   useBrief: () => hoisted.result,
 }))
+vi.mock('../api/useAlerts', () => ({
+  useAlerts: () => ({ data: { alerts: [] }, isLoading: false, isError: false }),
+  useUpdateAlertStatus: () => ({ mutate: vi.fn(), isPending: false }),
+}))
 vi.mock('../api/useTasks', () => ({
-  useCreateTask: () => ({ mutate: hoisted.createMutate }),
+  useCreateTask: () => ({ mutate: hoisted.createMutate, isPending: false, isError: false, reset: vi.fn() }),
 }))
 
 const brief: Brief = {

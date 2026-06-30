@@ -8,10 +8,13 @@ import Typography from '@mui/material/Typography'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useTheme } from '@mui/material/styles'
 import { LineChart } from '@mui/x-charts/LineChart'
+import InsightsOutlined from '@mui/icons-material/InsightsOutlined'
 
 import { useMetrics, type Kpi } from '../api/useMetrics'
 import { fmt } from '../i18n/locale'
 import { monoFont, statusColors } from '../theme'
+import { PageHeader } from '../components/PageHeader'
+import { PaginationControls, usePagination } from '../components/PaginationControls'
 
 const GRID = {
   display: 'grid',
@@ -63,10 +66,10 @@ export function KpiCard({ kpi, reduceMotion }: { kpi: Kpi; reduceMotion: boolean
   const scale = (v: number) => (kpi.unit === 'pesewas' ? v / 100 : kpi.unit === 'ratio' ? v * 100 : v)
 
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ height: '100%', overflow: 'hidden', borderLeft: 4, borderLeftColor: deltaColor }}>
       <CardContent>
-        <Stack spacing={1}>
-          <Typography variant="body2" color="text.secondary">
+        <Stack spacing={1.25}>
+          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: 0 }}>
             {kpi.label}
           </Typography>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline' }}>
@@ -78,7 +81,7 @@ export function KpiCard({ kpi, reduceMotion }: { kpi: Kpi; reduceMotion: boolean
             </Typography>
           </Stack>
           <LineChart
-            height={160}
+            height={170}
             skipAnimation={reduceMotion}
             hideLegend
             grid={{ horizontal: true }}
@@ -103,12 +106,17 @@ export function KpiCard({ kpi, reduceMotion }: { kpi: Kpi; reduceMotion: boolean
 export function KpisScreen() {
   const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const { data, isLoading, isError } = useMetrics()
+  const kpis = data?.kpis ?? []
+  const pager = usePagination(kpis, { initialPageSize: 4 })
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h1" sx={{ fontSize: { xs: '2rem', md: '2.5rem' } }}>
-        Executive KPIs
-      </Typography>
+      <PageHeader
+        title="Executive KPIs"
+        eyebrow="Network pulse"
+        description="Deterministic financial, demand, occupancy, and denial trends."
+        icon={InsightsOutlined}
+      />
       {isLoading ? (
         <Box sx={GRID} data-testid="kpis-skeleton">
           {[0, 1, 2, 3].map((i) => (
@@ -118,11 +126,24 @@ export function KpisScreen() {
       ) : isError || !data ? (
         <Alert severity="error">Couldn&apos;t load the KPIs. Try again shortly.</Alert>
       ) : (
-        <Box sx={GRID}>
-          {data.kpis.map((k) => (
-            <KpiCard key={k.key} kpi={k} reduceMotion={reduceMotion} />
-          ))}
-        </Box>
+        <Stack spacing={2}>
+          <Box sx={GRID}>
+            {pager.pageItems.map((k) => (
+              <KpiCard key={k.key} kpi={k} reduceMotion={reduceMotion} />
+            ))}
+          </Box>
+          <PaginationControls
+            id="kpis"
+            itemLabel="KPIs"
+            page={pager.page}
+            pageCount={pager.pageCount}
+            pageSize={pager.pageSize}
+            pageSizeOptions={[4, 8, 12]}
+            total={pager.total}
+            onPageChange={pager.setPage}
+            onPageSizeChange={pager.setPageSize}
+          />
+        </Stack>
       )}
     </Stack>
   )

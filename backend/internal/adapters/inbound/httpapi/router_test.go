@@ -96,7 +96,7 @@ func newTestRouter(t *testing.T, repo *mocks.MockFacilityRepository, briefs *moc
 		FacilityDetail: detailSvc,
 		Metrics:        metricsSvc,
 		Briefs:         briefs,
-		Auth:           app.NewAuthService(users, hasher, tokens, memory.NewRefreshStore(), time.Hour, auditLog),
+		Auth:           app.NewAuthService(users, hasher, tokens, memory.NewRefreshStore(), memory.NewPasswordResetStore(), time.Hour, auditLog),
 		Approvals:      approvalSvc,
 		Tasks:          taskSvc,
 		Ask:            askSvc,
@@ -311,6 +311,30 @@ func TestAuthLoginBadPassword(t *testing.T) {
 	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
 	rec := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"wrong"}`)
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestAuthPasswordResetFlow(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	h := newTestRouter(t, mocks.NewMockFacilityRepository(ctrl), mocks.NewMockBriefGenerator(ctrl))
+
+	request := postJSON(t, h, "/api/v1/auth/password-reset/request", `{"email":"ceo@gigmann.health"}`)
+	require.Equal(t, http.StatusOK, request.Code)
+	var reset struct {
+		Message    string `json:"message"`
+		ResetToken string `json:"reset_token"`
+	}
+	require.NoError(t, json.NewDecoder(request.Body).Decode(&reset))
+	assert.NotEmpty(t, reset.Message)
+	require.NotEmpty(t, reset.ResetToken)
+
+	confirm := postJSON(t, h, "/api/v1/auth/password-reset/confirm", `{"token":"`+reset.ResetToken+`","password":"new-demo-pass"}`)
+	require.Equal(t, http.StatusNoContent, confirm.Code)
+
+	oldLogin := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"demo-pass-1234"}`)
+	require.Equal(t, http.StatusUnauthorized, oldLogin.Code)
+
+	newLogin := postJSON(t, h, "/api/v1/auth/login", `{"email":"ceo@gigmann.health","password":"new-demo-pass"}`)
+	require.Equal(t, http.StatusOK, newLogin.Code)
 }
 
 func TestAuthMeRequiresToken(t *testing.T) {

@@ -18,7 +18,7 @@ import (
 	"github.com/xcreativs/gigmann/internal/intel"
 )
 
-//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore,ApprovalRepository,TaskRepository,AlertRepository,MetricsRepository,Embedder,FacilityEmbeddingRepository,Answerer,QuestionAnswerer,AuditLogger
+//go:generate go tool mockgen -destination=mocks/mocks.go -package=mocks github.com/xcreativs/gigmann/internal/ports FacilityRepository,Narrator,BriefGenerator,UserRepository,PasswordHasher,TokenService,RefreshTokenStore,PasswordResetTokenStore,ApprovalRepository,TaskRepository,AlertRepository,MetricsRepository,Embedder,FacilityEmbeddingRepository,Answerer,QuestionAnswerer,AuditLogger
 
 // ErrAccountNotFound is returned by UserRepository when no account matches.
 var ErrAccountNotFound = errors.New("ports: account not found")
@@ -113,6 +113,17 @@ type RefreshTokenStore interface {
 	Issue(ctx context.Context, p auth.Principal, ttl time.Duration) (string, error)
 	Consume(ctx context.Context, raw string) (auth.Principal, error)
 	Revoke(ctx context.Context, raw string) error
+	RevokeUser(ctx context.Context, userID string) error
+}
+
+// ErrInvalidPasswordResetToken is returned for a missing, expired, or already-used reset token.
+var ErrInvalidPasswordResetToken = errors.New("ports: invalid or expired password reset token")
+
+// PasswordResetTokenStore issues and consumes short-lived, single-use password
+// reset tokens. Implementations persist only a hash of the raw token.
+type PasswordResetTokenStore interface {
+	Issue(ctx context.Context, userID string, ttl time.Duration) (string, error)
+	Consume(ctx context.Context, raw string) (string, error)
 }
 
 // ErrApprovalNotFound is returned by ApprovalRepository when no approval matches.

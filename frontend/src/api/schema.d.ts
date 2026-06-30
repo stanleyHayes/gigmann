@@ -106,6 +106,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/password-reset/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request a password reset token */
+        post: operations["postAuthPasswordResetRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password-reset/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset a password with a valid reset token */
+        post: operations["postAuthPasswordResetConfirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/me": {
         parameters: {
             query?: never;
@@ -452,6 +486,12 @@ export interface components {
             /** Format: int32 */
             beds: number;
             status: components["schemas"]["FacilityStatus"];
+            /** Format: int64 */
+            latest_revenue_pesewas?: number;
+            /** Format: double */
+            occupancy_rate?: number;
+            /** Format: int32 */
+            patients_seen?: number;
         };
         FacilityList: {
             facilities: components["schemas"]["Facility"][];
@@ -574,6 +614,19 @@ export interface components {
             password: string;
             code?: string;
         };
+        PasswordResetRequest: {
+            /** Format: email */
+            email: string;
+        };
+        PasswordResetRequestResult: {
+            message: string;
+            /** @description Returned by the demo delivery adapter; production should email or SMS the token instead. */
+            reset_token?: string;
+        };
+        PasswordResetConfirmRequest: {
+            token: string;
+            password: string;
+        };
         AuthUser: {
             id: string;
             name: string;
@@ -678,6 +731,7 @@ export interface components {
         };
         FacilityDetail: {
             facility: components["schemas"]["Facility"];
+            kpis?: components["schemas"]["Kpi"][];
             inventory: components["schemas"]["InventoryItem"][];
             staff: components["schemas"]["StaffMember"][];
             alerts: components["schemas"]["AlertItem"][];
@@ -894,6 +948,56 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthPasswordResetRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Reset request accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordResetRequestResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postAuthPasswordResetConfirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Password reset */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            500: components["responses"]["InternalError"];
         };
     };
     getAuthMe: {

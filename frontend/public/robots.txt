@@ -1,8 +1,13 @@
-# The public marketing page is indexable; the cockpit app is private (noindex meta).
+# Public pages are indexable; the authenticated cockpit is private.
 User-agent: *
 Allow: /welcome.html
+Allow: /privacy.html
+Allow: /terms.html
 Allow: /sitemap.xml
-Disallow: /app
-Disallow: /api
+Allow: /.well-known/security.txt
+Allow: /favicon.svg
+Allow: /pwa-192x192.png
+Allow: /pwa-512x512.png
+Disallow: /
 
 Sitemap: https://gigmann-frontend.onrender.com/sitemap.xml

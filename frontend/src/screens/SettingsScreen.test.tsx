@@ -35,6 +35,8 @@ const hoisted = vi.hoisted(() => ({
   auth: { user: { id: 'u1', name: 'Sammy Adjei', role: 'executive' as const, mfa_enabled: false } },
   prefs: { data: { watched_metrics: [], thresholds: {} }, isLoading: false } as Prefs,
   savePrefs: { mutate: vi.fn(), isPending: false, isSuccess: false } as SavePrefs,
+  setPreset: vi.fn(),
+  toggleMode: vi.fn(),
 }))
 
 vi.mock('../api/useMfa', () => ({
@@ -44,6 +46,9 @@ vi.mock('../api/useMfa', () => ({
 }))
 vi.mock('../auth/authContext', () => ({
   useAuth: () => hoisted.auth,
+}))
+vi.mock('../app/colorMode', () => ({
+  useColorMode: () => ({ mode: 'light', preset: 'gigmann', setPreset: hoisted.setPreset, toggle: hoisted.toggleMode }),
 }))
 vi.mock('../api/usePreferences', () => ({
   usePreferences: () => hoisted.prefs,
@@ -58,6 +63,8 @@ describe('SettingsScreen', () => {
     hoisted.auth = { user: { id: 'u1', name: 'Sammy Adjei', role: 'executive', mfa_enabled: false } }
     hoisted.prefs = { data: { watched_metrics: [], thresholds: {} }, isLoading: false }
     hoisted.savePrefs = { mutate: vi.fn(), isPending: false, isSuccess: false }
+    hoisted.setPreset = vi.fn()
+    hoisted.toggleMode = vi.fn()
   })
 
   it('starts enrollment', () => {
@@ -132,6 +139,7 @@ describe('SettingsScreen', () => {
   it('saves watched-metric preferences', () => {
     hoisted.prefs = { data: { watched_metrics: ['revenue'], thresholds: {} }, isLoading: false }
     render(<SettingsScreen />)
+    fireEvent.click(screen.getByRole('tab', { name: /preferences/i }))
     // pre-checked from preferences
     expect(screen.getByRole('checkbox', { name: /revenue/i })).toBeChecked()
     fireEvent.click(screen.getByRole('checkbox', { name: /occupancy/i }))
@@ -140,5 +148,12 @@ describe('SettingsScreen', () => {
       watched_metrics: ['revenue', 'occupancy'],
       thresholds: {},
     })
+  })
+
+  it('changes the theme preset from appearance settings', () => {
+    render(<SettingsScreen />)
+    fireEvent.click(screen.getByRole('tab', { name: /appearance/i }))
+    fireEvent.click(screen.getByLabelText(/Cedar Green/i))
+    expect(hoisted.setPreset).toHaveBeenCalledWith('cedar')
   })
 })

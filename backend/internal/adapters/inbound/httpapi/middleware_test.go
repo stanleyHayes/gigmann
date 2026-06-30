@@ -65,6 +65,10 @@ func TestSecurityHeaders(t *testing.T) {
 	assert.Equal(t, "max-age=63072000; includeSubDomains", rec.Header().Get("Strict-Transport-Security"))
 	assert.Contains(t, rec.Header().Get("Content-Security-Policy"), "default-src 'none'")
 	assert.Equal(t, "same-origin", rec.Header().Get("Cross-Origin-Resource-Policy"))
+	assert.Equal(t, "?1", rec.Header().Get("Origin-Agent-Cluster"))
+	assert.Equal(t, "off", rec.Header().Get("X-DNS-Prefetch-Control"))
+	assert.Equal(t, "none", rec.Header().Get("X-Permitted-Cross-Domain-Policies"))
+	assert.Contains(t, rec.Header().Get("Permissions-Policy"), "geolocation=()")
 	assert.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
 }
 
@@ -99,6 +103,9 @@ func TestRateLimitBlocksAfterLimit(t *testing.T) {
 		req.RemoteAddr = "1.2.3.4:5555"
 		h.ServeHTTP(rec, req)
 		assert.Equal(t, want, rec.Code, "request %d", i)
+		if want == http.StatusTooManyRequests {
+			assert.Equal(t, "60", rec.Header().Get("Retry-After"))
+		}
 	}
 
 	// a different IP is unaffected
@@ -123,7 +130,8 @@ func TestRateLimiterEvictsExpiredEntries(t *testing.T) {
 	rl.now = func() time.Time { return cur }
 
 	for i := range 10 {
-		rl.allow("key-" + strconv.Itoa(i))
+		ok, _ := rl.allow("key-" + strconv.Itoa(i))
+		require.True(t, ok)
 	}
 	rl.mu.Lock()
 	filled := len(rl.counts)
@@ -133,7 +141,8 @@ func TestRateLimiterEvictsExpiredEntries(t *testing.T) {
 	// Past the window + the once-per-window sweep interval: the next call evicts
 	// every now-expired window so the map cannot grow unbounded.
 	cur = base.Add(3 * time.Minute)
-	rl.allow("fresh")
+	ok, _ := rl.allow("fresh")
+	require.True(t, ok)
 	rl.mu.Lock()
 	after := len(rl.counts)
 	rl.mu.Unlock()

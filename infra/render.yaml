@@ -48,15 +48,39 @@ services:
       - path: /*
         name: Content-Security-Policy
         value: >-
-          default-src 'self'; connect-src 'self' https://gigmann-api.onrender.com;
-          script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self';
-          img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; object-src 'none'
+          default-src 'self'; connect-src 'self' https://gigmann-api.onrender.com
+          wss://gigmann-api.onrender.com; script-src 'self'
+          'sha256-ysmUPGRfOzBRdt8rbk41dY39am4yNNfomvV8iE5Cn5Q=';
+          style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:;
+          worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'self';
+          frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests
       - path: /*
         name: X-Content-Type-Options
         value: nosniff
       - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
         name: Referrer-Policy
         value: no-referrer
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=(), browsing-topics=()
+      - path: /*
+        name: Cross-Origin-Opener-Policy
+        value: same-origin
+      - path: /*
+        name: Cross-Origin-Resource-Policy
+        value: same-origin
+      - path: /*
+        name: Origin-Agent-Cluster
+        value: "?1"
+      - path: /*
+        name: X-DNS-Prefetch-Control
+        value: off
+      - path: /*
+        name: X-Permitted-Cross-Domain-Policies
+        value: none
       - path: /*
         name: Strict-Transport-Security
         value: max-age=63072000; includeSubDomains

@@ -52,7 +52,9 @@ All confirmed findings were fixed and shipped; CI is green on every commit.
 ### Explicitly assessed and **not** changed (with rationale)
 - **Access tokens in `localStorage`** — accepted risk: a standard SPA pattern given
   short-lived access tokens + single-use rotating refresh; httpOnly cookies would be
-  a backend-auth/CSRF rearchitecture. Revisit if XSS surface grows.
+  a backend-auth/CSRF rearchitecture. The migration path is documented in
+  `docs/security/auth-cookie-migration.md`; revisit when production domains are
+  final or if XSS surface grows.
 - **argon2id `t=1` with 64 MiB memory** — already exceeds OWASP's `m=46 MiB, t=1`
   baseline; not weakened.
 - **KPI `deltaPct` at `previous = 0`** — returns `0` (undefined ratio); fabricating

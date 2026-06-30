@@ -111,6 +111,13 @@ type InventoryItem struct {
 	UnitCost     int64
 }
 
+type PasswordResetToken struct {
+	TokenHash string
+	UserID    string
+	ExpiresAt pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+}
+
 type RefreshToken struct {
 	TokenHash  string
 	UserID     string

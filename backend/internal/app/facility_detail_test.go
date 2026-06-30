@@ -15,12 +15,13 @@ import (
 func TestFacilityDetail(t *testing.T) {
 	net := seed.Generate(7, time.Date(2026, 6, 24, 0, 0, 0, 0, time.UTC), 14)
 	require.NotEmpty(t, net.Facilities)
-	svc := app.NewFacilityDetailService(net.Facilities, net.Inventory, net.Staff, net.Alerts)
+	svc := app.NewFacilityDetailService(net.Facilities, net.Inventory, net.Staff, net.Alerts, net.Metrics)
 
 	id := net.Facilities[0].ID
 	d, err := svc.Detail(context.Background(), execPrincipal(), id)
 	require.NoError(t, err)
 	assert.Equal(t, id, d.Facility.ID)
+	assert.NotEmpty(t, d.KPIs)
 	// every returned sub-resource belongs to the requested facility
 	for _, it := range d.Inventory {
 		assert.Equal(t, id, it.FacilityID)

@@ -1,9 +1,18 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('./api/useBrief', () => ({
   useBrief: () => ({ data: undefined, isLoading: true, isError: false }),
+}))
+
+vi.mock('./api/useAlerts', () => ({
+  useAlerts: () => ({ data: { alerts: [] }, isLoading: false, isError: false }),
+  useUpdateAlertStatus: () => ({ mutate: () => {}, isPending: false }),
+}))
+
+vi.mock('./api/useTasks', () => ({
+  useCreateTask: () => ({ mutate: () => {}, isPending: false, isError: false, reset: () => {} }),
 }))
 
 vi.mock('./api/useFacilities', () => ({
@@ -36,6 +45,7 @@ const testRoutes: RouteObject[] = [
       { index: true, Component: HomeScreen },
       { path: 'network', Component: NetworkScreen },
       { path: 'approvals', Component: ApprovalsScreen },
+      { path: 'settings', element: <Placeholder title="Settings" note="Cockpit settings." /> },
       { path: '*', element: <Placeholder title="Not found" note="That page does not exist." /> },
     ],
   },
@@ -43,13 +53,14 @@ const testRoutes: RouteObject[] = [
 
 function renderAt(path: string) {
   const router = createMemoryRouter(testRoutes, { initialEntries: [path] })
-  return render(
+  const view = render(
     <AppProviders>
       <AuthProvider>
         <RouterProvider router={router} />
       </AuthProvider>
     </AppProviders>,
   )
+  return { router, ...view }
 }
 
 describe('routing', () => {
@@ -72,5 +83,21 @@ describe('routing', () => {
   it('renders a not-found placeholder for unknown paths', async () => {
     renderAt('/does-not-exist')
     expect(await screen.findByRole('heading', { name: /Not found/i })).toBeInTheDocument()
+  })
+
+  it('keeps clicked sidebar routes on the selected destination', async () => {
+    const { router } = renderAt('/')
+
+    fireEvent.click((await screen.findAllByRole('link', { name: /Network/i }))[0])
+    await waitFor(() => expect(router.state.location.pathname).toBe('/network'))
+    expect(await screen.findByRole('heading', { name: /^Network$/i })).toBeInTheDocument()
+
+    fireEvent.click((await screen.findAllByRole('link', { name: /Approvals/i }))[0])
+    await waitFor(() => expect(router.state.location.pathname).toBe('/approvals'))
+    expect(await screen.findByRole('heading', { name: /Approvals/i })).toBeInTheDocument()
+
+    fireEvent.click((await screen.findAllByRole('link', { name: /Settings/i }))[0])
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
+    expect(await screen.findByRole('heading', { name: /Settings/i })).toBeInTheDocument()
   })
 })

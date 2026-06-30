@@ -122,6 +122,48 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /api/v1/auth/password-reset/request:
+    post:
+      operationId: postAuthPasswordResetRequest
+      summary: Request a password reset token
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '200':
+          description: Reset request accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetRequestResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/auth/password-reset/confirm:
+    post:
+      operationId: postAuthPasswordResetConfirm
+      summary: Reset a password with a valid reset token
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+      responses:
+        '204':
+          description: Password reset
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/auth/me:
     get:
       operationId: getAuthMe
@@ -637,6 +679,15 @@ components:
           format: int32
         status:
           $ref: '#/components/schemas/FacilityStatus'
+        latest_revenue_pesewas:
+          type: integer
+          format: int64
+        occupancy_rate:
+          type: number
+          format: double
+        patients_seen:
+          type: integer
+          format: int32
 
     FacilityList:
       type: object
@@ -880,6 +931,35 @@ components:
         code:
           type: string
 
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    PasswordResetRequestResult:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        reset_token:
+          type: string
+          description: Returned by the demo delivery adapter; production should email or SMS the token instead.
+
+    PasswordResetConfirmRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token:
+          type: string
+          minLength: 16
+        password:
+          type: string
+          minLength: 10
+
     AuthUser:
       type: object
       required: [id, name, role]
@@ -1095,6 +1175,10 @@ components:
       properties:
         facility:
           $ref: '#/components/schemas/Facility'
+        kpis:
+          type: array
+          items:
+            $ref: '#/components/schemas/Kpi'
         inventory:
           type: array
           items:

@@ -13,9 +13,14 @@ import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import InboxOutlined from '@mui/icons-material/InboxOutlined'
+import TaskAltOutlined from '@mui/icons-material/TaskAltOutlined'
 
 import { useApprovals, useDecideApproval, type Approval, type Decision } from '../api/useApprovals'
 import { ButtonLoadingDots } from '../components/ButtonLoadingDots'
+import { EmptyState } from '../components/EmptyState'
+import { PageHeader } from '../components/PageHeader'
+import { PaginationControls, usePagination } from '../components/PaginationControls'
 import { fmt } from '../i18n/locale'
 import { monoFont } from '../theme'
 
@@ -24,6 +29,11 @@ const STATUS_COLOR: Record<Approval['status'], 'warning' | 'success' | 'error'> 
   pending: 'warning',
   approved: 'success',
   declined: 'error',
+}
+const STATUS_BORDER: Record<Approval['status'], string> = {
+  pending: 'warning.main',
+  approved: 'success.main',
+  declined: 'error.main',
 }
 
 // Money arrives in pesewas (minor units); fmt.cedis takes whole cedis and
@@ -35,11 +45,18 @@ function formatCedis(pesewas: number): string {
 /** ApprovalCard shows one approval and (when pending) the decision controls. */
 export function ApprovalCard({ approval, onDecide }: { approval: Approval; onDecide: (a: Approval, d: Decision) => void }) {
   return (
-    <Card variant="outlined">
+    <Card
+      variant="outlined"
+      sx={{
+        overflow: 'hidden',
+        borderLeft: 4,
+        borderLeftColor: STATUS_BORDER[approval.status],
+      }}
+    >
       <CardContent>
         <Stack spacing={1}>
           <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            <Typography variant="h6">
               {approval.title}
             </Typography>
             <Chip size="small" label={approval.status} color={STATUS_COLOR[approval.status]} sx={{ textTransform: 'capitalize' }} />
@@ -86,6 +103,8 @@ export function ApprovalsScreen() {
   const decide = useDecideApproval()
   const [pending, setPending] = useState<PendingDecision | null>(null)
   const [note, setNote] = useState('')
+  const approvals = data ?? []
+  const pager = usePagination(approvals, { initialPageSize: 6 })
 
   const openConfirm = (approval: Approval, decision: Decision) => {
     setNote('')
@@ -106,9 +125,12 @@ export function ApprovalsScreen() {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h1" sx={{ fontSize: { xs: '2rem', md: '2.5rem' } }}>
-        Approvals
-      </Typography>
+      <PageHeader
+        title="Approvals"
+        eyebrow="Decision queue"
+        description="Human-in-the-loop requests that need explicit approval or decline."
+        icon={TaskAltOutlined}
+      />
       {isLoading ? (
         <Stack spacing={2} data-testid="approvals-skeleton">
           {[0, 1, 2].map((i) => (
@@ -117,13 +139,28 @@ export function ApprovalsScreen() {
         </Stack>
       ) : isError || !data ? (
         <Alert severity="error">Couldn&apos;t load approvals. Try again shortly.</Alert>
-      ) : data.length === 0 ? (
-        <Alert severity="info">No approvals waiting for you.</Alert>
+      ) : approvals.length === 0 ? (
+        <EmptyState
+          icon={InboxOutlined}
+          title="Queue is clear"
+          description="Capital, hiring, and reorder approvals will appear here when they need an executive."
+        />
       ) : (
         <Stack spacing={2}>
-          {data.map((a) => (
+          {pager.pageItems.map((a) => (
             <ApprovalCard key={a.id} approval={a} onDecide={openConfirm} />
           ))}
+          <PaginationControls
+            id="approvals"
+            itemLabel="requests"
+            page={pager.page}
+            pageCount={pager.pageCount}
+            pageSize={pager.pageSize}
+            pageSizeOptions={[6, 12, 24]}
+            total={pager.total}
+            onPageChange={pager.setPage}
+            onPageSizeChange={pager.setPageSize}
+          />
         </Stack>
       )}
 

@@ -71,7 +71,7 @@ func TestMain(m *testing.M) {
 func truncateAll(ctx context.Context, t *testing.T) {
 	t.Helper()
 	_, err := testPool.Exec(ctx,
-		`TRUNCATE refresh_tokens, credentials, users, approvals, tasks, facilities CASCADE`)
+		`TRUNCATE password_reset_tokens, refresh_tokens, credentials, users, approvals, tasks, facilities CASCADE`)
 	require.NoError(t, err)
 }
 
@@ -222,6 +222,47 @@ func TestRefreshRepoIntegration(t *testing.T) {
 
 	// Revoking an unknown token is a no-op.
 	require.NoError(t, repo.Revoke(ctx, "not-a-real-token"))
+
+	// User revocation invalidates every outstanding session for that account.
+	raw3, err := repo.Issue(ctx, principal, time.Hour)
+	require.NoError(t, err)
+	raw4, err := repo.Issue(ctx, principal, time.Hour)
+	require.NoError(t, err)
+	require.NoError(t, repo.RevokeUser(ctx, principal.UserID))
+	_, err = repo.Consume(ctx, raw3)
+	require.ErrorIs(t, err, ports.ErrInvalidRefreshToken)
+	_, err = repo.Consume(ctx, raw4)
+	require.ErrorIs(t, err, ports.ErrInvalidRefreshToken)
+}
+
+func TestPasswordResetRepoIntegration(t *testing.T) {
+	ctx := context.Background()
+	truncateAll(ctx, t)
+
+	ceo, err := user.New(user.User{ID: "u-reset", Name: "Sammy Adjei", Role: user.RoleExecutive})
+	require.NoError(t, err)
+	require.NoError(t, postgres.NewUserRepo(testPool).Save(ctx, ports.Account{
+		User: ceo, Email: "reset@gigmann.health", PasswordHash: "h",
+	}))
+
+	repo := postgres.NewPasswordResetRepo(testPool)
+	raw, err := repo.Issue(ctx, "u-reset", time.Hour)
+	require.NoError(t, err)
+	require.NotEmpty(t, raw)
+
+	got, err := repo.Consume(ctx, raw)
+	require.NoError(t, err)
+	assert.Equal(t, "u-reset", got)
+	_, err = repo.Consume(ctx, raw)
+	require.ErrorIs(t, err, ports.ErrInvalidPasswordResetToken)
+
+	expired, err := repo.Issue(ctx, "u-reset", -time.Minute)
+	require.NoError(t, err)
+	_, err = repo.Consume(ctx, expired)
+	require.ErrorIs(t, err, ports.ErrInvalidPasswordResetToken)
+
+	_, err = repo.Consume(ctx, "not-a-real-token")
+	require.ErrorIs(t, err, ports.ErrInvalidPasswordResetToken)
 }
 
 func TestApprovalRepoIntegration(t *testing.T) {

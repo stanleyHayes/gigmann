@@ -1,5 +1,4 @@
 import Box from '@mui/material/Box'
-import CircularProgress from '@mui/material/CircularProgress'
 import Dialog from '@mui/material/Dialog'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
@@ -14,6 +13,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useFacilitySearch } from '../api/useFacilitySearch'
+import { ButtonLoadingDots } from './ButtonLoadingDots'
 
 const MIN_QUERY = 2
 
@@ -43,8 +43,8 @@ export function FacilitySearch() {
     setInput('')
   }
   const go = (facilityId: string) => {
-    close()
     navigate(`/facilities/${facilityId}`)
+    close()
   }
 
   const longEnough = input.trim().length >= MIN_QUERY
@@ -55,9 +55,23 @@ export function FacilitySearch() {
         <SearchOutlined />
       </IconButton>
 
-      <Dialog open={open} onClose={close} fullWidth maxWidth="sm" aria-labelledby="facility-search-title">
-        <DialogTitle id="facility-search-title" sx={{ pb: 1, fontFamily: '"Fraunces Variable", serif' }}>
-          Find a facility
+      <Dialog
+        open={open}
+        onClose={close}
+        fullWidth
+        maxWidth="sm"
+        aria-labelledby="facility-search-title"
+        slotProps={{
+          paper: {
+            sx: { borderRadius: 2, border: 1, borderColor: 'divider', overflow: 'hidden' },
+          },
+        }}
+      >
+        <DialogTitle id="facility-search-title" sx={{ pb: 1 }}>
+          <Typography variant="overline" color="text.secondary" sx={{ display: 'block', fontWeight: 800, letterSpacing: 0 }}>
+            Quick search
+          </Typography>
+          <Typography variant="h5">Find a facility</Typography>
         </DialogTitle>
         <DialogContent>
           <TextField
@@ -75,15 +89,23 @@ export function FacilitySearch() {
             slotProps={{
               htmlInput: { 'aria-label': 'Search facilities' },
               input: {
-                endAdornment: isFetching ? <CircularProgress size={18} aria-label="Searching" /> : null,
+                endAdornment: isFetching ? (
+                  <Box sx={{ color: 'primary.main', display: 'inline-flex', pl: 1 }}>
+                    <ButtonLoadingDots size={4} />
+                  </Box>
+                ) : null,
               },
             }}
           />
 
           {longEnough && matches.length > 0 ? (
-            <List aria-label="Facility matches" sx={{ mt: 1 }}>
+            <List aria-label="Facility matches" sx={{ mt: 1.5, display: 'grid', gap: 0.75 }}>
               {matches.map((m) => (
-                <ListItemButton key={m.facilityId} onClick={() => go(m.facilityId)}>
+                <ListItemButton
+                  key={m.facilityId}
+                  onClick={() => go(m.facilityId)}
+                  sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}
+                >
                   <ListItemText primary={m.name} secondary={`${Math.round(m.score * 100)}% match`} />
                 </ListItemButton>
               ))}

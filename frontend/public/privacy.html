@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en-GH">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ahenfie Privacy Notice</title>
+    <meta name="description" content="Privacy notice for the Ahenfie demo: synthetic healthcare-network data, account preferences, AI processing boundaries, and Ghana Data Protection Act readiness." />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#0b5cad" />
+    <link rel="canonical" href="https://gigmann-frontend.onrender.com/privacy.html" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      :root {
+        --brand: #0b5cad; --ink: #0f172a; --muted: #475569; --bg: #f8fafc; --card: #ffffff;
+        --serif: Georgia, "Times New Roman", serif;
+        --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: var(--sans); color: var(--ink); background: var(--bg); line-height: 1.65; }
+      a { color: var(--brand); }
+      .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+      header, footer { padding: 28px 0; }
+      header { border-bottom: 1px solid #e2e8f0; }
+      footer { color: var(--muted); border-top: 1px solid #e2e8f0; }
+      .brand { font-family: var(--serif); font-weight: 700; font-size: 1.4rem; color: var(--brand); }
+      main { padding: 52px 0; }
+      h1, h2 { font-family: var(--serif); line-height: 1.15; }
+      h1 { font-size: clamp(2.2rem, 5vw, 3.2rem); margin: 0 0 16px; }
+      h2 { font-size: 1.35rem; margin: 32px 0 10px; }
+      p, li { color: var(--muted); }
+      .notice { background: var(--card); border: 1px solid #e2e8f0; border-radius: 14px; padding: 22px; }
+      .links { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap"><a class="brand" href="/welcome.html">Ahenfie</a></div>
+    </header>
+
+    <main class="wrap">
+      <h1>Privacy Notice</h1>
+      <p>Last updated: June 30, 2026.</p>
+
+      <div class="notice">
+        <strong>Demo data only.</strong> This hosted proof of concept uses a synthetic
+        12-facility healthcare network. Do not enter real patient, employee, claim, or
+        other confidential production data into the demo cockpit.
+      </div>
+
+      <h2>What the demo processes</h2>
+      <ul>
+        <li>Synthetic facility metrics, alerts, tasks, approvals, drafts, and KPI trends.</li>
+        <li>Account information required for access, such as email, role, MFA state, and preferences.</li>
+        <li>Browser-side preferences such as theme choice, sidebar state, and tour completion.</li>
+        <li>Security telemetry such as request metadata, audit events, and error diagnostics without patient records.</li>
+      </ul>
+
+      <h2>AI processing</h2>
+      <p>
+        Ahenfie computes figures deterministically in code. AI services may narrate already-computed
+        figures or answer grounded questions, but the model is not allowed to invent numbers or take
+        action on behalf of a user. Real deployments must keep prompts free of personal data or use
+        approved data-processing and transfer agreements.
+      </p>
+
+      <h2>Security and retention</h2>
+      <p>
+        The app is designed for TLS, MFA, role-based access control, facility scoping, audit logging,
+        strict security headers, secret scanning, SAST, dependency scanning, container scanning, and
+        repeatable DAST. Demo data may be reset at any time. Production retention and erasure periods
+        must be set by the deploying organisation before real data is processed.
+      </p>
+
+      <h2>Your rights</h2>
+      <p>
+        For a real deployment under Ghana's Data Protection Act, 2012 (Act 843), the controller must
+        publish its lawful basis, retention schedule, data-subject access process, correction process,
+        erasure process, and any cross-border transfer basis. This demo provides the product surface
+        and technical hooks for those obligations; it is not legal advice.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Security reports can be sent to <a href="mailto:security@xcreativs.com">security@xcreativs.com</a>.
+        For deployment-specific privacy requests, contact the organisation operating that deployment.
+      </p>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <div>&copy; Gigmann &middot; Ahenfie Executive Cockpit</div>
+        <div class="links">
+          <a href="/welcome.html">Overview</a>
+          <a href="/terms.html">Terms</a>
+          <a href="/">Open the cockpit</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

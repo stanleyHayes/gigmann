@@ -25,10 +25,27 @@ var ErrMFARequired = errors.New("app: mfa code required")
 // ErrInvalidMFACode means an enrollment confirmation code did not validate.
 var ErrInvalidMFACode = errors.New("app: invalid mfa code")
 
+// ErrInvalidPasswordReset means a reset token is missing, unknown, expired, or spent.
+var ErrInvalidPasswordReset = errors.New("app: invalid password reset")
+
+// ErrWeakPassword means a proposed password does not meet the local minimum.
+var ErrWeakPassword = errors.New("app: weak password")
+
 const (
 	recoveryCodeCount = 10
 	recoveryCodeBytes = 10
+	passwordResetTTL  = 15 * time.Minute
+	minPasswordRunes  = 12
 )
+
+var commonPasswordDenylist = map[string]struct{}{
+	"123456789012":  {},
+	"ahenfie-demo":  {},
+	"password1234":  {},
+	"password12345": {},
+	"qwerty123456":  {},
+	"welcome12345":  {},
+}
 
 // AuthService is the authentication use case: verify credentials, issue an
 // access token plus a rotating refresh token, refresh, and revoke (logout).
@@ -37,6 +54,7 @@ type AuthService struct {
 	hasher     ports.PasswordHasher
 	tokens     ports.TokenService
 	refresh    ports.RefreshTokenStore
+	resets     ports.PasswordResetTokenStore
 	refreshTTL time.Duration
 	audit      ports.AuditLogger
 
@@ -57,11 +75,12 @@ func NewAuthService(
 	hasher ports.PasswordHasher,
 	tokens ports.TokenService,
 	refresh ports.RefreshTokenStore,
+	resets ports.PasswordResetTokenStore,
 	refreshTTL time.Duration,
 	audit ports.AuditLogger,
 ) *AuthService {
 	return &AuthService{
-		users: users, hasher: hasher, tokens: tokens, refresh: refresh,
+		users: users, hasher: hasher, tokens: tokens, refresh: refresh, resets: resets,
 		refreshTTL: refreshTTL, audit: audit, mfaUsed: map[string]uint64{},
 	}
 }
@@ -128,6 +147,64 @@ func (s *AuthService) Logout(ctx context.Context, rawRefresh string) error {
 	return s.refresh.Revoke(ctx, rawRefresh)
 }
 
+// RequestPasswordReset creates a short-lived, single-use reset token. The raw
+// token is returned only because the PoC has no email/SMS delivery adapter; a
+// production delivery adapter should send it out-of-band and keep the response
+// generic.
+func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) (string, error) {
+	acct, err := s.users.FindByEmail(ctx, email)
+	if errors.Is(err, ports.ErrAccountNotFound) {
+		s.audit.Record(ctx, ports.AuditEvent{Actor: email, Action: "auth.password_reset.request", Outcome: "accepted"})
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("app: request password reset: %w", err)
+	}
+	token, err := s.resets.Issue(ctx, acct.User.ID, passwordResetTTL)
+	if err != nil {
+		return "", fmt.Errorf("app: issue password reset: %w", err)
+	}
+	s.audit.Record(ctx, ports.AuditEvent{Actor: acct.User.ID, Action: "auth.password_reset.request", Outcome: "success"})
+	return token, nil
+}
+
+// ConfirmPasswordReset consumes a reset token and replaces the account's password
+// hash. MFA remains enabled; the next login still requires the enrolled second factor.
+func (s *AuthService) ConfirmPasswordReset(ctx context.Context, token, password string) error {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return ErrInvalidPasswordReset
+	}
+	if !passwordStrongEnough(password) {
+		return ErrWeakPassword
+	}
+	userID, err := s.resets.Consume(ctx, token)
+	if errors.Is(err, ports.ErrInvalidPasswordResetToken) {
+		return ErrInvalidPasswordReset
+	}
+	if err != nil {
+		return fmt.Errorf("app: consume password reset: %w", err)
+	}
+	acct, err := s.users.FindByID(ctx, userID)
+	if err != nil {
+		s.audit.Record(ctx, ports.AuditEvent{Actor: userID, Action: "auth.password_reset.confirm", Outcome: "failure"})
+		return ErrInvalidPasswordReset
+	}
+	passwordHash, err := s.hasher.Hash(password)
+	if err != nil {
+		return fmt.Errorf("app: hash reset password: %w", err)
+	}
+	acct.PasswordHash = passwordHash
+	if err := s.users.Save(ctx, acct); err != nil {
+		return fmt.Errorf("app: save reset password: %w", err)
+	}
+	if err := s.refresh.RevokeUser(ctx, userID); err != nil {
+		return fmt.Errorf("app: revoke reset sessions: %w", err)
+	}
+	s.audit.Record(ctx, ports.AuditEvent{Actor: userID, Action: "auth.password_reset.confirm", Outcome: "success"})
+	return nil
+}
+
 // CurrentUser re-reads the authenticated account so account state changes (such
 // as enabling or disabling MFA) are reflected in /auth/me without waiting for a
 // token refresh.
@@ -175,6 +252,9 @@ func (s *AuthService) ConfirmMFAEnrollment(ctx context.Context, p auth.Principal
 	if err := s.users.Save(ctx, acct); err != nil {
 		return nil, fmt.Errorf("app: save account: %w", err)
 	}
+	if err := s.refresh.RevokeUser(ctx, p.UserID); err != nil {
+		return nil, fmt.Errorf("app: revoke mfa enrollment sessions: %w", err)
+	}
 	s.audit.Record(ctx, ports.AuditEvent{Actor: p.UserID, Action: "auth.mfa.enroll", Outcome: "success"})
 	return codes, nil
 }
@@ -205,6 +285,9 @@ func (s *AuthService) DisableMFA(ctx context.Context, p auth.Principal, code str
 	s.mfaMu.Lock()
 	delete(s.mfaUsed, p.UserID)
 	s.mfaMu.Unlock()
+	if err := s.refresh.RevokeUser(ctx, p.UserID); err != nil {
+		return fmt.Errorf("app: revoke mfa disable sessions: %w", err)
+	}
 	s.audit.Record(ctx, ports.AuditEvent{Actor: p.UserID, Action: "auth.mfa.disable", Outcome: "success"})
 	return nil
 }
@@ -283,6 +366,47 @@ func normalizeRecoveryCode(code string) string {
 	code = strings.ReplaceAll(code, "-", "")
 	code = strings.ReplaceAll(code, " ", "")
 	return code
+}
+
+func passwordStrongEnough(password string) bool {
+	trimmed := strings.TrimSpace(password)
+	if len([]rune(trimmed)) < minPasswordRunes {
+		return false
+	}
+	lower := strings.ToLower(trimmed)
+	if _, denied := commonPasswordDenylist[lower]; denied {
+		return false
+	}
+	var lowerSeen, upperSeen, digitSeen, symbolSeen bool
+	var first rune
+	allSame := true
+	for i, r := range trimmed {
+		if i == 0 {
+			first = r
+		} else if r != first {
+			allSame = false
+		}
+		switch {
+		case r >= 'a' && r <= 'z':
+			lowerSeen = true
+		case r >= 'A' && r <= 'Z':
+			upperSeen = true
+		case r >= '0' && r <= '9':
+			digitSeen = true
+		default:
+			symbolSeen = true
+		}
+	}
+	if allSame {
+		return false
+	}
+	classes := 0
+	for _, seen := range []bool{lowerSeen, upperSeen, digitSeen, symbolSeen} {
+		if seen {
+			classes++
+		}
+	}
+	return classes >= 2
 }
 
 // checkMFA validates a TOTP code and enforces single-use: a given time-step

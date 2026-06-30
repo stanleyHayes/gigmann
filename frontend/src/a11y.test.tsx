@@ -37,6 +37,13 @@ const brief: Brief = {
 vi.mock('./api/useAsk', () => ({
   useAsk: () => ({ mutate: () => {}, isPending: false, isError: false, data: undefined }),
 }))
+vi.mock('./api/usePasswordReset', () => ({
+  usePasswordResetRequest: () => ({ mutate: () => {}, reset: () => {}, isPending: false, isError: false, data: undefined }),
+  usePasswordResetConfirm: () => ({ mutate: () => {}, reset: () => {}, isPending: false, isError: false, error: null }),
+}))
+vi.mock('./api/useDrafts', () => ({
+  useCreateDraft: () => ({ mutate: () => {}, isPending: false, isError: false, data: undefined }),
+}))
 vi.mock('./api/useFacilities', () => ({
   useFacilities: () => ({ data: [], isLoading: false, isError: false }),
 }))

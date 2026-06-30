@@ -1,4 +1,5 @@
 import Chip from '@mui/material/Chip'
+import { alpha } from '@mui/material/styles'
 
 import { statusColors, monoFont } from '../theme'
 
@@ -18,14 +19,18 @@ const labelByStatus: Record<FacilityStatus, string> = {
  */
 export function StatusChip({ status, label }: { status: FacilityStatus; label?: string }) {
   const text = label ? `${label} · ${labelByStatus[status]}` : labelByStatus[status]
+  const color = statusColors[status]
   return (
     <Chip
       label={text}
+      variant="outlined"
       sx={{
         fontFamily: monoFont,
         fontSize: 12,
-        color: '#fff',
-        bgcolor: statusColors[status],
+        fontWeight: 800,
+        color,
+        borderColor: alpha(color, 0.42),
+        bgcolor: alpha(color, 0.1),
       }}
     />
   )

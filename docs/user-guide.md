@@ -9,6 +9,11 @@ Open the cockpit, enter your email + password. If you've enabled an authenticato
 (Settings → MFA), you'll also enter a 6-digit code. Sessions refresh silently; you
 stay signed in across reloads.
 
+Use **Forgot password?** to reset access. The demo returns a short-lived reset
+token on screen because no email/SMS delivery adapter is configured; production
+deployments should deliver that token out-of-band. MFA remains enabled after a
+password reset.
+
 ## Today — the Daily Brief (home)
 The hero screen. A short narrated summary, then **prioritised items, worst first**.
 Every item shows a status dot (🟢 good · 🟠 watch · 🔴 critical) and the figures

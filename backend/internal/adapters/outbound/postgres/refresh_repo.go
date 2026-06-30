@@ -79,3 +79,11 @@ func (r *RefreshRepo) Revoke(ctx context.Context, raw string) error {
 	}
 	return nil
 }
+
+// RevokeUser deletes all refresh tokens for a user after sensitive account changes.
+func (r *RefreshRepo) RevokeUser(ctx context.Context, userID string) error {
+	if err := r.q.DeleteRefreshTokensForUser(ctx, userID); err != nil {
+		return fmt.Errorf("postgres: revoke user refresh tokens: %w", err)
+	}
+	return nil
+}

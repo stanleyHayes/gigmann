@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en-GH">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ahenfie Demo Terms</title>
+    <meta name="description" content="Demo terms for Ahenfie, the Gigmann Executive Cockpit: acceptable use, AI limits, no clinical advice, and security reporting." />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#0b5cad" />
+    <link rel="canonical" href="https://gigmann-frontend.onrender.com/terms.html" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      :root {
+        --brand: #0b5cad; --ink: #0f172a; --muted: #475569; --bg: #f8fafc; --card: #ffffff;
+        --serif: Georgia, "Times New Roman", serif;
+        --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: var(--sans); color: var(--ink); background: var(--bg); line-height: 1.65; }
+      a { color: var(--brand); }
+      .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+      header, footer { padding: 28px 0; }
+      header { border-bottom: 1px solid #e2e8f0; }
+      footer { color: var(--muted); border-top: 1px solid #e2e8f0; }
+      .brand { font-family: var(--serif); font-weight: 700; font-size: 1.4rem; color: var(--brand); }
+      main { padding: 52px 0; }
+      h1, h2 { font-family: var(--serif); line-height: 1.15; }
+      h1 { font-size: clamp(2.2rem, 5vw, 3.2rem); margin: 0 0 16px; }
+      h2 { font-size: 1.35rem; margin: 32px 0 10px; }
+      p, li { color: var(--muted); }
+      .notice { background: var(--card); border: 1px solid #e2e8f0; border-radius: 14px; padding: 22px; }
+      .links { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap"><a class="brand" href="/welcome.html">Ahenfie</a></div>
+    </header>
+
+    <main class="wrap">
+      <h1>Demo Terms</h1>
+      <p>Last updated: June 30, 2026.</p>
+
+      <div class="notice">
+        These terms cover the hosted Ahenfie proof of concept. A production deployment
+        should use a customer-specific agreement, privacy notice, support process, and
+        data-processing terms.
+      </div>
+
+      <h2>Permitted use</h2>
+      <ul>
+        <li>Use the demo to evaluate executive workflows, operational visibility, and grounded AI narration.</li>
+        <li>Do not upload or type real patient records, employee records, confidential claims, or production secrets.</li>
+        <li>Do not attempt to bypass authentication, rate limits, role controls, or facility access controls.</li>
+      </ul>
+
+      <h2>Not medical advice</h2>
+      <p>
+        Ahenfie is an operational executive cockpit. It is not a clinical decision system,
+        emergency system, prescribing tool, diagnosis tool, or substitute for professional
+        medical judgement.
+      </p>
+
+      <h2>AI limits</h2>
+      <p>
+        The cockpit computes numbers in deterministic application code. AI is used only to
+        narrate, summarise, draft, and answer questions from supplied context. Every user action
+        such as approving, delegating, resolving, or exporting remains explicit.
+      </p>
+
+      <h2>Availability and changes</h2>
+      <p>
+        The demo can be updated, reset, paused, or withdrawn without notice. Synthetic demo
+        data may be regenerated. Production use requires configured secrets, monitoring,
+        incident response, backup/restore validation, UAT sign-off, and a staging penetration test.
+      </p>
+
+      <h2>Security reports</h2>
+      <p>
+        Please report suspected vulnerabilities to
+        <a href="mailto:security@xcreativs.com">security@xcreativs.com</a>. Include steps to
+        reproduce, impact, and any relevant request IDs where available.
+      </p>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <div>&copy; Gigmann &middot; Ahenfie Executive Cockpit</div>
+        <div class="links">
+          <a href="/welcome.html">Overview</a>
+          <a href="/privacy.html">Privacy</a>
+          <a href="/">Open the cockpit</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

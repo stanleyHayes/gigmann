@@ -58,4 +58,29 @@ describe('MyDayScreen', () => {
     render(<MyDayScreen />)
     expect(screen.getByRole('checkbox')).toBeChecked()
   })
+
+  it('paginates tasks when the list grows', () => {
+    hoisted.tasks = {
+      data: Array.from({ length: 7 }, (_, i) => ({
+        id: `task-${i + 1}`,
+        title: `Task ${i + 1}`,
+        priority: 'low',
+        status: 'todo',
+        source: 'manual',
+        created_at: '2026-06-26T00:00:00Z',
+      })),
+      isLoading: false,
+      isError: false,
+    }
+
+    render(<MyDayScreen />)
+
+    expect(screen.getByText('Task 1')).toBeInTheDocument()
+    expect(screen.queryByText('Task 7')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /go to page 2/i }))
+
+    expect(screen.getByText('Task 7')).toBeInTheDocument()
+    expect(screen.queryByText('Task 1')).not.toBeInTheDocument()
+  })
 })

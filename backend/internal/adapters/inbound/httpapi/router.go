@@ -43,7 +43,14 @@ const (
 
 // authRateLimitedPaths are the brute-force-sensitive auth endpoints (login,
 // refresh, and MFA steps where a TOTP/recovery code is checked).
-var authRateLimitedPaths = []string{"/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/mfa/confirm", "/api/v1/auth/mfa/disable"}
+var authRateLimitedPaths = []string{
+	"/api/v1/auth/login",
+	"/api/v1/auth/refresh",
+	"/api/v1/auth/mfa/confirm",
+	"/api/v1/auth/mfa/disable",
+	"/api/v1/auth/password-reset/request",
+	"/api/v1/auth/password-reset/confirm",
+}
 
 // askRateLimitedPaths bound AI cost/abuse per principal (GEC-48).
 var askRateLimitedPaths = []string{"/api/v1/ask", "/api/v1/drafts"}
@@ -201,10 +208,12 @@ var unauthorizedBody = []byte(`{"error":"unauthorized"}`)
 
 // publicOperations may be called without authentication.
 var publicOperations = map[string]bool{
-	"PostAuthLogin":   true,
-	"PostAuthRefresh": true,
-	"PostAuthLogout":  true,
-	"GetHealthz":      true,
+	"PostAuthLogin":                true,
+	"PostAuthPasswordResetRequest": true,
+	"PostAuthPasswordResetConfirm": true,
+	"PostAuthRefresh":              true,
+	"PostAuthLogout":               true,
+	"GetHealthz":                   true,
 }
 
 // executiveOperations are network-aggregate views restricted to executives:
@@ -264,13 +273,13 @@ func (s *Server) GetHealthz(_ context.Context, _ GetHealthzRequestObject) (GetHe
 
 // ListFacilities returns all facilities in the network.
 func (s *Server) ListFacilities(ctx context.Context, _ ListFacilitiesRequestObject) (ListFacilitiesResponseObject, error) {
-	items, err := s.facilities.List(ctx)
+	items, err := s.facilities.ListSummaries(ctx)
 	if err != nil {
 		return ListFacilities500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
 	}
 	out := make([]Facility, 0, len(items))
 	for _, f := range items {
-		out = append(out, toAPIFacility(f))
+		out = append(out, toAPIFacilitySummary(f))
 	}
 	return ListFacilities200JSONResponse{Facilities: out}, nil
 }
@@ -665,6 +674,42 @@ func (s *Server) PostAuthLogin(ctx context.Context, request PostAuthLoginRequest
 	return PostAuthLogin200JSONResponse(AuthSession{Token: access, RefreshToken: refresh, User: toAPIAuthUser(p)}), nil
 }
 
+// PostAuthPasswordResetRequest accepts a reset request. The response is generic;
+// the PoC also returns a demo token when the account exists because no email/SMS
+// delivery adapter is configured.
+func (s *Server) PostAuthPasswordResetRequest(ctx context.Context, request PostAuthPasswordResetRequestRequestObject) (PostAuthPasswordResetRequestResponseObject, error) {
+	if request.Body == nil {
+		return PostAuthPasswordResetRequest400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
+	}
+	token, err := s.auth.RequestPasswordReset(ctx, string(request.Body.Email))
+	if err != nil {
+		return PostAuthPasswordResetRequest500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
+	}
+	message := "If an account exists, password reset instructions are ready."
+	response := PasswordResetRequestResult{Message: message}
+	if token != "" {
+		response.ResetToken = &token
+	}
+	return PostAuthPasswordResetRequest200JSONResponse(response), nil
+}
+
+// PostAuthPasswordResetConfirm consumes a reset token and sets a new password.
+func (s *Server) PostAuthPasswordResetConfirm(ctx context.Context, request PostAuthPasswordResetConfirmRequestObject) (PostAuthPasswordResetConfirmResponseObject, error) {
+	if request.Body == nil {
+		return PostAuthPasswordResetConfirm400JSONResponse{BadRequestJSONResponse{Error: "bad_request"}}, nil
+	}
+	err := s.auth.ConfirmPasswordReset(ctx, request.Body.Token, request.Body.Password)
+	switch {
+	case errors.Is(err, app.ErrWeakPassword):
+		return PostAuthPasswordResetConfirm400JSONResponse{BadRequestJSONResponse{Error: "weak_password"}}, nil
+	case errors.Is(err, app.ErrInvalidPasswordReset):
+		return PostAuthPasswordResetConfirm400JSONResponse{BadRequestJSONResponse{Error: "invalid_reset_token"}}, nil
+	case err != nil:
+		return PostAuthPasswordResetConfirm500JSONResponse{InternalErrorJSONResponse{Error: "internal_error"}}, nil //nolint:nilerr
+	}
+	return PostAuthPasswordResetConfirm204Response{}, nil
+}
+
 // GetAuthMe returns the current authenticated user (set by authMiddleware).
 func (s *Server) GetAuthMe(ctx context.Context, _ GetAuthMeRequestObject) (GetAuthMeResponseObject, error) {
 	p, ok := principalFrom(ctx)
@@ -760,6 +805,19 @@ func toAPIFacility(f facility.Facility) Facility {
 	}
 }
 
+func toAPIFacilitySummary(s app.FacilitySummary) Facility {
+	out := toAPIFacility(s.Facility)
+	if s.HasLatest {
+		revenue := s.LatestRevenue.Pesewas()
+		occupancy := s.OccupancyRate
+		patients := int32(s.PatientsSeen) //nolint:gosec // seeded daily patient counts are small and non-negative
+		out.LatestRevenuePesewas = &revenue
+		out.OccupancyRate = &occupancy
+		out.PatientsSeen = &patients
+	}
+	return out
+}
+
 func toAPIFacilityDetail(d app.FacilityDetail) FacilityDetail {
 	inv := make([]InventoryItem, 0, len(d.Inventory))
 	for _, it := range d.Inventory {
@@ -773,7 +831,8 @@ func toAPIFacilityDetail(d app.FacilityDetail) FacilityDetail {
 	for _, a := range d.Alerts {
 		alerts = append(alerts, toAPIAlertItem(a))
 	}
-	return FacilityDetail{Facility: toAPIFacility(d.Facility), Inventory: inv, Staff: stf, Alerts: alerts}
+	kpis := toAPIKPIs(d.KPIs)
+	return FacilityDetail{Facility: toAPIFacility(d.Facility), Kpis: &kpis, Inventory: inv, Staff: stf, Alerts: alerts}
 }
 
 func toAPIInventoryItem(it inventory.Item) InventoryItem {
@@ -825,8 +884,12 @@ func toAPIAlertItem(a alert.Alert) AlertItem {
 }
 
 func toAPINetworkMetrics(n kpi.Network) NetworkMetrics {
-	kpis := make([]Kpi, 0, len(n.KPIs))
-	for _, k := range n.KPIs {
+	return NetworkMetrics{AsOf: openapi_types.Date{Time: n.AsOf}, Kpis: toAPIKPIs(n.KPIs)}
+}
+
+func toAPIKPIs(domainKPIs []kpi.KPI) []Kpi {
+	kpis := make([]Kpi, 0, len(domainKPIs))
+	for _, k := range domainKPIs {
 		points := make([]MetricPoint, 0, len(k.Series))
 		for _, p := range k.Series {
 			points = append(points, MetricPoint{Date: openapi_types.Date{Time: p.Date}, Value: p.Value})
@@ -843,7 +906,7 @@ func toAPINetworkMetrics(n kpi.Network) NetworkMetrics {
 			Series:         points,
 		})
 	}
-	return NetworkMetrics{AsOf: openapi_types.Date{Time: n.AsOf}, Kpis: kpis}
+	return kpis
 }
 
 func toAPIApproval(a approval.Approval) Approval {

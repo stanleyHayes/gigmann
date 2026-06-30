@@ -56,6 +56,7 @@ type repos struct {
 	embeddings ports.FacilityEmbeddingRepository
 	users      ports.UserRepository
 	refresh    ports.RefreshTokenStore
+	resets     ports.PasswordResetTokenStore
 	approvals  ports.ApprovalRepository
 	tasks      ports.TaskRepository
 	ready      func(context.Context) error
@@ -187,11 +188,11 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 	}()
 	askSvc := app.NewAskService(engine, answerer, input, 0)
 	metricsSvc := app.NewMetricsService(r.metrics)
-	detailSvc := app.NewFacilityDetailService(net.Facilities, net.Inventory, net.Staff, net.Alerts)
+	detailSvc := app.NewFacilityDetailService(net.Facilities, net.Inventory, net.Staff, net.Alerts, net.Metrics)
 
 	tokens := token.New([]byte(cfg.JWTSecret), accessTokenTTL)
 	auditLog := audit.New(logger)
-	authSvc := app.NewAuthService(r.users, hasher, tokens, r.refresh, refreshTokenTTL, auditLog)
+	authSvc := app.NewAuthService(r.users, hasher, tokens, r.refresh, r.resets, refreshTokenTTL, auditLog)
 	approvalSvc := app.NewApprovalService(r.approvals, auditLog)
 	taskSvc := app.NewTaskService(r.tasks)
 	alertRepo := memory.NewAlertRepo(net.Alerts...)
@@ -208,7 +209,7 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 	}
 
 	return httpapi.NewRouter(httpapi.Deps{
-		Facilities:     app.NewFacilityService(r.facilities),
+		Facilities:     app.NewFacilityService(r.facilities, r.metrics),
 		FacilityDetail: detailSvc,
 		Metrics:        metricsSvc,
 		Briefs:         briefs,
@@ -245,6 +246,7 @@ func selectRepos(
 			embeddings: memory.NewFacilityEmbeddingRepo(),
 			users:      memory.NewUserRepo(accounts...),
 			refresh:    memory.NewRefreshStore(),
+			resets:     memory.NewPasswordResetStore(),
 			approvals:  memory.NewApprovalRepo(net.Approvals...),
 			tasks:      memory.NewTaskRepo(net.Tasks...),
 			ready:      nil,
@@ -277,6 +279,7 @@ func selectRepos(
 		embeddings: postgres.NewFacilityEmbeddingRepo(pool),
 		users:      postgres.NewUserRepo(pool),
 		refresh:    postgres.NewRefreshRepo(pool),
+		resets:     postgres.NewPasswordResetRepo(pool),
 		approvals:  postgres.NewApprovalRepo(pool),
 		tasks:      postgres.NewTaskRepo(pool),
 		ready:      pool.Ping,

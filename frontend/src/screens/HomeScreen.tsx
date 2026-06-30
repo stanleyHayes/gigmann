@@ -1,13 +1,15 @@
 import Button from '@mui/material/Button'
 import Snackbar from '@mui/material/Snackbar'
 import Stack from '@mui/material/Stack'
-import Typography from '@mui/material/Typography'
+import TodayOutlined from '@mui/icons-material/TodayOutlined'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useBrief, type Brief } from '../api/useBrief'
 import { useCreateTask } from '../api/useTasks'
+import { AttentionFeed } from '../components/AttentionFeed'
 import { DailyBrief } from '../components/DailyBrief'
+import { PageHeader } from '../components/PageHeader'
 import { briefToMarkdown } from './exportBrief'
 
 /** HomeScreen is the hero "Today" view — the AI-narrated Daily Brief. */
@@ -49,22 +51,26 @@ export function HomeScreen() {
 
   return (
     <Stack spacing={3}>
-      <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-        <Typography variant="h1" sx={{ fontSize: { xs: '2rem', md: '2.5rem' } }}>
-          The Brief
-        </Typography>
-        {data ? (
-          <Stack direction="row" spacing={1}>
-            <Button size="small" variant="outlined" onClick={copy}>
-              Copy
-            </Button>
-            <Button size="small" variant="outlined" onClick={download}>
-              Download
-            </Button>
-          </Stack>
-        ) : null}
-      </Stack>
+      <PageHeader
+        title="The Brief"
+        eyebrow="Today"
+        description="Worst-first executive readout from computed network figures."
+        icon={TodayOutlined}
+        actions={
+          data ? (
+            <Stack direction="row" spacing={1}>
+              <Button size="small" variant="outlined" onClick={copy}>
+                Copy
+              </Button>
+              <Button size="small" variant="outlined" onClick={download}>
+                Download
+              </Button>
+            </Stack>
+          ) : null
+        }
+      />
       <DailyBrief brief={data} isLoading={isLoading} isError={isError} onAction={askAbout} onTask={onTask} />
+      <AttentionFeed />
       <Snackbar
         open={taskAdded}
         autoHideDuration={3000}

@@ -8,6 +8,8 @@ import (
 	"github.com/xcreativs/gigmann/internal/core/auth"
 	"github.com/xcreativs/gigmann/internal/core/facility"
 	"github.com/xcreativs/gigmann/internal/core/inventory"
+	"github.com/xcreativs/gigmann/internal/core/kpi"
+	"github.com/xcreativs/gigmann/internal/core/metric"
 	"github.com/xcreativs/gigmann/internal/core/staff"
 )
 
@@ -17,6 +19,7 @@ var ErrFacilityNotFound = errors.New("app: facility not found")
 // FacilityDetail is the drill-down read model for one facility.
 type FacilityDetail struct {
 	Facility  facility.Facility
+	KPIs      []kpi.KPI
 	Inventory []inventory.Item
 	Staff     []staff.Member
 	Alerts    []alert.Alert
@@ -26,6 +29,7 @@ type FacilityDetail struct {
 // read models (in-memory for the demo).
 type FacilityDetailService struct {
 	facilities map[string]facility.Facility
+	metrics    []metric.FacilityMetric
 	inventory  []inventory.Item
 	staff      []staff.Member
 	alerts     []alert.Alert
@@ -33,13 +37,17 @@ type FacilityDetailService struct {
 
 // NewFacilityDetailService indexes the facilities and keeps the sub-resources.
 func NewFacilityDetailService(
-	facilities []facility.Facility, inv []inventory.Item, stf []staff.Member, alerts []alert.Alert,
+	facilities []facility.Facility, inv []inventory.Item, stf []staff.Member, alerts []alert.Alert, metrics ...[]metric.FacilityMetric,
 ) *FacilityDetailService {
 	byID := make(map[string]facility.Facility, len(facilities))
 	for _, f := range facilities {
 		byID[f.ID] = f
 	}
-	return &FacilityDetailService{facilities: byID, inventory: inv, staff: stf, alerts: alerts}
+	var series []metric.FacilityMetric
+	if len(metrics) > 0 {
+		series = append([]metric.FacilityMetric{}, metrics[0]...)
+	}
+	return &FacilityDetailService{facilities: byID, metrics: series, inventory: inv, staff: stf, alerts: alerts}
 }
 
 // Detail returns the facility and its inventory/staff/alerts, or ErrFacilityNotFound.
@@ -55,6 +63,7 @@ func (s *FacilityDetailService) Detail(_ context.Context, p auth.Principal, id s
 	}
 	return FacilityDetail{
 		Facility:  f,
+		KPIs:      kpi.Compute(byFacility(s.metrics, id, func(m metric.FacilityMetric) string { return m.FacilityID })).KPIs,
 		Inventory: byFacility(s.inventory, id, func(i inventory.Item) string { return i.FacilityID }),
 		Staff:     byFacility(s.staff, id, func(m staff.Member) string { return m.FacilityID }),
 		Alerts:    byFacility(s.alerts, id, func(a alert.Alert) string { return a.FacilityID }),

@@ -27,9 +27,11 @@ container scanning. **Needs:** a deployed staging URL (GEC-107/111) and an engag
 pen-test firm/scope — a human/procurement process.
 
 ## GEC-83/84/85/118 — Public marketing site + SEO
-The cockpit is correctly `noindex` (private app). SEO (pre-render, JSON-LD, sitemap)
-attaches to a **public marketing site (GEC-118)**, which is a separate deliverable
-needing brand/content direction. The SPA SEO approach is recorded in ADR-0001 (D-006).
+**Fulfilled 2026-06-30:** the cockpit remains private/noindex, while the public
+surface now ships as static HTML: `welcome.html`, `privacy.html`, `terms.html`,
+`sitemap.xml`, `robots.txt`, and `/.well-known/security.txt`. The landing page has
+canonical metadata, Open Graph/Twitter tags, and JSON-LD. Future brand expansion is
+optional product/marketing work, not a launch blocker.
 
 ## GEC-94/95 — SLOs/alerting & backups/DR
 Artifacts shipped (`infra/observability/slo.md` + `alert-rules.yml`,

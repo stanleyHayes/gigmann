@@ -3,8 +3,10 @@ package httpapi
 import (
 	"context"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,11 +37,16 @@ func requestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 }
 
 var securityHeaderValues = map[string]string{
-	"X-Content-Type-Options":       "nosniff",
-	"X-Frame-Options":              "DENY",
-	"Referrer-Policy":              "no-referrer",
-	"Cross-Origin-Opener-Policy":   "same-origin",
-	"Cross-Origin-Resource-Policy": "same-origin",
+	"X-Content-Type-Options":            "nosniff",
+	"X-Frame-Options":                   "DENY",
+	"Referrer-Policy":                   "no-referrer",
+	"Cross-Origin-Opener-Policy":        "same-origin",
+	"Cross-Origin-Resource-Policy":      "same-origin",
+	"Origin-Agent-Cluster":              "?1",
+	"X-DNS-Prefetch-Control":            "off",
+	"X-Permitted-Cross-Domain-Policies": "none",
+	"Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), " +
+		"interest-cohort=(), browsing-topics=()",
 	// The API serves JSON only, so it never legitimately loads any resource.
 	"Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
 	// API responses are dynamic and may carry data; never let a shared or browser
@@ -152,10 +159,8 @@ func rateLimitPrincipal(l *rateLimiter, prefixes []string, trustProxy bool) func
 				if p, ok := principalFrom(r.Context()); ok && p.UserID != "" {
 					key = "user:" + p.UserID
 				}
-				if !l.allow(key) {
-					w.Header().Set("Content-Type", "application/json")
-					w.WriteHeader(http.StatusTooManyRequests)
-					_, _ = w.Write([]byte(`{"error":"rate_limited"}`))
+				if ok, retryAfter := l.allow(key); !ok {
+					writeRateLimited(w, retryAfter)
 					return
 				}
 			}
@@ -164,7 +169,7 @@ func rateLimitPrincipal(l *rateLimiter, prefixes []string, trustProxy bool) func
 	}
 }
 
-func (l *rateLimiter) allow(key string) bool {
+func (l *rateLimiter) allow(key string) (bool, time.Duration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := l.now()
@@ -172,13 +177,13 @@ func (l *rateLimiter) allow(key string) bool {
 	wc := l.counts[key]
 	if wc == nil || now.After(wc.resetAt) {
 		l.counts[key] = &windowCount{count: 1, resetAt: now.Add(l.window)}
-		return true
+		return true, 0
 	}
 	if wc.count >= l.limit {
-		return false
+		return false, wc.resetAt.Sub(now)
 	}
 	wc.count++
-	return true
+	return true, 0
 }
 
 // sweep evicts expired windows, at most once per window, so the counts map cannot
@@ -226,16 +231,25 @@ func pathLimited(path string, prefixes []string) bool {
 	return false
 }
 
+func writeRateLimited(w http.ResponseWriter, retryAfter time.Duration) {
+	seconds := int(math.Ceil(retryAfter.Seconds()))
+	seconds = max(1, seconds)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", strconv.Itoa(seconds))
+	w.WriteHeader(http.StatusTooManyRequests)
+	_, _ = w.Write([]byte(`{"error":"rate_limited"}`))
+}
+
 // rateLimit throttles per-IP requests to the given path prefixes (brute-force
 // protection for auth); other paths pass freely.
 func rateLimit(l *rateLimiter, prefixes []string, trustProxy bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if pathLimited(r.URL.Path, prefixes) && !l.allow(clientIP(r, trustProxy)) {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusTooManyRequests)
-				_, _ = w.Write([]byte(`{"error":"rate_limited"}`))
-				return
+			if pathLimited(r.URL.Path, prefixes) {
+				if ok, retryAfter := l.allow(clientIP(r, trustProxy)); !ok {
+					writeRateLimited(w, retryAfter)
+					return
+				}
 			}
 			next.ServeHTTP(w, r)
 		})

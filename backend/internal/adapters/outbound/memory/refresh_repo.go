@@ -72,6 +72,19 @@ func (s *RefreshStore) Revoke(_ context.Context, raw string) error {
 	return nil
 }
 
+// RevokeUser deletes all live refresh tokens for a user. Sensitive account
+// changes call this to force new sessions through the current auth policy.
+func (s *RefreshStore) RevokeUser(_ context.Context, userID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for h, rec := range s.byHash {
+		if rec.principal.UserID == userID {
+			delete(s.byHash, h)
+		}
+	}
+	return nil
+}
+
 func hashToken(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return base64.RawURLEncoding.EncodeToString(sum[:])

@@ -1,9 +1,12 @@
 import { createContext, useContext } from 'react'
 
-import type { ThemeMode } from '../theme'
+import type { ThemeMode, ThemePreset } from '../theme'
 
 export type ColorModeContextValue = {
   mode: ThemeMode
+  preset: ThemePreset
+  setMode: (mode: ThemeMode) => void
+  setPreset: (preset: ThemePreset) => void
   toggle: () => void
 }
 

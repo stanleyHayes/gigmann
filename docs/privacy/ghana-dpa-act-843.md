@@ -25,7 +25,10 @@ when real data is introduced, and is **not legal advice**.
   fully on-prem operation with **no third-party transfer**.
 
 ## Actions before processing real data
-1. Register with the Data Protection Commission; appoint a data protection
-   supervisor. 2. Complete a DPIA. 3. Sign DPAs with Anthropic/Voyage or disable them
-   (local fallbacks). 4. Define retention + erasure runbooks. 5. Publish a privacy
-   notice.
+1. Register with the Data Protection Commission and appoint a data protection
+   supervisor.
+2. Complete a DPIA.
+3. Sign DPAs with Anthropic/Voyage or disable them (local fallbacks).
+4. Define retention and erasure runbooks for the production controller.
+5. Replace the demo privacy notice at `frontend/public/privacy.html` with the
+   production controller's published privacy notice and support process.

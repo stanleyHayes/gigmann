@@ -13,7 +13,7 @@
 | **Prepared for** | XCreativs Technologies — engineering & product |
 | **Source docs** | `Gigmann_Cockpit_PoC_Spec.pdf` · `AI_Development_Workflow_Training_Manual.docx` · `AI_Native_Software_Engineering_Operations_Manual.docx` |
 | **Plan version** | 1.1 |
-| **Last updated** | 2026-06-29 |
+| **Last updated** | 2026-06-30 |
 | **Goal of this plan** | Take the cockpit from PoC to a **production-ready** product with **security** and **SEO** designed in from day one. |
 
 ---
@@ -433,6 +433,9 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 *Goal: real, production-grade custom JWT auth in Go with RBAC for executive vs facility manager (spec §7 users, §8.4 "real auth, fake data").*
 
 #### ☑ GEC-18 — Password & credential security · 5 SP · Phase: Development
+> **Hardened 2026-06-30:** Reset-password validation now rejects passwords under 12 characters, repeated-character strings, a small common/demo denylist, and values without at least two character classes. Weak attempts are rejected before reset-token consumption.
+> **Hardened 2026-06-30:** Password-reset tokens moved behind `ports.PasswordResetTokenStore`: local/demo uses an in-memory hash store and `DATABASE_URL` deployments use Postgres (`password_reset_tokens`) with atomic single-use consume. Successful password reset revokes all outstanding refresh tokens for the user.
+> **Extended 2026-06-30:** Password reset uses short-lived, single-use random tokens stored only as hashes; confirming a reset hashes the replacement password via the existing argon2id port and keeps MFA enrolled.
 > **Done 2026-06-25:** `adapters/outbound/passwordhash` implements `ports.PasswordHasher` with argon2id and the standard PHC string encoding (random per-hash salt, constant-time verify). Fully unit-tested.
 - User story: As a user, I want my credentials stored securely, so that my account is safe.
 - Business value: Core security; protects the platform.
@@ -458,13 +461,14 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-18.
 
 #### ☑ GEC-20 — Refresh tokens with rotation · 5 SP · Phase: Development
+> **Hardened 2026-06-30:** `RefreshTokenStore` now supports per-user revocation; password reset, MFA enrollment, and MFA disable clear all outstanding refresh sessions for the account so old sessions must re-authenticate through the current security state.
 > **Done 2026-06-26:** login now issues a short-lived access token (15 min) plus a single-use refresh token (7 days). A `ports.RefreshTokenStore` (in-memory, SHA-256-hashed, single-use) backs `POST /auth/refresh` (rotates: new pair, old token invalidated — reuse → 401) and `POST /auth/logout` (revokes). The SPA stores both tokens and an openapi-fetch middleware transparently rotates + replays a request once on 401, dropping to login only if refresh fails. Live-verified (rotate, single-use reuse→401, logout→204, post-logout refresh→401).
 - User story: As a user, I want to stay signed in safely, so that I'm not logged out constantly but a stolen token is contained.
 - Business value: Security + UX balance.
 - Acceptance criteria:
   - [ ] Refresh tokens stored hashed (Redis/DB) with rotation + reuse-detection (revoke family on reuse).
   - [ ] Logout revokes; device/session list optional.
-- Technical notes: httpOnly+Secure+SameSite cookies for refresh; never in localStorage.
+- Technical notes: Current SPA uses short-lived bearer tokens plus single-use refresh rotation. A future httpOnly cookie/BFF migration requires same-site deployment plus CSRF tokens; do not partially switch storage without that architecture.
 - Definition of done: Global DoD + security review.
 - Dependencies: GEC-19.
 
@@ -481,6 +485,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-19.
 
 #### ☑ GEC-22 — Auth endpoints (login/refresh/logout/me) · 3 SP · Phase: Development
+> **Extended 2026-06-30:** Added public, rate-limited password-reset endpoints: `POST /api/v1/auth/password-reset/request` and `POST /api/v1/auth/password-reset/confirm`. The PoC returns the token to the UI as demo delivery; production can replace this with email/SMS delivery without changing the cockpit flow.
 > **Partial 2026-06-25:** `POST /api/v1/auth/login` (email+password → signed token + user) and protected `GET /api/v1/auth/me` are live, backed by `app.AuthService` + a seeded in-memory user store (demo: `ceo@gigmann.health` / `DEMO_PASSWORD`, default `ahenfie-demo`). Live-verified. **Completed 2026-06-26:** `POST /auth/refresh` + `POST /auth/logout` added (GEC-20); all four auth endpoints are live.
 - User story: As a user, I want login/refresh/logout/me endpoints, so that I can use the cockpit.
 - Business value: Usable auth surface.
@@ -504,13 +509,14 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-22.
 
 #### ☑ GEC-24 — Frontend auth integration · 3 SP · Phase: Development
+> **Redesigned 2026-06-30:** Login is now an Aura-inspired two-panel auth surface with sign-in, MFA/recovery-code step-up copy, password visibility toggles, and a complete reset-password flow (request token → set new password → return to sign-in). Auth/a11y tests cover login, failure, MFA prompt, visibility toggles, and reset.
 > **Done 2026-06-25:** an `AuthProvider` + token store gate the SPA — unauthenticated users see a `LoginScreen` (MUI form, animated-dot button, error on bad credentials); on success the openapi-fetch client attaches `Authorization: Bearer <token>` to every request and clears the token on any 401 (auto re-login). The shell shows the signed-in user and a sign-out control. Login flow unit-tested with a mocked client.
 - User story: As a user, I want sign-in to "just work" in the Next.js app, so that I reach the cockpit smoothly.
 - Business value: Smooth entry to the demo/product.
 - Acceptance criteria:
   - [ ] Login UI; tokens via httpOnly cookies; protected routes redirect.
   - [ ] Silent refresh; role-aware navigation (executive vs manager).
-- Technical notes: React Router protected-route guards; tokens in httpOnly cookies, never exposed to JS.
+- Technical notes: React Router protected-route guards; bearer tokens are isolated in the auth provider today. Future cookie/BFF hardening is tracked as an architecture migration, not a UI-only change.
 - Definition of done: Global DoD.
 - Dependencies: GEC-22, GEC-39 (frontend shell).
 
@@ -564,6 +570,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-14, GEC-17.
 
 #### ☑ GEC-29 — Alerts & Attention Feed API · 5 SP · Phase: Development
+> **UI surfaced 2026-06-30:** The attention feed is now visible in the cockpit via `AttentionFeed` on Today plus an AppShell notification popover. Open alerts can be resolved/dismissed or turned into My Day tasks from the UI, using the existing `/alerts` lifecycle and `/tasks` creation endpoints.
 > **Done 2026-06-27:** `GET /api/v1/alerts` returns the ranked, **cursor-paginated** attention feed — open alerts only, worst-first (severity → newest → id), with an opaque keyset `next_cursor`. `PATCH /api/v1/alerts/{id}` dismisses or resolves an alert (domain transitions: already-terminal → 409, unknown → 404, non-terminal target → 400). Backed by a new `AlertRepository` + in-memory adapter seeded from the network; resolved/dismissed alerts drop off the feed. Service + endpoint tests.
 - User story: As the cockpit, I want a prioritised, dismissible attention feed, so that exceptions surface and resolve.
 - Business value: Spec §5.5 attention feed.
@@ -749,6 +756,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-41, GEC-13, GEC-26.
 
 #### ☑ GEC-45 — Generated actions & documents · 5 SP · Phase: Development
+> **UI surfaced 2026-06-30:** Draft generation is now exposed in Ask (message/summary, facility dropdown, instruction editor, copy) and Facility Detail (manager-message quick action). Drafts remain read-only/unsent and use the existing grounded `/drafts` endpoint.
 > **Done 2026-06-27:** `POST /api/v1/drafts` (authed, AI-rate-limited) generates an AI-drafted **message** or **summary** grounded in the network's computed figures — `DraftService` builds a grounded prompt and reuses the deterministic-or-Claude answerer (`never invent numbers`). The draft is **read-only**: it is returned for the executive to review/send; the AI never sends anything (CLAUDE.md §7). Service + endpoint tests.
 - User story: As Sammy, I want the system to produce work, so that the cockpit *does* work, not just shows it.
 - Business value: Spec §6.5 — second wow ("Message the manager").
@@ -862,6 +870,9 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 *Goal: spec §5 + §9 — mobile-first, desktop-strong, "command instrument" design, the "alive" feel. PWA.*
 
 #### ☑ GEC-54 — Design system & "command instrument" language · 8 SP · Phase: Development
+> **Pagination pass 2026-06-30:** Added a shared `PaginationControls` / `usePagination` pattern for growable cockpit collections: Network facility cards, KPI grids, Attention feed, My Day tasks, Approvals, Delegation groups/tasks, and Facility Detail KPI/alert/inventory/staff sections. Frontend typecheck and focused pagination tests green.
+> **Extended 2026-06-30:** Appearance now supports multiple persisted accent presets (Gigmann Blue, Cedar Green, Boardroom Gold, Graphite) across light/dark mode via the shared theme provider, with Settings swatches and tests.
+> **Polished 2026-06-30:** Aura-inspired system refresh while preserving Gigmann colours: denser MUI theme defaults, restrained elevation, shared PageHeader/SurfaceCard/EmptyState primitives, subtle status badges, and refreshed brief/cards, quick search, empty states, and detail sections across the cockpit. Frontend typecheck/lint/tests/build green.
 > **Verified 2026-06-27:** MUI v9 design system: light/dark theme, Fraunces/Outfit/JetBrains-Mono typography, AA status palette with text labels, skeleton + animated-dot loaders, reduced-motion-aware transitions.
 - User story: As a user, I want a premium, calm, fast UI, so that it feels like the seat of someone who runs an empire.
 - Business value: Spec §9.1 design mandate; carries the owner's design directives (§4.6).
@@ -876,6 +887,9 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-1.
 
 #### ☑ GEC-55 — App shell, routing & PWA · 5 SP · Phase: Development
+> **Help/tour pass 2026-06-30:** AppShell now includes a Help trigger, right-side user guide drawer, and replayable "Show me around" guided tour. Account menu includes User guide and Replay tour entries.
+> **Utility pass 2026-06-30:** AppShell now adds Aura-style persisted desktop rail collapse, persisted nav-section collapse, account dropdown, notification popover, and first-class mobile bottom navigation while preserving the existing Gigmann palette and routes.
+> **Polished 2026-06-30:** App shell now uses grouped desktop navigation, a mobile drawer, Aura-style institutional rail/header hierarchy, wider cockpit content, and the existing circular theme reveal/search/logout controls. Routes and data hooks unchanged; responsive page rhythm was swept across login, dashboard, network, KPIs, Ask, My Day, Delegation, Approvals, Reports, Settings, facility detail, not-found, and route-error surfaces.
 > **Done 2026-06-25:** React Router v7 data router (`createBrowserRouter` + layout route → `AppShell` + screens, `createMemoryRouter` in tests); the cockpit shell (brand bar, permanent nav rail with `NavLink` active styling, colour-mode toggle, content `<Outlet/>`); installable PWA via vite-plugin-pwa 1.3.0 on Vite 8 (manifest + icons + service worker). **The SW treats `/api` and `/healthz` as NetworkOnly and excludes them from the SPA fallback — a stale figure can never be served from cache, honouring the determinism rule.** Hardened after an adversarial review workflow (17 agents): self-hosted fonts (no Google data leak, fully offline), global `prefers-reduced-motion` handling, AA-contrast status colours, accessible action-button names, single `<h1>` per page, `robots: noindex`. Frontend gate green: tsc/eslint clean, 15 tests @ 97.7%, build + SW generation pass.
 - User story: As a user, I want an installable app shell with bottom nav (mobile) and multi-pane (desktop), so that it feels like a real app.
 - Business value: Spec §9.3 mobile-first / desktop-strong; PWA.
@@ -888,6 +902,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-54.
 
 #### ☑ GEC-56 — Home / The Brief screen (hero) · 8 SP · Phase: Development
+> **Completed spec gap 2026-06-30:** Today now shows the Attention feed under the Daily Brief, so urgent alerts and alert-to-task actions are visible on the hero path.
 > **Verified 2026-06-27:** Home/Brief hero: narrated prose + worst-first items with severity dots + figures, inline actions, copy/download, skeleton/error states, fast paint via the pre-warmed cache; tested.
 > **Core delivered 2026-06-25:** the hero Brief screen now consumes the generated typed `/api/v1/brief` client via a TanStack Query `useBrief` hook. `DailyBrief` renders skeleton loaders while fetching, an error state, the narrated prose, then the prioritised items (status chip + headline + explanation + suggested-action buttons), worst-first. Wired into `App` with the light/dark toggle; Vite dev-proxies `/api` → backend (no CORS in dev). Typecheck/eslint clean, tests 100% stmts. _Remaining for full close: design-system depth (GEC-54), routing/shell (GEC-55), motion polish (GEC-66)._
 - User story: As Sammy, I want the brief at the top the moment I open the app, so that it briefs me before I ask.
@@ -900,7 +915,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-50, GEC-55.
 
 #### ☑ GEC-57 — Network single-pane view · 5 SP · Phase: Development
-> **Done 2026-06-25:** `/network` consumes `GET /api/v1/facilities` via a typed `useFacilities` TanStack Query hook and renders the whole network at a glance — a summary line + proportional status-distribution bar, then a responsive grid of facility cards sorted worst-first (critical → watch → healthy), each with name, town/region, beds, and a status chip. Skeleton while loading, error state, empty-state handling. Live-verified against the real API (12 facilities, Tafo Maternity critical first). MUI X Charts deferred to GEC-59 (KPIs) where its API will be verified; pagination not applicable to a fixed single-pane network. Gate green: tsc/eslint clean, 22 tests @ 98.5%.
+> **Completed spec gap 2026-06-30:** `/api/v1/facilities` now includes latest revenue, occupancy, and patients-seen headline values (computed from raw metrics in Go), and `/network` has search, status/region filters, sort by attention/revenue/occupancy/patients/beds/region/name, plus richer facility tiles.
+> **Done 2026-06-25:** `/network` consumes `GET /api/v1/facilities` via a typed `useFacilities` TanStack Query hook and renders the whole network at a glance — a summary line + proportional status-distribution bar, then a responsive grid of facility cards sorted worst-first (critical → watch → healthy), each with name, town/region, beds, and a status chip. Skeleton while loading, error state, empty-state handling. Live-verified against the real API (12 facilities, Tafo Maternity critical first). MUI X Charts deferred to GEC-59 (KPIs) where its API will be verified; the first iteration treated the 12-facility demo as a fixed single-pane network. Gate green: tsc/eslint clean, 22 tests @ 98.5%.
 - User story: As Sammy, I want all 12 facilities as living tiles with a network pulse, so that I command the whole empire on one screen.
 - Business value: Spec §5.2.
 - Acceptance criteria:
@@ -911,6 +927,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-25, GEC-40, GEC-55.
 
 #### ☑ GEC-58 — Facility detail (drill-down) · 5 SP · Phase: Development
+> **Completed spec gap 2026-06-30:** Facility detail now includes per-facility KPI trend cards from the same deterministic KPI engine, plus quick actions to create a follow-up task, ask about the facility, and generate/copy an unsent manager-message draft.
 > **Done 2026-06-26:** `/facilities/:id` (reached by clicking a Network card) renders the facility header + status, and Alerts / Inventory (with days-of-stock + stockout-imminent flags) / Staff (attrition + licence) sections from `GET /api/v1/facilities/{id}` via `useFacilityDetail`. Skeleton/error states, back-to-Network link, lazily code-split. Completes the drill-down vertical (GEC-25 + GEC-58). 49 tests @ 90.3%.
 - User story: As Sammy, I want one facility in depth one tap away, so that I can investigate.
 - Business value: Spec §5.3.
@@ -931,6 +948,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-26.
 
 #### ☑ GEC-60 — Ask screen (NL query + generated docs) · 8 SP · Phase: Development
+> **Completed spec gap 2026-06-30:** Ask now includes a draft utility with type/facility dropdowns, editable instruction text, generated draft display, and copy action, backed by `POST /api/v1/drafts`.
 > **Done 2026-06-27:** Ask screen: NL query input + suggestions, grounded answer rendered with citation chips, **and a Copy-answer export** (`answerToText` → clipboard, citations included) — the 'generated docs' export from an answer. Tested.
 > **Core done 2026-06-26:** `/ask` lets Sammy ask natural-language questions (typed or via suggested-prompt chips); `useAsk` posts to `/api/v1/ask` and renders the grounded Claude answer with citation chips (animated-dot loading). Completes the last placeholder — every nav slot is now functional. Lazily code-split. _Remaining: 'generated docs' (turn an answer into an exportable report/email) and markdown rendering of the answer._ 44 tests @ 90.8%.
 - User story: As Sammy, I want a plain-English query box with generated-document output, so that I interrogate and command in words.
@@ -985,6 +1003,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-32, GEC-61.
 
 #### ☑ GEC-65 — Personalisation & settings UI · 3 SP · Phase: Development
+> **Extended 2026-06-30:** Settings now has a Guide tab for opening the user guide or replaying the tour, and Appearance exposes theme preset swatches in addition to light/dark mode.
+> **Polished 2026-06-30:** Settings is now a tabbed account centre (Profile, Security, Preferences, Notifications, Appearance). Preferences support watched metrics plus threshold inputs; notifications retain the real critical-push opt-in; appearance exposes the existing light/dark mode toggle.
 > **Done 2026-06-27:** Settings screen now has a **What you watch** card (MUI checkboxes for revenue/patients/occupancy/denial-rate) backed by `usePreferences`/`useSavePreferences` against `GET/PATCH /me/preferences`; pre-checked from saved prefs, saves on click, success toast. Joins the existing MFA-enrolment card. Tested.
 - User story: As Sammy, I want to tune which metrics/facilities are watched, so that the cockpit learns what I care about.
 - Business value: Spec §5.12.
@@ -1105,6 +1125,8 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-25..33.
 
 #### ☑ GEC-74 — Rate limiting & brute-force protection · 3 SP · Phase: Development
+> **Hardened 2026-06-30:** 429 rate-limit responses now include a `Retry-After` header based on the current fixed window.
+> **Hardened 2026-06-30:** Password-reset request/confirm routes are part of the brute-force-sensitive auth surface, alongside login/refresh/MFA confirm.
 > **Done 2026-06-26:** an in-memory fixed-window per-IP `rateLimit` middleware throttles the brute-force surface — `/api/v1/auth/login` and `/api/v1/auth/refresh` — to 10 requests/minute per client IP (honours `X-Forwarded-For` behind the proxy), returning 429 over the limit; other paths are unthrottled. Verified live (10×401 then 429). _Note: per-process; a clustered deploy would back it with Redis._
 - User story: As the system, I want rate limiting and lockout, so that abuse and credential-stuffing are contained.
 - Business value: Protects auth + AI cost.
@@ -1115,6 +1137,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-22, GEC-48.
 
 #### ☑ GEC-75 — Security headers & CSP · 3 SP · Phase: Development
+> **Hardened 2026-06-30:** API and Render static responses now add Permissions-Policy, Origin-Agent-Cluster, DNS-prefetch disablement, and cross-domain policy denial. The frontend CSP explicitly permits the JSON-LD block by SHA-256 hash, adds WSS for live API connections, and keeps frame/object/base restrictions locked down.
 > **Done 2026-06-27:** API responses send HSTS (prod), a strict `Content-Security-Policy` (`default-src 'none'`), COOP + CORP, X-Frame-Options DENY, nosniff, no-referrer; the SPA gets a CSP + security headers via the Render static-site `headers` block (`infra/render.yaml`). CORS now allows PATCH.
 > **Partial 2026-06-26:** a `securityHeaders` middleware sets `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and `Cross-Origin-Opener-Policy: same-origin` on every response (verified live). _Remaining: a full Content-Security-Policy (served with the SPA shell) and HSTS at the edge._
 - User story: As the system, I want strict security headers, so that the browser enforces our security posture.
@@ -1181,6 +1204,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-99 (staging).
 
 #### ☑ GEC-81 — Ghana Data Protection Act (Act 843) alignment · 3 SP · Phase: Solution Design
+> **Hardened 2026-06-30:** Added public demo privacy and terms pages, a `/.well-known/security.txt` reporting channel, and a release-hardening checklist. The DPA note now points production operators to replace the demo notice with controller-specific lawful basis, retention, support, and processor/transfer terms before real data.
 > **Verified 2026-06-27:** [docs/privacy/ghana-dpa-act-843.md](docs/privacy/ghana-dpa-act-843.md) — Act 843 alignment (synthetic data; minimisation, encryption, transfer, subject rights, pre-prod actions).
 - User story: As the business, I want DPA-aligned data handling, so that the move to real data is a deployment decision, not a rebuild.
 - Business value: Spec §8.3 production note.
@@ -1208,6 +1232,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 *Goal: the public surface is fully optimised; the private cockpit is fast and `noindex`. Meets Core Web Vitals.*
 
 #### ☑ GEC-83 — Pre-render public pages & metadata (SPA SEO) · 5 SP · Phase: Development
+> **Expanded 2026-06-30:** Public static surface now includes crawlable `welcome.html`, `privacy.html`, and `terms.html` with canonical metadata; the cockpit app remains private/noindex.
 > **Done 2026-06-27:** The landing ships as **static pre-rendered HTML** with full metadata (title, description, canonical, theme-color, lang=en-GH, `robots: index,follow`) — SEO-ready with no client render; the private cockpit stays `noindex`.
 > **Status 2026-06-27:** Deferred to the marketing site (GEC-118); the cockpit is correctly `noindex`. SPA-SEO approach recorded in ADR-0001 (D-006). [docs/deferred.md](docs/deferred.md).
 - User story: As a visitor, I want fast, crawlable public pages, so that the product is discoverable.
@@ -1220,6 +1245,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-55, GEC-118.
 
 #### ☑ GEC-84 — Structured data (JSON-LD) & Open Graph · 3 SP · Phase: Development
+> **Hardened 2026-06-30:** Render CSP now allows the landing page's JSON-LD with a script hash instead of broad inline script permission.
 > **Done 2026-06-27:** **JSON-LD** (`Organization` + `SoftwareApplication`) + **Open Graph** + **Twitter card** tags on the landing page (with OG image).
 > **Status 2026-06-27:** Deferred to GEC-118 (JSON-LD/OG attach to public pages). [docs/deferred.md](docs/deferred.md).
 - User story: As a visitor/sharer, I want rich previews and structured data, so that the product looks credible in search/social.
@@ -1231,6 +1257,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-83.
 
 #### ☑ GEC-85 — Sitemap, robots & canonicalization · 2 SP · Phase: Development
+> **Expanded 2026-06-30:** `sitemap.xml` now includes the public privacy and terms pages; `robots.txt` allows only the public/static resources and disallows the authenticated SPA by default.
 > **Done 2026-06-27:** `public/sitemap.xml` (the landing) + a rewritten `robots.txt` (allow `/welcome.html` + sitemap, disallow `/app` + `/api`) + a canonical link; both build into `dist/`.
 > **Status 2026-06-27:** Deferred to GEC-118 (sitemap/robots/canonical for public pages; a base `robots.txt` exists). [docs/deferred.md](docs/deferred.md).
 - User story: As a crawler, I want a sitemap and robots rules, so that indexing is correct.
@@ -1568,6 +1595,7 @@ whole project (spec §2). Brief quality and the demo narrative (spec §3.3) gate
 - Dependencies: GEC-8, GEC-2.
 
 #### ☑ GEC-115 — User guide & training material · 3 SP · Phase: Sign-off
+> **In-app surfaced 2026-06-30:** AppShell now includes a right-side User Guide drawer and replayable guided tour, also launchable from Settings → Guide.
 > **Verified 2026-06-27:** [docs/user-guide.md](docs/user-guide.md) — executive-facing guide to every surface (brief, network, search, KPIs, ask, my-day, approvals, settings).
 - User story: As the client, I want a user guide and training material, so that the team can adopt the cockpit.
 - Business value: Eng-Ops §11 deliverables.
@@ -1751,3 +1779,11 @@ The PoC's own DoD maps to these stories — all must be `☑` for the PoC to be 
 | 2026-06-29 | **Adversarial audit remediation (in-lane findings).** From a multi-dimension code audit: (1) facility NL search is now executive-only (`SearchFacilities` added to `executiveOperations`) — it returns whole-network matches, the same disclosure surface as `ListFacilities`; (2) the search query is bounded to 256 runes at the app boundary (the query is embedded — a cost/abuse vector); (3) signal engine: the `licence_expiry` magnitude was a flat `1`, so expiries didn't rank by urgency — now normalised within the alert window (a sooner/expired licence ranks above a distant one), matching the other detectors. Tests added for all three. Verified: golangci-lint v2.12.2 = 0, cover gate 85.9%. Audit findings in the MFA (Codex) and Reports/PDF (Kimi) lanes were flagged to those owners, not edited. | Claude |
 | 2026-06-29 | **MFA recovery-code TOCTOU fix (security; crossed into the MFA lane).** The audit's HIGH recovery-code double-spend was real: `consumeRecoveryCode` was a non-atomic load→verify→remove→save, so two concurrent logins with the same code could both verify before either saved (MFA bypass). Now serialised under a dedicated `recoveryMu` that reloads the account fresh under the lock; added a `-race` concurrent-login test asserting at most one success. Single-instance guard (mirrors the existing `mfaMu` TOTP pattern); multi-instance additionally needs a row-locked UPDATE (documented in the findings doc). Crossed into GEC-23 (Codex) because the owner has been idle ~3h and this is a HIGH security defect on `main`. The audit's other HIGH — "PDF pagination" — was a **false positive** (the negative jsPDF y is correct tiling), corrected in the findings doc. Verified: lint 0, app `-race` green ×3, cover gate 86.6%. | Claude |
 | 2026-06-29 | **Frontend feedback/a11y polish (audit follow-ups; Reports/Settings).** Closed the remaining low-severity audit items in the new MFA/Reports UI: the recovery-code **Copy** button now reports success/failure instead of silently swallowing a clipboard rejection (the codes are one-time — a silent failure is a real risk); the **PDF download** now has a busy state + an error alert instead of a silent `void` promise; and `MfaQrCode` renders its failure as an `Alert` and marks the loading placeholder `role="status"`. Tests added for the copy-success and PDF-failure paths. Frontend: 109 tests, coverage 87.75%, typecheck + eslint clean. (Kimi's area — done while idle; all low-severity.) | Claude |
+| 2026-06-30 | **GEC-54/GEC-55 — Aura-inspired cockpit redesign.** Preserved Gigmann's blue/status palette while adopting Aura's institutional density: grouped nav rail + mobile drawer, reusable PageHeader/SurfaceCard/EmptyState primitives, tightened quick search, subtle status chips, accent-led KPI/task/approval cards, and refreshed login, Daily Brief, Network, KPIs, Ask, My Day, Delegation, Approvals, Reports, Settings, facility-detail, not-found, and route-error surfaces. Verified frontend typecheck, lint, 109 tests, and production build. | Codex |
+| 2026-06-30 | **GEC-29/45/55/56/57/58/60/65 — Aura utility + spec-gap closure pass.** Added persisted sidebar/nav-group collapse, account dropdown, notification popover, and mobile bottom nav; surfaced the Attention Feed on Today and in notifications with resolve/dismiss/turn-into-task actions; exposed `/drafts` on Ask and Facility Detail; added facility headline metrics to `/facilities`; added per-facility KPI trends and quick actions; upgraded Settings into Profile/Security/Preferences/Notifications/Appearance tabs with thresholds. Verified: frontend typecheck, lint, 110 tests, production build; backend focused tests, `make backend-cover-gate` 86.5%, `make backend-lint` 0 issues. | Codex |
+| 2026-06-30 | **GEC-54/55/65 — themes, guide, and tour.** Added persisted accent theme presets through the shared MUI theme provider, a Settings Appearance swatch picker, a Settings Guide tab, a right-side Help/User Guide drawer, and a replayable "Show me around" tour launched from the top bar, account menu, or Settings. Verified: frontend typecheck, lint, 114 tests, production build. | Codex |
+| 2026-06-30 | **GEC-54 — cockpit pagination pass.** Added shared MUI pagination controls and client-side paging to growable frontend collections: Network, KPIs, Attention feed, My Day, Approvals, Delegation, and Facility Detail sub-sections. Added pagination regression coverage for Network, My Day, and Facility Detail. | Codex |
+| 2026-06-30 | **GEC-75/81/83/84/85 — release hardening, compliance, and SEO closure pass.** Added API/static-site Permissions-Policy and isolation headers; hashed the public JSON-LD in CSP; added public privacy, terms, and `/.well-known/security.txt`; expanded sitemap/robots to index only public pages; and documented release-hardening controls plus remaining external gates. | Codex |
+| 2026-06-30 | **GEC-18/22/24 — auth redesign + password reset.** Rebuilt LoginScreen as an Aura-inspired auth surface with password reveal controls, MFA/recovery-code step-up copy, reset request/confirm states, and success/error handling. Added OpenAPI-backed password reset endpoints with short-lived single-use tokens and argon2id password replacement. Verified backend app/httpapi tests, backend lint, frontend lint/typecheck/tests/build. | Codex |
+| 2026-06-30 | **GEC-18/20/74 — auth hardening closure.** Moved password reset tokens behind a durable port (`PasswordResetTokenStore`) with in-memory and Postgres hash-only implementations plus migration/SQLC support; added per-user refresh-token revocation and invoked it after password reset, MFA enrollment, and MFA disable; updated tests and docs so cookie/BFF remains an explicit future architecture migration. Verified: backend focused tests, `go test ./...`, backend lint, backend coverage gate 85.1%, frontend lint/typecheck/test/build, and `git diff --check`. Docker was unavailable for the `-tags=integration` Postgres suite. | Codex |
+| 2026-06-30 | **GEC-18/74 — final auth polish pass.** Added explicit reset-password strength checks (12+ runes, character-class mix, common/demo denylist, repeated-character rejection) without consuming tokens on weak attempts, aligned LoginScreen copy, and added `Retry-After` to 429 rate-limit responses. Verified backend focused tests, `go test ./...`, backend lint, backend coverage gate 85.0%, frontend lint/typecheck/tests/build, and `git diff --check`. | Codex |

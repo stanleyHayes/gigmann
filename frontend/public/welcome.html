@@ -79,6 +79,7 @@
       .promise { background: var(--ink); color: #e2e8f0; border-radius: 16px; padding: 32px; }
       .promise strong { color: #fff; }
       footer { padding: 40px 0; color: var(--muted); border-top: 1px solid #e2e8f0; }
+      footer .links { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; }
       @media (prefers-reduced-motion: reduce) { .reveal { animation: none; opacity: 1; transform: none; } }
     </style>
   </head>
@@ -133,7 +134,15 @@
     </main>
 
     <footer>
-      <div class="wrap">© Gigmann · Ahenfie Executive Cockpit · <a href="/">Open the cockpit</a></div>
+      <div class="wrap">
+        <div>© Gigmann · Ahenfie Executive Cockpit</div>
+        <div class="links">
+          <a href="/">Open the cockpit</a>
+          <a href="/privacy.html">Privacy</a>
+          <a href="/terms.html">Terms</a>
+          <a href="/.well-known/security.txt">Security contact</a>
+        </div>
+      </div>
     </footer>
   </body>
 </html>

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { loadThemeMode, saveThemeMode } from './themePreference'
+import { loadThemeMode, loadThemePreset, saveThemeMode, saveThemePreset } from './themePreference'
 
 describe('themePreference', () => {
   beforeEach(() => {
@@ -38,5 +38,16 @@ describe('themePreference', () => {
     expect(localStorage.getItem('gigmann.theme')).toBe('dark')
     // A fresh load (no stub) reads the stored value, not the OS default.
     expect(loadThemeMode()).toBe('dark')
+  })
+
+  it('persists a theme preset', () => {
+    saveThemePreset('cedar')
+    expect(loadThemePreset()).toBe('cedar')
+    expect(localStorage.getItem('gigmann.theme.preset')).toBe('cedar')
+  })
+
+  it('falls back to the default preset for unknown stored values', () => {
+    localStorage.setItem('gigmann.theme.preset', 'neon')
+    expect(loadThemePreset()).toBe('gigmann')
   })
 })

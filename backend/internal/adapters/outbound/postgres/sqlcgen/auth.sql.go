@@ -11,6 +11,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const consumePasswordResetToken = `-- name: ConsumePasswordResetToken :one
+DELETE FROM password_reset_tokens
+WHERE token_hash = $1
+RETURNING user_id, expires_at
+`
+
+type ConsumePasswordResetTokenRow struct {
+	UserID    string
+	ExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) ConsumePasswordResetToken(ctx context.Context, tokenHash string) (ConsumePasswordResetTokenRow, error) {
+	row := q.db.QueryRow(ctx, consumePasswordResetToken, tokenHash)
+	var i ConsumePasswordResetTokenRow
+	err := row.Scan(&i.UserID, &i.ExpiresAt)
+	return i, err
+}
+
 const consumeRefreshToken = `-- name: ConsumeRefreshToken :one
 DELETE FROM refresh_tokens
 WHERE token_hash = $1
@@ -44,6 +62,15 @@ DELETE FROM refresh_tokens WHERE token_hash = $1
 
 func (q *Queries) DeleteRefreshToken(ctx context.Context, tokenHash string) error {
 	_, err := q.db.Exec(ctx, deleteRefreshToken, tokenHash)
+	return err
+}
+
+const deleteRefreshTokensForUser = `-- name: DeleteRefreshTokensForUser :exec
+DELETE FROM refresh_tokens WHERE user_id = $1
+`
+
+func (q *Queries) DeleteRefreshTokensForUser(ctx context.Context, userID string) error {
+	_, err := q.db.Exec(ctx, deleteRefreshTokensForUser, userID)
 	return err
 }
 
@@ -119,6 +146,22 @@ func (q *Queries) FindAccountByID(ctx context.Context, id string) (FindAccountBy
 		&i.RecoveryCodeHashes,
 	)
 	return i, err
+}
+
+const insertPasswordResetToken = `-- name: InsertPasswordResetToken :exec
+INSERT INTO password_reset_tokens (token_hash, user_id, expires_at)
+VALUES ($1, $2, $3)
+`
+
+type InsertPasswordResetTokenParams struct {
+	TokenHash string
+	UserID    string
+	ExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) InsertPasswordResetToken(ctx context.Context, arg InsertPasswordResetTokenParams) error {
+	_, err := q.db.Exec(ctx, insertPasswordResetToken, arg.TokenHash, arg.UserID, arg.ExpiresAt)
+	return err
 }
 
 const insertRefreshToken = `-- name: InsertRefreshToken :exec

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -33,6 +33,31 @@ describe('NetworkOverview', () => {
   it('handles an empty network', () => {
     render(<NetworkOverview facilities={[]} />, { wrapper: MemoryRouter })
     expect(screen.getByText(/0 facilities/i)).toBeInTheDocument()
+  })
+
+  it('paginates facility cards when the network grows', () => {
+    const manyFacilities: Facility[] = Array.from({ length: 10 }, (_, i) => {
+      const label = String(i + 1).padStart(2, '0')
+      return {
+        id: `facility-${label}`,
+        name: `Facility ${label}`,
+        region: 'Greater Accra',
+        town: `Town ${label}`,
+        beds: 20 + i,
+        status: 'good',
+      }
+    })
+
+    render(<NetworkOverview facilities={manyFacilities} />, { wrapper: MemoryRouter })
+
+    expect(screen.getByText('Facility 01')).toBeInTheDocument()
+    expect(screen.queryByText('Facility 10')).not.toBeInTheDocument()
+    expect(screen.getByText(/1-9 of 10 facilities/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /go to page 2/i }))
+
+    expect(screen.getByText('Facility 10')).toBeInTheDocument()
+    expect(screen.queryByText('Facility 01')).not.toBeInTheDocument()
   })
 })
 

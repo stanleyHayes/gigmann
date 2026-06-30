@@ -39,7 +39,8 @@ describe('ApprovalsScreen', () => {
   it('shows an empty state', () => {
     hoisted.approvals = { data: [], isLoading: false, isError: false }
     render(<ApprovalsScreen />)
-    expect(screen.getByText(/no approvals waiting/i)).toBeInTheDocument()
+    expect(screen.getByText(/queue is clear/i)).toBeInTheDocument()
+    expect(screen.getByText(/reorder approvals/i)).toBeInTheDocument()
   })
 
   it('requires explicit confirmation before deciding', () => {
