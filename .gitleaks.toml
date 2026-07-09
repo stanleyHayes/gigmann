@@ -14,4 +14,6 @@ paths = [
   # Test files whose TOTP/MFA fixtures are high-entropy but are not real secrets.
   '''backend/internal/app/auth_service_test\.go$''',
   '''backend/internal/core/mfa/mfa_test\.go$''',
+  # config_test.go asserts JWT_SECRET length/validation with dummy >=32-char values.
+  '''backend/internal/config/config_test\.go$''',
 ]
