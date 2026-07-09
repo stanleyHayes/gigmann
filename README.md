@@ -79,9 +79,13 @@ cd frontend && npm run lint && npm run typecheck && npm run test:coverage
 ## Deploy (Render)
 [`infra/render.yaml`](./infra/render.yaml) is a one-click Blueprint: a Dockerised Go **web service** (`gigmann-api`,
 health check `/healthz`) plus a **static SPA** (`gigmann-frontend`). In the `gigmann-secrets` env group set
-**`JWT_SECRET`** (required) and optionally `ANTHROPIC_API_KEY` / `VOYAGE_API_KEY` / `DEMO_PASSWORD`. The API reads
-`CORS_ALLOWED_ORIGINS` (the SPA URL) and the SPA builds with `VITE_API_BASE_URL` (the API URL). The demo runs
-fully in-memory, so no database is needed to boot.
+**`JWT_SECRET`** (required outside dev, ≥32 chars) and optionally `ANTHROPIC_API_KEY` / `VOYAGE_API_KEY` /
+`DEMO_PASSWORD` / `VAPID_PUBLIC_KEY`+`VAPID_PRIVATE_KEY`+`VAPID_SUBJECT` (Web Push) / `SENTRY_DSN` /
+`OTEL_EXPORTER_OTLP_ENDPOINT`. The blueprint sets `TRUST_PROXY=true` (correct client IP behind Render's proxy) and
+`CORS_ALLOWED_ORIGINS` (the SPA URL); the SPA builds with `VITE_API_BASE_URL` (the API URL). The demo runs fully
+in-memory, so no database is needed to boot — for **production persistence**, uncomment the Postgres + Redis
+services (and their `DATABASE_URL`/`REDIS_URL` + the refresh-views cron) in the Blueprint. The complete variable
+list with defaults is [`backend/.env.example`](./backend/.env.example).
 
 ## Layout
 ```

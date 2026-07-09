@@ -22,10 +22,25 @@ services:
         value: "8080"
       - key: CORS_ALLOWED_ORIGINS
         value: https://gigmann-frontend.onrender.com
+      - key: TRUST_PROXY
+        # Render terminates TLS at a proxy, so the real client IP is in
+        # X-Forwarded-For. Honour it so per-IP login/refresh rate limiting works
+        # (without this, every request looks like the proxy and shares one bucket).
+        value: "true"
       - fromGroup: gigmann-secrets
-      # DATABASE_URL / REDIS_URL are re-enabled when persistence lands
-      # (GEC-11/12/13). The demo runs fully in-memory from the seeded
-      # synthetic network, so the API needs neither to boot.
+      # PRODUCTION PERSISTENCE (one-step enable): uncomment the Postgres database
+      # + Redis service below AND the two vars here. Without them the API boots on
+      # EPHEMERAL in-memory repos (fine for the free demo; state is lost on restart
+      # and cannot scale past one instance).
+      # - key: DATABASE_URL
+      #   fromDatabase:
+      #     name: gigmann-postgres
+      #     property: connectionString
+      # - key: REDIS_URL
+      #   fromService:
+      #     type: redis
+      #     name: gigmann-redis
+      #     property: connectionString
 
   # Redis is provisioned with persistence/clustered rate-limiting (GEC-11/74).
   # - type: redis
@@ -115,7 +130,17 @@ envVarGroups:
         sync: false
       - key: VOYAGE_API_KEY # optional — local (lexical) embedder fallback when unset
         sync: false
-      - key: JWT_SECRET # required: HS256 token-signing secret
+      - key: JWT_SECRET # required outside dev: HS256 signing secret, >=32 chars (validated at boot)
         sync: false
       - key: DEMO_PASSWORD # optional — seed login password (defaults otherwise)
+        sync: false
+      - key: VAPID_PUBLIC_KEY # optional — Web Push; push is a no-op when unset
+        sync: false
+      - key: VAPID_PRIVATE_KEY # optional — Web Push private key
+        sync: false
+      - key: VAPID_SUBJECT # optional — Web Push contact, e.g. mailto:ops@gigmann.health
+        sync: false
+      - key: SENTRY_DSN # optional — error tracking; no-op when unset
+        sync: false
+      - key: OTEL_EXPORTER_OTLP_ENDPOINT # optional — OTLP traces; no-op when unset
         sync: false

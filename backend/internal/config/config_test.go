@@ -64,6 +64,25 @@ func TestLoadRejectsDevPlaceholderSecretOutsideDev(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsShortJWTSecretOutsideDev(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("HTTP_PORT", "8080")
+	t.Setenv("JWT_SECRET", "too-short-secret") // < 32 chars
+	if _, err := config.Load(); err == nil {
+		t.Fatal("expected production to reject a JWT secret under the minimum length")
+	}
+}
+
+func TestLoadRejectsWildcardCORSOutsideDev(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("HTTP_PORT", "8080")
+	t.Setenv("JWT_SECRET", "prod-signing-secret-0123456789abcd")
+	t.Setenv("CORS_ALLOWED_ORIGINS", "https://app.example.com,*")
+	if _, err := config.Load(); err == nil {
+		t.Fatal("expected production to reject a wildcard CORS origin")
+	}
+}
+
 func TestLoadProductionMinimal(t *testing.T) {
 	// JWT_SECRET alone suffices outside dev; DATABASE_URL and ANTHROPIC_API_KEY
 	// are optional (in-memory + local-narrator fallbacks).
@@ -71,7 +90,7 @@ func TestLoadProductionMinimal(t *testing.T) {
 	t.Setenv("HTTP_PORT", "8080")
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("ANTHROPIC_API_KEY", "")
-	t.Setenv("JWT_SECRET", "prod-signing-secret")
+	t.Setenv("JWT_SECRET", "prod-signing-secret-0123456789abcd")
 	if _, err := config.Load(); err != nil {
 		t.Fatalf("expected JWT_SECRET to suffice in production: %v", err)
 	}
@@ -82,7 +101,7 @@ func TestLoadProductionValid(t *testing.T) {
 	t.Setenv("HTTP_PORT", "9090")
 	t.Setenv("DATABASE_URL", "postgres://x")
 	t.Setenv("ANTHROPIC_API_KEY", "sk-test")
-	t.Setenv("JWT_SECRET", "prod-signing-secret")
+	t.Setenv("JWT_SECRET", "prod-signing-secret-0123456789abcd")
 
 	cfg, err := config.Load()
 	if err != nil {

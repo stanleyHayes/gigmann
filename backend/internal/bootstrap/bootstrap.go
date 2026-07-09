@@ -239,7 +239,15 @@ func selectRepos(
 	ctx context.Context, cfg config.Config, net seed.Network, accounts []ports.Account, logger *slog.Logger,
 ) (repos, func(), error) {
 	if cfg.DatabaseURL == "" {
-		logger.Info("using in-memory repositories seeded from synthetic network", "facilities", len(net.Facilities))
+		// In-memory is the intended free-tier demo posture, but running it outside
+		// development means all state (users, tokens, MFA, approvals, tasks) is
+		// ephemeral and single-instance — surface that loudly rather than silently.
+		if cfg.AppEnv != config.EnvDevelopment {
+			logger.Warn("DATABASE_URL is unset — running on EPHEMERAL in-memory repositories; state is lost on restart and cannot scale past one instance",
+				"env", cfg.AppEnv, "facilities", len(net.Facilities))
+		} else {
+			logger.Info("using in-memory repositories seeded from synthetic network", "facilities", len(net.Facilities))
+		}
 		return repos{
 			facilities: memory.NewFacilityRepo(net.Facilities...),
 			metrics:    memory.NewMetricsRepo(net.Metrics...),

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -19,6 +20,10 @@ const (
 
 // devJWTSecret is a non-secret placeholder used only in development.
 const devJWTSecret = "dev-insecure-change-me" //nolint:gosec // non-secret development placeholder
+
+// minJWTSecretLen is the minimum accepted JWT signing secret length outside
+// development (256 bits of base64/hex ≈ 32+ chars); shorter secrets are brute-forceable.
+const minJWTSecretLen = 32
 
 // Config holds validated runtime configuration.
 type Config struct {
@@ -114,6 +119,16 @@ func (c Config) validate() error {
 	// tokens in staging/production even if it is set explicitly.
 	if c.AppEnv != EnvDevelopment && c.JWTSecret == devJWTSecret {
 		return errors.New("config: JWT_SECRET must not be the development placeholder outside development")
+	}
+	// A real signing secret needs enough entropy; reject trivially short secrets
+	// outside development (the empty and placeholder cases are handled above).
+	if c.AppEnv != EnvDevelopment && len(c.JWTSecret) < minJWTSecretLen {
+		return fmt.Errorf("config: JWT_SECRET must be at least %d characters outside development", minJWTSecretLen)
+	}
+	// A wildcard origin defeats the CORS allow-list; never permit it outside
+	// development (it would let any site call the API with credentials).
+	if c.AppEnv != EnvDevelopment && slices.Contains(c.CORSAllowedOrigins, "*") {
+		return errors.New("config: CORS_ALLOWED_ORIGINS must not be '*' outside development")
 	}
 	return nil
 }
