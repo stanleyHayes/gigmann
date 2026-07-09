@@ -1,0 +1,42 @@
+name: Load test (brief hot path)
+
+# The k6 test (infra/load/brief-load.js, GEC-102) was previously only reachable
+# via `make load-test`. Run it in CI for latency-regression detection — weekly
+# and on demand (not per-push, to keep pushes fast and green). It boots the API
+# on the in-memory demo network (no DB needed) and gates on p95<500ms.
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  k6:
+    name: k6 — Daily Brief p95
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.25.x
+          cache-dependency-path: backend/go.sum
+      - name: Install k6 (pinned)
+        run: |
+          K6_VER=v0.54.0
+          curl -fsSL "https://github.com/grafana/k6/releases/download/${K6_VER}/k6-${K6_VER}-linux-amd64.tar.gz" | tar xz
+          sudo mv "k6-${K6_VER}-linux-amd64/k6" /usr/local/bin/k6
+          k6 version
+      - name: Start API (in-memory demo)
+        working-directory: backend
+        run: |
+          APP_ENV=development HTTP_PORT=8080 go run ./cmd/api &
+          echo $! > /tmp/api.pid
+          for i in $(seq 1 60); do curl -sf http://localhost:8080/healthz >/dev/null && break; sleep 1; done
+          curl -sf http://localhost:8080/healthz
+      - name: Run load test
+        run: k6 run -e BASE_URL=http://localhost:8080 infra/load/brief-load.js
+      - name: Stop API
+        if: always()
+        run: kill "$(cat /tmp/api.pid)" 2>/dev/null || true
