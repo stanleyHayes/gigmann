@@ -8,7 +8,9 @@ test('demo narrative: login → brief → network → ask → my day → approva
   await page.goto('/')
 
   await page.getByLabel(/email/i).fill(EMAIL)
-  await page.getByLabel(/password/i).fill(PASSWORD)
+  // Exact label: the visibility toggle is aria-label "Show sign-in password",
+  // so a /password/i regex matches two elements (the input and the button).
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
   await page.getByRole('button', { name: /sign in/i }).click()
 
   // The Daily Brief is the hero; the worst item (Tafo) surfaces first.
