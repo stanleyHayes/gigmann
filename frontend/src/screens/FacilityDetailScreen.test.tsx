@@ -7,16 +7,19 @@ import { FacilityDetailScreen } from './FacilityDetailScreen'
 
 const hoisted = vi.hoisted(() => ({
   result: { data: undefined as FacilityDetail | undefined, isLoading: true, isError: false },
+  taskMutate: vi.fn(),
+  draftMutate: vi.fn(),
+  draft: undefined as { draft: string } | undefined,
 }))
 
 vi.mock('../api/useFacilityDetail', () => ({
   useFacilityDetail: () => hoisted.result,
 }))
 vi.mock('../api/useTasks', () => ({
-  useCreateTask: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+  useCreateTask: () => ({ mutate: hoisted.taskMutate, isPending: false, isError: false }),
 }))
 vi.mock('../api/useDrafts', () => ({
-  useCreateDraft: () => ({ mutate: vi.fn(), isPending: false, isError: false, data: undefined }),
+  useCreateDraft: () => ({ mutate: hoisted.draftMutate, isPending: false, isError: false, data: hoisted.draft }),
 }))
 
 function renderScreen() {
@@ -38,6 +41,9 @@ const detail: FacilityDetail = {
 describe('FacilityDetailScreen', () => {
   beforeEach(() => {
     hoisted.result = { data: undefined, isLoading: true, isError: false }
+    hoisted.taskMutate.mockReset()
+    hoisted.draftMutate.mockReset()
+    hoisted.draft = undefined
   })
 
   it('shows a skeleton while loading', () => {
@@ -87,5 +93,24 @@ describe('FacilityDetailScreen', () => {
 
     expect(screen.getByText(/Staff Member 6/i)).toBeInTheDocument()
     expect(screen.queryByText(/Staff Member 1/i)).not.toBeInTheDocument()
+  })
+
+  it('wires the follow-up-task, draft, and copy actions', async () => {
+    hoisted.result = { data: detail, isLoading: false, isError: false }
+    hoisted.draft = { draft: 'Dear Ama, please prioritise the RDT reorder.' }
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+
+    renderScreen()
+
+    fireEvent.click(screen.getByRole('button', { name: /add follow-up task/i }))
+    expect(hoisted.taskMutate).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: /draft manager message/i }))
+    expect(hoisted.draftMutate).toHaveBeenCalledTimes(1)
+
+    // The draft is present, so the Copy control renders and copies it.
+    fireEvent.click(screen.getByRole('button', { name: /^copy$/i }))
+    expect(writeText).toHaveBeenCalledWith('Dear Ama, please prioritise the RDT reorder.')
   })
 })

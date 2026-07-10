@@ -15,7 +15,7 @@ type AskState = {
 
 const hoisted = vi.hoisted(() => ({
   result: { mutate: vi.fn(), isPending: false, isError: false, data: undefined } as AskState,
-  draft: { mutate: vi.fn(), isPending: false, isError: false, data: undefined },
+  draft: { mutate: vi.fn(), isPending: false, isError: false, data: undefined as { draft: string } | undefined },
   facilities: [] as Facility[],
 }))
 
@@ -81,5 +81,14 @@ describe('AskScreen', () => {
     hoisted.result = { mutate: vi.fn(), isPending: true, isError: false, data: undefined }
     render(<AskScreen />, { wrapper: MemoryRouter })
     expect(screen.getByLabelText('loading')).toBeInTheDocument()
+  })
+
+  it('copies a generated draft to the clipboard', () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    hoisted.draft = { mutate: vi.fn(), isPending: false, isError: false, data: { draft: 'Dear manager, reorder RDT kits.' } }
+    render(<AskScreen />, { wrapper: MemoryRouter })
+    fireEvent.click(screen.getByRole('button', { name: /copy draft/i }))
+    expect(writeText).toHaveBeenCalledWith('Dear manager, reorder RDT kits.')
   })
 })

@@ -63,6 +63,19 @@ function renderAt(path: string) {
   return { router, ...view }
 }
 
+describe('route chunks', () => {
+  it('every lazy route resolves its screen component', async () => {
+    const { routes } = await import('./app/routes')
+    const children = routes[0].children ?? []
+    const lazy = children.filter((c) => c.lazy && typeof c.lazy === 'object' && 'Component' in c.lazy)
+    expect(lazy.length).toBeGreaterThan(5)
+    for (const child of lazy) {
+      const load = (child.lazy as unknown as { Component: () => Promise<Record<string, unknown>> }).Component
+      expect(await load()).toBeTruthy()
+    }
+  })
+})
+
 describe('routing', () => {
   it('renders the brief on the index route', async () => {
     renderAt('/')
