@@ -25,6 +25,7 @@ import ListItemText from '@mui/material/ListItemText'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import Popover from '@mui/material/Popover'
+import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
 import Step from '@mui/material/Step'
 import StepLabel from '@mui/material/StepLabel'
@@ -708,15 +709,7 @@ function NotificationsBell() {
           </Stack>
           <Stack spacing={1}>
             {isLoading ? (
-              [0, 1, 2].map((i) => (
-                <Card key={i} variant="outlined">
-                  <CardContent>
-                    <Typography variant="body2" color="text.secondary">
-                      Loading alert {i + 1}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              ))
+              [0, 1, 2].map((i) => <Skeleton key={i} variant="rounded" height={76} data-testid="notification-skeleton" />)
             ) : isError ? (
               <Typography variant="body2" color="error.main">
                 Couldn&apos;t load notifications.
@@ -869,6 +862,29 @@ export function AppShell() {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      <Box
+        component="a"
+        href="#main-content"
+        sx={{
+          position: 'absolute',
+          left: 12,
+          top: 12,
+          zIndex: (t) => t.zIndex.drawer + 3,
+          px: 2,
+          py: 1,
+          borderRadius: 1,
+          bgcolor: 'primary.main',
+          color: 'primary.contrastText',
+          fontWeight: 600,
+          textDecoration: 'none',
+          transform: 'translateY(-150%)',
+          transition: 'transform .15s ease',
+          '&:focus, &:focus-visible': { transform: 'translateY(0)' },
+          '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+        }}
+      >
+        Skip to main content
+      </Box>
       {navigation.state === 'loading' ? (
         <LinearProgress
           aria-label="Loading"
@@ -970,7 +986,12 @@ export function AppShell() {
         <DrawerContent collapsed={desktopCollapsed} onToggleCollapse={toggleDesktopCollapsed} />
       </Drawer>
 
-      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, md: 3.5 }, pb: { xs: 10, md: 3.5 } }}>
+      <Box
+        component="main"
+        id="main-content"
+        tabIndex={-1}
+        sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, md: 3.5 }, pb: { xs: 10, md: 3.5 }, '&:focus': { outline: 'none' } }}
+      >
         <Toolbar sx={{ minHeight: 72 }} />
         <Container maxWidth="xl" disableGutters>
           <motion.div

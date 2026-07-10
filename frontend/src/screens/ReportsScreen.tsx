@@ -10,6 +10,7 @@ import SummarizeOutlined from '@mui/icons-material/SummarizeOutlined'
 
 import { useBrief } from '../api/useBrief'
 import { useMetrics } from '../api/useMetrics'
+import { ButtonLoadingDots } from '../components/ButtonLoadingDots'
 import { PageHeader } from '../components/PageHeader'
 import { SurfaceCard } from '../components/SurfaceCard'
 import { chartToPng, downloadFile, downloadPdf, networkReportCsv, networkReportMarkdown } from './exportBrief'
@@ -100,7 +101,8 @@ export function ReportsScreen() {
                 disabled={!ready || pdfBusy}
                 onClick={() => void onDownloadPdf()}
               >
-                {pdfBusy ? 'Generating PDF…' : 'Download PDF'}
+                {pdfBusy ? <ButtonLoadingDots /> : null}
+                Download PDF
               </Button>
             </Stack>
             {pdfError ? (
