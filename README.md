@@ -76,16 +76,29 @@ make backend-integration   # testcontainers (needs Docker); live Claude test: go
 cd frontend && npm run lint && npm run typecheck && npm run test:coverage
 ```
 
-## Deploy (Render)
-[`infra/render.yaml`](./infra/render.yaml) is a one-click Blueprint: a Dockerised Go **web service** (`gigmann-api`,
-health check `/healthz`) plus a **static SPA** (`gigmann-frontend`). In the `gigmann-secrets` env group set
-**`JWT_SECRET`** (required outside dev, ≥32 chars) and optionally `ANTHROPIC_API_KEY` / `VOYAGE_API_KEY` /
-`DEMO_PASSWORD` / `VAPID_PUBLIC_KEY`+`VAPID_PRIVATE_KEY`+`VAPID_SUBJECT` (Web Push) / `SENTRY_DSN` /
-`OTEL_EXPORTER_OTLP_ENDPOINT`. The blueprint sets `TRUST_PROXY=true` (correct client IP behind Render's proxy) and
-`CORS_ALLOWED_ORIGINS` (the SPA URL); the SPA builds with `VITE_API_BASE_URL` (the API URL). The demo runs fully
-in-memory, so no database is needed to boot — for **production persistence**, uncomment the Postgres + Redis
-services (and their `DATABASE_URL`/`REDIS_URL` + the refresh-views cron) in the Blueprint. The complete variable
-list with defaults is [`backend/.env.example`](./backend/.env.example).
+## Deploy — API on Render, SPA on Vercel
+
+**API (Render).** [`infra/render.yaml`](./infra/render.yaml) is a one-click Blueprint for the Dockerised Go **web
+service** (`gigmann-api`, health check `/healthz`). In the `gigmann-secrets` env group set **`JWT_SECRET`**
+(required outside dev, ≥32 chars) and optionally `ANTHROPIC_API_KEY` / `VOYAGE_API_KEY` / `DEMO_PASSWORD` /
+`VAPID_PUBLIC_KEY`+`VAPID_PRIVATE_KEY`+`VAPID_SUBJECT` (Web Push) / `SENTRY_DSN` / `OTEL_EXPORTER_OTLP_ENDPOINT`.
+The blueprint sets `TRUST_PROXY=true` (correct client IP behind Render's proxy) and `CORS_ALLOWED_ORIGINS` to the
+SPA origin — currently `https://gigmann.vercel.app`. The demo runs fully in-memory, so no database is needed to
+boot — for **production persistence**, uncomment the Postgres + Redis services (and their `DATABASE_URL`/`REDIS_URL`
++ the refresh-views cron) in the Blueprint. The complete variable list with defaults is
+[`backend/.env.example`](./backend/.env.example).
+
+**SPA (Vercel).** Set the Vercel project's **Root Directory to `frontend`**; the framework preset (Vite) supplies
+`npm run build` → `dist`. [`frontend/vercel.json`](./frontend/vercel.json) provides the SPA rewrite and the security
+headers (CSP, HSTS, Permissions-Policy, …). The only build-time variable is **`VITE_API_BASE_URL`** (the Render API
+URL); `VITE_SENTRY_DSN` is optional. `VITE_*` values are inlined into the browser bundle, so they are public — never
+put a secret in one. Because the repo `.gitignore` excludes `.env*`, set `VITE_API_BASE_URL` in the Vercel project
+(`vercel env add VITE_API_BASE_URL production`) or commit `frontend/.env.production` via a `.gitignore` exception.
+See [`frontend/.env.example`](./frontend/.env.example).
+
+> The CSP in `vercel.json` pins `sha256` hashes for the inline JSON-LD in `welcome.html`, `privacy.html` and
+> `terms.html`. Those hashes are content-sensitive — **re-hash if you edit those blocks** (including URLs inside
+> them), or the browser will block them.
 
 ## Layout
 ```

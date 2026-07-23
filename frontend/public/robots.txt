@@ -10,4 +10,4 @@ Allow: /pwa-192x192.png
 Allow: /pwa-512x512.png
 Disallow: /
 
-Sitemap: https://gigmann-frontend.onrender.com/sitemap.xml
+Sitemap: https://gigmann.vercel.app/sitemap.xml

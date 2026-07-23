@@ -1,7 +1,8 @@
 # Render Blueprint (Infrastructure as Code) — GEC-105.
-# Declares the API, frontend, Redis, and Postgres for the cockpit.
+# Declares the Go API and its Postgres database. The SPA is NOT here: it is
+# hosted on Vercel (https://gigmann.vercel.app) — see frontend/vercel.json.
 #
-# Data layer (RESOLVED — agent_plan.md OQ-4): Render-managed Postgres 16 +
+# Data layer (RESOLVED — agent_plan.md OQ-4): Render-managed Postgres 18 +
 # pgvector. TimescaleDB is dropped (unsupported on Render). Time-series uses
 # native Postgres (indexes now; range partitioning + materialized views if
 # volume grows). Enable pgvector via `CREATE EXTENSION vector` in migration 1.
@@ -21,87 +22,47 @@ services:
       - key: HTTP_PORT
         value: "8080"
       - key: CORS_ALLOWED_ORIGINS
-        value: https://gigmann-frontend.onrender.com
+        # The SPA is hosted on Vercel; the API and its Postgres stay here.
+        # Comma-separated allow-list — add more origins here if you keep another
+        # frontend deployment alive. NOTE: Vercel preview deployments get dynamic
+        # per-branch URLs that a static allow-list cannot match, so previews
+        # cannot call this production API.
+        value: https://gigmann.vercel.app
       - key: TRUST_PROXY
         # Render terminates TLS at a proxy, so the real client IP is in
         # X-Forwarded-For. Honour it so per-IP login/refresh rate limiting works
         # (without this, every request looks like the proxy and shares one bucket).
         value: "true"
       - fromGroup: gigmann-secrets
-      # PRODUCTION PERSISTENCE (one-step enable): uncomment the Postgres database
-      # + Redis service below AND the two vars here. Without them the API boots on
-      # EPHEMERAL in-memory repos (fine for the free demo; state is lost on restart
-      # and cannot scale past one instance).
-      # - key: DATABASE_URL
-      #   fromDatabase:
-      #     name: gigmann-postgres
-      #     property: connectionString
-      # - key: REDIS_URL
-      #   fromService:
-      #     type: redis
-      #     name: gigmann-redis
-      #     property: connectionString
+      # PERSISTENCE: the API is now Postgres-backed. On boot it runs the embedded
+      # migrations (advisory-locked, idempotent — internal/bootstrap) which create
+      # the pgvector extension and seed the synthetic network on first run, so no
+      # manual migrate step is needed. If this var is ever removed the API silently
+      # falls back to EPHEMERAL in-memory repos (state lost on restart) and logs a
+      # WARN outside development.
+      # `connectionString` is the INTERNAL URL (same-region, no egress) — correct
+      # for this service. For access from your laptop use the EXTERNAL connection
+      # string shown in the Render dashboard (enabled by ipAllowList below).
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gigmann-postgres
+          property: connectionString
 
-  # Redis is provisioned with persistence/clustered rate-limiting (GEC-11/74).
-  # - type: redis
+  # Redis is OPTIONAL — it backs clustered rate limiting + refresh-token storage
+  # (GEC-11/74). Without it those fall back to in-process state, which is correct
+  # on a single instance. Left off to keep the Blueprint free; uncomment (and add
+  # the REDIS_URL var above) when scaling past one instance.
+  # - type: keyvalue
   #   name: gigmann-redis
-  #   plan: starter
+  #   plan: free
   #   maxmemoryPolicy: noeviction
   #   ipAllowList: []
-
-  - type: web
-    name: gigmann-frontend
-    runtime: static
-    rootDir: frontend
-    buildCommand: npm ci && npm run build
-    staticPublishPath: ./dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    headers:
-      - path: /*
-        name: Content-Security-Policy
-        value: >-
-          default-src 'self'; connect-src 'self' https://gigmann-api.onrender.com
-          wss://gigmann-api.onrender.com; script-src 'self'
-          'sha256-ysmUPGRfOzBRdt8rbk41dY39am4yNNfomvV8iE5Cn5Q=';
-          style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:;
-          worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'self';
-          frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
-      - path: /*
-        name: X-Frame-Options
-        value: DENY
-      - path: /*
-        name: Referrer-Policy
-        value: no-referrer
-      - path: /*
-        name: Permissions-Policy
-        value: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=(), browsing-topics=()
-      - path: /*
-        name: Cross-Origin-Opener-Policy
-        value: same-origin
-      - path: /*
-        name: Cross-Origin-Resource-Policy
-        value: same-origin
-      - path: /*
-        name: Origin-Agent-Cluster
-        value: "?1"
-      - path: /*
-        name: X-DNS-Prefetch-Control
-        value: off
-      - path: /*
-        name: X-Permitted-Cross-Domain-Policies
-        value: none
-      - path: /*
-        name: Strict-Transport-Security
-        value: max-age=63072000; includeSubDomains
-    envVars:
-      - key: VITE_API_BASE_URL
-        value: https://gigmann-api.onrender.com
+  #   (then add under the API's envVars:)
+  #   - key: REDIS_URL
+  #     fromService:
+  #       type: keyvalue
+  #       name: gigmann-redis
+  #       property: connectionString
 
   # Materialized-view refresh (GEC-71/GEC-12). The worker entrypoint (cmd/worker)
   # exists and is built into the image (/worker). Enable alongside Postgres
@@ -117,11 +78,28 @@ services:
   #   envVars:
   #     - fromGroup: gigmann-secrets
 
-# Postgres (pgvector) is provisioned with the persistence layer (GEC-11/12/13).
-# databases:
-#   - name: gigmann-postgres
-#     plan: basic-256mb
-#     postgresMajorVersion: "16"
+# Postgres (pgvector) — the persistence layer (GEC-11/12/13).
+databases:
+  - name: gigmann-postgres
+    # PAID on purpose: Render deletes `free` Postgres instances after 30 days.
+    # basic-256mb is the cheapest plan that persists indefinitely.
+    plan: basic-256mb
+    postgresMajorVersion: "18"
+    databaseName: gigmann
+    user: gigmann
+    # EXTERNAL ACCESS: an ipAllowList entry is what makes the database reachable
+    # from outside Render (psql/TablePlus/DBeaver from your laptop). Render then
+    # shows an "External Connection String" in the dashboard — use that one; the
+    # `connectionString` injected into the API above is the internal URL.
+    #
+    # ⚠️  0.0.0.0/0 means ANY host on the internet can reach the port. The database
+    # is still password-protected, but this is the widest possible exposure. Once
+    # you know the address you connect from, replace it with `<your.ip>/32`
+    # (find it with: curl -s https://api.ipify.org). Render allows editing this
+    # list in the dashboard without a redeploy.
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: external access (RESTRICT to your own IP/32 when you can)
 
 envVarGroups:
   - name: gigmann-secrets

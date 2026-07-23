@@ -1,5 +1,5 @@
 Contact: mailto:security@xcreativs.com
-Policy: https://gigmann-frontend.onrender.com/privacy.html
+Policy: https://gigmann.vercel.app/privacy.html
 Preferred-Languages: en
-Canonical: https://gigmann-frontend.onrender.com/.well-known/security.txt
+Canonical: https://gigmann.vercel.app/.well-known/security.txt
 Expires: 2027-06-30T23:59:59Z
