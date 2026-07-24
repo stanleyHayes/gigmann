@@ -13,7 +13,7 @@ services:
     runtime: docker
     rootDir: backend
     dockerfilePath: ./Dockerfile
-    plan: starter
+    plan: free
     healthCheckPath: /healthz
     autoDeploy: true
     envVars:
@@ -81,9 +81,14 @@ services:
 # Postgres (pgvector) — the persistence layer (GEC-11/12/13).
 databases:
   - name: gigmann-postgres
-    # PAID on purpose: Render deletes `free` Postgres instances after 30 days.
-    # basic-256mb is the cheapest plan that persists indefinitely.
-    plan: basic-256mb
+    # ⚠️  FREE TIER: Render EXPIRES a free Postgres instance ~30 days after it is
+    # created and then DELETES it — the data is not recoverable. Accepted for the
+    # demo; the API degrades to ephemeral in-memory repos if the database goes
+    # away. Before this matters, either take a dump (`pg_dump` via the external
+    # connection string) or move to `basic-256mb`, the cheapest plan that
+    # persists indefinitely. Same one-word change on the web service above, which
+    # on `free` also cold-starts (~30-60s) after ~15 minutes idle.
+    plan: free
     postgresMajorVersion: "18"
     databaseName: gigmann
     user: gigmann
