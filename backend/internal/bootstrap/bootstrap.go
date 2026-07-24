@@ -136,6 +136,18 @@ func newHandler(ctx context.Context, cfg config.Config, logger *slog.Logger) (ht
 		return nil, nil, err
 	}
 
+	// EnsureSeeded only populates an EMPTY database, so new demo identities would
+	// never reach an already-seeded (e.g. production) store. Additively reconcile
+	// them here on every boot — missing accounts are inserted, existing ones left
+	// untouched. On a fresh in-memory store every account is already present, so
+	// this is a no-op there.
+	if added, rerr := reconcileDemoAccounts(ctx, r.users, accounts); rerr != nil {
+		cleanup()
+		return nil, nil, fmt.Errorf("bootstrap: reconcile demo accounts: %w", rerr)
+	} else if added > 0 {
+		logger.Info("added missing demo accounts", "count", added)
+	}
+
 	engine := signalengine.Default(signalengine.DefaultThresholds())
 	var (
 		narrator ports.Narrator
@@ -294,9 +306,13 @@ func selectRepos(
 	}, pool.Close, nil
 }
 
-// demoAccounts seeds the user store for the demo. The password comes from
-// DEMO_PASSWORD (a low-entropy dev default otherwise). The manager is scoped to a
-// real facility in the synthetic network so facility-scoped authorization works.
+// demoAccounts builds the demo login identities across both roles. The password
+// comes from DEMO_PASSWORD (a low-entropy dev default otherwise) and is shared by
+// every account. Executives are network-wide (no facility); facility managers are
+// scoped to a real facility in the synthetic network so facility-scoped
+// authorization is demonstrable — each manager sees only their own facility. The
+// manager names mirror the seeded facility managers so the login identity matches
+// the data.
 func demoAccounts(hasher ports.PasswordHasher) ([]ports.Account, error) {
 	password := os.Getenv("DEMO_PASSWORD")
 	if password == "" {
@@ -306,16 +322,61 @@ func demoAccounts(hasher ports.PasswordHasher) ([]ports.Account, error) {
 	if err != nil {
 		return nil, fmt.Errorf("bootstrap: hash demo password: %w", err)
 	}
-	ceo, err := user.New(user.User{ID: "u-sammy", Name: "Sammy Adjei", Role: user.RoleExecutive})
-	if err != nil {
-		return nil, fmt.Errorf("bootstrap: ceo account: %w", err)
+
+	// facility == "" means an executive (network-wide, no facility scope).
+	specs := []struct {
+		id, name, email, facility string
+		role                      user.Role
+	}{
+		// Executives.
+		{"u-sammy", "Sammy Adjei", "ceo@gigmann.health", "", user.RoleExecutive},
+		{"u-efua", "Efua Sarpong", "coo@gigmann.health", "", user.RoleExecutive},
+		// One facility manager per facility (names mirror the seeded managers).
+		{"u-ama", "Ama Owusu", "kasoa.manager@gigmann.health", "kasoa", user.RoleFacilityManager},
+		{"u-kwame", "Dr. Kwame Mensah", "assin-fosu.manager@gigmann.health", "assin-fosu", user.RoleFacilityManager},
+		{"u-afia", "Dr. Afia Boahen", "asokwa.manager@gigmann.health", "asokwa", user.RoleFacilityManager},
+		{"u-yaw", "Yaw Antwi", "adansi.manager@gigmann.health", "adansi", user.RoleFacilityManager},
+		{"u-esi", "Esi Quaye", "takoradi.manager@gigmann.health", "takoradi", user.RoleFacilityManager},
+		{"u-adjoa", "Mad. Adjoa Asare", "tafo.manager@gigmann.health", "tafo-maternity", user.RoleFacilityManager},
+		{"u-mohammed", "Mohammed Iddrisu", "nima.manager@gigmann.health", "nima", user.RoleFacilityManager},
+		{"u-selorm", "Dr. Selorm Agbeko", "ho.manager@gigmann.health", "ho-central", user.RoleFacilityManager},
+		{"u-fuseini", "Fuseini Abdulai", "tamale.manager@gigmann.health", "tamale-north", user.RoleFacilityManager},
+		{"u-araba", "Dr. Araba Eshun", "cape-coast.manager@gigmann.health", "cape-coast", user.RoleFacilityManager},
+		{"u-kwabena", "Kwabena Osei", "sunyani.manager@gigmann.health", "sunyani", user.RoleFacilityManager},
+		{"u-akosua", "Akosua Mensimah", "sekondi.manager@gigmann.health", "sekondi", user.RoleFacilityManager},
 	}
-	manager, err := user.New(user.User{ID: "u-ama", Name: "Ama Owusu", Role: user.RoleFacilityManager, FacilityID: "kasoa"})
-	if err != nil {
-		return nil, fmt.Errorf("bootstrap: manager account: %w", err)
+
+	accounts := make([]ports.Account, 0, len(specs))
+	for _, s := range specs {
+		u, uerr := user.New(user.User{ID: s.id, Name: s.name, Role: s.role, FacilityID: s.facility})
+		if uerr != nil {
+			return nil, fmt.Errorf("bootstrap: demo account %q: %w", s.id, uerr)
+		}
+		accounts = append(accounts, ports.Account{User: u, Email: s.email, PasswordHash: hash})
 	}
-	return []ports.Account{
-		{User: ceo, Email: "ceo@gigmann.health", PasswordHash: hash},
-		{User: manager, Email: "kasoa.manager@gigmann.health", PasswordHash: hash},
-	}, nil
+	return accounts, nil
+}
+
+// reconcileDemoAccounts inserts any demo account not already present (matched by
+// email). It is additive and never overwrites an existing account, so a user who
+// changed their password or enrolled MFA is left untouched — only genuinely
+// missing identities are added. EnsureSeeded seeds accounts only into an empty
+// database, so this is what lets new demo identities appear in an already-seeded
+// (e.g. production) database on the next boot.
+func reconcileDemoAccounts(ctx context.Context, users ports.UserRepository, accounts []ports.Account) (int, error) {
+	added := 0
+	for _, acct := range accounts {
+		switch _, err := users.FindByEmail(ctx, acct.Email); {
+		case err == nil:
+			continue // already present — do not clobber
+		case errors.Is(err, ports.ErrAccountNotFound):
+			if serr := users.Save(ctx, acct); serr != nil {
+				return added, fmt.Errorf("save %s: %w", acct.Email, serr)
+			}
+			added++
+		default:
+			return added, fmt.Errorf("lookup %s: %w", acct.Email, err)
+		}
+	}
+	return added, nil
 }

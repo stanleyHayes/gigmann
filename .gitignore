@@ -32,3 +32,6 @@ dist/
 
 # Local demo login (never commit)
 credentials.txt
+
+# Shareable demo access doc (contains the demo password) — never commit
+DEMO-ACCESS.md
